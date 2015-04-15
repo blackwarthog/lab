@@ -73,29 +73,22 @@ namespace Contours {
             }
 
             public void unlink() {
-                if (getCircuit() == null) return;
-                previous.next = next;
-                next.previous = previous;
-                if (previous == next) {
-                    previous = this;
-                    next = this;
-                    if (previous == next) {
-                        circuit.first = circuit.last = null;
-                    } else {
-                        if (circuit.first == this)
-                            circuit.first = next;
-                        if (circuit.last == this)
-                            circuit.last = previous;
+                if (previous != null) previous.next = next;
+                if (next != null) next.previous = previous;
+                
+                if (circuit != null) {
+                    if (circuit.first == this) {
+                        circuit.first = next != this ? next : null;
+                        circuit.last = previous != this ? previous : null;
                     }
+                    --circuit.count;
+                    circuit = null;
                 }
-                --circuit.count;
-                circuit = null;
                 previous = null;
                 next = null;
             }
 
             public void insertBack(Circuit<Parent, Child> circuit) {
-                if (getCircuit() == circuit) return;
                 unlink();
                 if (circuit != null) {
                     if (circuit.empty()) {
@@ -110,7 +103,6 @@ namespace Contours {
             }
 
             public void insertFront(Circuit<Parent, Child> circuit) {
-                if (getCircuit() == circuit) return;
                 unlink();
                 if (circuit != null) {
                     if (circuit.empty()) {
@@ -125,34 +117,44 @@ namespace Contours {
             }
 
             public void insertAfterOf(Entry entry) {
-                if (entry == null || entry.getCircuit() == null) { unlink(); return; }
-                if (getCircuit() == entry.getCircuit()) return;
+                if (entry == this) return;
                 unlink();
-                circuit = entry.getCircuit();
+                if (entry == null || entry.getCircuit() == null) return;
+                
                 previous = entry;
                 next = entry.next;
-                next.previous = this;
                 previous.next = this;
-                if (circuit.getLastEntry() == entry)
-                    circuit.last = this;
-                ++circuit.count;
+                if (next != null) next.previous = this;
+                circuit = entry.getCircuit();
+
+                if (circuit != null) {
+                    if (circuit.getLastEntry() == entry)
+                        circuit.last = this;
+                    ++circuit.count;
+               }
             }
 
             public void insertBeforeOf(Entry entry) {
-                if (entry == null || entry.getCircuit() == null) { unlink(); return; }
-                if (getCircuit() == entry.getCircuit()) return;
+                if (entry == this) return;
                 unlink();
-                circuit = entry.getCircuit();
+                if (entry == null || entry.getCircuit() == null) return;
+                
                 previous = entry.previous;
                 next = entry;
-                previous.next = this;
+                if (previous != null) previous.next = this;
                 next.previous = this;
-                if (circuit.getFirstEntry() == entry)
-                    circuit.first = this;
-                ++circuit.count;
+                circuit = entry.getCircuit();
+
+                if (circuit != null) {
+                    if (circuit.getFirstEntry() == entry)
+                        circuit.first = this;
+                    ++circuit.count;
+                }
             }
 
             public void swapWith(Entry other) {
+                if (other == this || other == null) return;
+
                 Circuit<Parent, Child> otherCircuit = other.circuit;
                 Entry otherPrevious = other.previous;
                 Entry otherNext = other.next;
@@ -204,6 +206,10 @@ namespace Contours {
         }
 
         public bool empty() { return getFirstEntry() == null; }
+
+        public void clear() {
+            while(!empty()) getFirstEntry().unlink();
+        }
     }
 
     public class Shape {
@@ -239,6 +245,9 @@ namespace Contours {
             public readonly Circuit<Shape, Link>.Entry shape;
             public readonly Circuit<Position, Link>.Entry position;
             public readonly Circuit<Contour, Link>.Entry contour;
+            
+            public bool forward = false;
+            public Position target = null;
 
             public Link() {
                 shape = new Circuit<Shape, Link>.Entry(this);
@@ -246,16 +255,11 @@ namespace Contours {
                 contour = new Circuit<Contour, Link>.Entry(this);
             }
 
-            public bool isForward() {
-                Contour c = contour.getParent();
-                if (c == null) return false;
-                return c == null || contour.getCircuit() == c.forward;
-            } 
-
             public void unlink() {
                 contour.unlink();
                 position.unlink();
                 shape.unlink();
+                target = null;
             }
 
             public static Link create(Position position, Circuit<Contour, Link> contourCircuit) {
@@ -263,11 +267,13 @@ namespace Contours {
                 link.shape.insertBack(contourCircuit.getOwner().shape.getParent().links);
                 link.position.insertBack(position.links);
                 link.contour.insertBack(contourCircuit);
+                link.forward = contourCircuit == contourCircuit.getOwner().forward;
                 return link;
             }
 
             public Link createSplitAfter(Position position) {
                 Link link = new Link();
+                link.forward = forward;
                 link.shape.insertBack(shape.getParent().links);
                 link.position.insertBack(position.links);
                 link.contour.insertAfterOf(contour);
@@ -276,6 +282,7 @@ namespace Contours {
 
             public Link createSplitAfter(Circuit<Position, Link>.Entry position) {
                 Link link = new Link();
+                link.forward = forward;
                 link.shape.insertBack(shape.getParent().links);
                 link.position.insertAfterOf(position);
                 link.contour.insertAfterOf(contour);
@@ -536,6 +543,23 @@ namespace Contours {
             }
         }
         
+        void unlinkContoursChains() {
+            while(!contours.empty()) {
+                Contour contour = contours.getFirst();
+                while(!contour.forward.empty()) {
+                    Link link = contour.forward.getFirst();
+                    link.target = link.contour.getNext().position.getParent();
+                    link.contour.unlink();
+                }
+                while(!contour.backward.empty()) {
+                    Link link = contour.backward.getFirst();
+                    link.target = link.contour.getNext().position.getParent();
+                    link.contour.unlink();
+                }
+                contour.shape.unlink();
+            }
+        }
+        
         static bool compareAngle(VectorInt a, VectorInt b, VectorInt c) {
             int d = a.x*c.y - a.y*c.x;
             // angle AC < 180 deg
@@ -566,9 +590,9 @@ namespace Contours {
                 Link linkC = linkB.position.getNext();
                 if ( !compareAngle(
                         position.toVectorInt(),
-                        linkA.contour.getNext().position.getParent().toVectorInt(),
-                        linkB.contour.getNext().position.getParent().toVectorInt(),
-                        linkC.contour.getNext().position.getParent().toVectorInt() ))
+                        linkA.target.toVectorInt(),
+                        linkB.target.toVectorInt(),
+                        linkC.target.toVectorInt() ))
                 {
                     linkB.position.swapWith(linkC.position);
                     first = linkA = linkC;
@@ -584,8 +608,142 @@ namespace Contours {
                 sortLinksAtPosition(position);
         }
         
-        void optimizeContours() {
+        void removeLinkFromPosition(Link link) {
+            Position position = link.position.getParent();
+            Link nextToRemove = null;
+            
+            // remove back link            
+            if (link.target != null) {
+                Link backLink = link.target.links.getFirst();
+                while (backLink != null) {
+                    Link l = backLink;
+                    backLink = backLink.position.getNextLinear();
+                    if ( l.forward != link.forward
+                      && l.contour.getNext() != null
+                      && l.contour.getNext().position.getParent() == position )
+                    {
+                        l.unlink();
+                        break;
+                    }
+                }
+                
+                if (link.target.links.getCount() == 1)
+                    nextToRemove = link.target.links.getFirst();
+            }
+
+            // remove
+            link.unlink();
+
+            // remove next
+            if (nextToRemove != null)
+                removeLinkFromPosition(nextToRemove);
+        }
+        
+        void removeDuplicateLinksFromPosition(Position position) {
+            for(Link linkA = position.links.getFirst(); linkA != null; linkA = linkA.position.getNextLinear()) {
+                Position otherPosition = linkA.target;
+
+                // count forward and backward links
+                int count = 0;
+                Link forwardLink = null;
+                Link backwardLink = null;
+                Link linkB = linkA;
+                do {
+                    if (linkB.target == otherPosition) {
+                        if (linkB.forward) { forwardLink = linkB; ++count; }
+                                      else { backwardLink = linkB; --count; }
+                    }
+                    linkB.position.getNext();
+                } while(linkB != linkA);
+
+                // remove extra links
+                Link linkToSave = count > 0 ? forwardLink
+                                : count < 0 ? backwardLink
+                                : null;
+                linkB = position.links.getFirst();
+                while(linkB != null) {
+                    if (linkB.target == otherPosition && linkB != linkToSave) {
+                        removeLinkFromPosition(linkA);
+                        // reset linkA
+                        linkB = linkA = position.links.getFirst();
+                    } else {
+                        linkB = linkB.position.getNextLinear();
+                    }
+                }
+            }
+        }
+        
+        void removeInvisibleContoursFromPosition(Position position) {
+            if (position.links.getCount() < 3) return;
+            Link first = position.links.getFirst();
+            Link link = first.position.getNext();
+            while(link != first) {
+                bool previous = link.position.getPrevious().forward;
+                bool current = link.forward;
+                bool next = link.position.getNext().forward;
+                if ( ( previous &&  current && !next)
+                  || (!previous && !current &&  next) )
+                {
+                    // remove link
+                    removeLinkFromPosition(link);
+                    first = position.links.getFirst();
+                    link = first.position.getNext();
+                }
+            };
+        }
+        
+        void optimizePositions() {
+            // remove extra links
+            for(Position position = positions.getFirst(); position != null; position = position.shape.getNextLinear()) {
+                removeDuplicateLinksFromPosition(position);
+                removeInvisibleContoursFromPosition(position);
+            }
+
+            // remove empty positions
+            for(Position position = positions.getFirst(); position != null;) {
+                if (position.links.empty()) {
+                    Position p = position;                
+                    position = position.shape.getNextLinear();
+                    p.shape.unlink();
+                } else {
+                    position = position.shape.getNextLinear();
+                }
+            }
+        }
+        
+        void traceContours() {
             // TODO:
+            /*
+            for(Link linkA = links.getFirst(); linkA != null; linkA = linkA.shape.getNext()) {
+                if (linkA.forward && linkA.contour.getParent() == null) {
+                    Contour contour = new Contour();
+                    contour.shape.insertBack(contours);
+                    Link forwardLink = linkA;
+                    Link backwardLink = null;
+                    
+                    
+                    // find pair
+                    for(Link l = linkA.target.links.getFirst(); l != null; l = l.position.getNext())
+                        if (l.target == linkA.position.getParent())
+                            { backwardLink = l; break; }
+                    
+                    forwardLink contour.forward
+                }
+            }
+            */
+        }
+
+        void removeInvisibleContours() {
+            // TODO:
+        }
+        
+        void optimizeContours() {
+            findIntersections();
+            unlinkContoursChains();
+            sortLinksAtPositions();
+            optimizePositions();
+            traceContours();
+            removeInvisibleContours();
         }
     }
 }
