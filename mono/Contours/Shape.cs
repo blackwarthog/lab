@@ -152,7 +152,7 @@ namespace Contours {
                 ++circuit.count;
             }
 
-            void swap(Entry other) {
+            public void swapWith(Entry other) {
                 Circuit<Parent, Child> otherCircuit = other.circuit;
                 Entry otherPrevious = other.previous;
                 Entry otherNext = other.next;
@@ -414,7 +414,7 @@ namespace Contours {
                 retry = false;
 
                 // remove empty contours
-                for(Contour contour = contours.getFirst(); !retry && contour != null; contour = contour.shape.getNext()) {
+                for(Contour contour = contours.getFirst(); !retry && contour != null; contour = contour.shape.getNextLinear()) {
                     if (contour.forward.getCount() < 3 || contour.backward.getCount() < 3) {
                         while(contour.forward.getFirst() != null)
                             contour.forward.getFirst().unlink();
@@ -428,7 +428,7 @@ namespace Contours {
                 if (retry) continue;
 
                 // remove empty positions
-                for(Position position = positions.getFirst(); !retry && position != null; position = position.shape.getNext()) {
+                for(Position position = positions.getFirst(); !retry && position != null; position = position.shape.getNextLinear()) {
                     if (position.links.empty()) {
                         position.shape.unlink();
                         retry = true;
@@ -438,8 +438,8 @@ namespace Contours {
                 if (retry) continue;
 
                 // merge positions
-                for(Position positionA = positions.getFirst(); !retry && positionA != null; positionA = positionA.shape.getNext()) {
-                    for(Position positionB = positionA.shape.getNext(); !retry && positionB != null; positionB = positionB.shape.getNext()) {
+                for(Position positionA = positions.getFirst(); !retry && positionA != null; positionA = positionA.shape.getNextLinear()) {
+                    for(Position positionB = positionA.shape.getNextLinear(); !retry && positionB != null; positionB = positionB.shape.getNextLinear()) {
                         if (positionA.x == positionB.x && positionA.y == positionB.y) {
                             while(positionB.links.getFirst() != null)
                                 positionB.links.getFirst().position.insertBack(positionA.links);
@@ -452,7 +452,7 @@ namespace Contours {
                 if (retry) continue;
 
                 // remove zero-length links
-                for(Link linkA0 = links.getFirst(); !retry && linkA0 != null; linkA0 = linkA0.shape.getNext()) {
+                for(Link linkA0 = links.getFirst(); !retry && linkA0 != null; linkA0 = linkA0.shape.getNextLinear()) {
                     Link linkA1 = linkA0.contour.getNext();
                     if (linkA0.position.getParent() == linkA1.position.getParent()) {
                         linkA1.unlink();
@@ -463,9 +463,9 @@ namespace Contours {
                 if (retry) continue;
 
                 // check intersections
-                for(Link linkA0 = links.getFirst(); !retry && linkA0 != null; linkA0 = linkA0.shape.getNext()) {
+                for(Link linkA0 = links.getFirst(); !retry && linkA0 != null; linkA0 = linkA0.shape.getNextLinear()) {
                     Link linkA1 = linkA0.contour.getNext();
-                    for(Link linkB0 = links.getFirst(); !retry && linkB0 != null; linkB0 = linkB0.shape.getNext()) {
+                    for(Link linkB0 = links.getFirst(); !retry && linkB0 != null; linkB0 = linkB0.shape.getNextLinear()) {
                         Link linkB1 = linkB0.contour.getNext();
                         VectorInt cross = new VectorInt(0, 0);
                         Position position;
@@ -536,8 +536,52 @@ namespace Contours {
             }
         }
         
+        static bool compareAngle(VectorInt a, VectorInt b, VectorInt c) {
+            int d = a.x*c.y - a.y*c.x;
+            // angle AC < 180 deg
+            if (d > 0)
+                return a.x*b.y >= a.y*b.x && c.x*b.y <= c.y*b.x;
+            // angle AC > 180 deg
+            if (d < 0)
+                return a.x*b.y >= a.y*b.x || c.x*b.y <= c.y*b.x;
+            // angle AC == 180 deg
+            if ((a.x >= 0) != (c.x >= 0) || (a.y >= 0) != (c.y >= 0))
+                return a.x*b.y >= a.y*b.x;
+            // angle AC == 0 deg
+            return true;
+        }
+
+        static bool compareAngle(VectorInt center, VectorInt a, VectorInt b, VectorInt c) {
+            return compareAngle( new VectorInt(a.x - center.x, a.y - center.y),
+                                 new VectorInt(b.x - center.x, b.y - center.y),
+                                 new VectorInt(c.x - center.x, c.y - center.y) );
+        }
+        
+        void sortLinksAtPosition(Position position) {
+            if (position.links.getCount() < 3) return;
+            Link first = position.links.getFirst();
+            Link linkA = first;
+            while (true) {
+                Link linkB = linkA.position.getNext();
+                Link linkC = linkB.position.getNext();
+                if ( !compareAngle(
+                        position.toVectorInt(),
+                        linkA.contour.getNext().position.getParent().toVectorInt(),
+                        linkB.contour.getNext().position.getParent().toVectorInt(),
+                        linkC.contour.getNext().position.getParent().toVectorInt() ))
+                {
+                    linkB.position.swapWith(linkC.position);
+                    first = linkA = linkC;
+                    continue;
+                }
+                linkA = linkB;
+                if (linkA == first) break;
+            };
+        }
+        
         void sortLinksAtPositions() {
-            // TODO:
+            for(Position position = positions.getFirst(); position != null; position = position.shape.getNextLinear())
+                sortLinksAtPosition(position);
         }
         
         void optimizeContours() {
