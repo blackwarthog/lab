@@ -230,6 +230,11 @@ namespace Contours {
         }
 
         public class Contour {
+            public bool inverted = false;
+            
+            public Contour parent;
+            public List<Contour> childs;
+
             public readonly Circuit<Shape, Contour>.Entry shape;
             public readonly Circuit<Contour, Link> forward;
             public readonly Circuit<Contour, Link> backward;
@@ -293,6 +298,7 @@ namespace Contours {
         public Circuit<Shape, Position> positions;
         public Circuit<Shape, Link> links;
         public Circuit<Shape, Contour> contours;
+        public List<Contour> rootContours;
 
         public void addContours(ContourInt contours) {
             foreach(List<VectorInt> contour in contours.contours)
@@ -415,12 +421,12 @@ namespace Contours {
             return IntersectionType.Cross;
         }
 
-        public void findIntersections() {
+        public bool removeEmptyContours() {
+            bool removed = false;
+        
             bool retry = true;
             while(retry) {
                 retry = false;
-
-                // remove empty contours
                 for(Contour contour = contours.getFirst(); !retry && contour != null; contour = contour.shape.getNextLinear()) {
                     if (contour.forward.getCount() < 3 || contour.backward.getCount() < 3) {
                         while(contour.forward.getFirst() != null)
@@ -429,9 +435,20 @@ namespace Contours {
                             contour.backward.getFirst().unlink();
                         contour.shape.unlink();
                         retry = true;
+                        removed = true;
                         break;
                     }
                 }
+                if (retry) continue;
+            }
+        }
+
+        public void findIntersections() {
+            bool retry = true;
+            while(retry) {
+                retry = false;
+
+                retry = removeEmptyContours();
                 if (retry) continue;
 
                 // remove empty positions
@@ -557,7 +574,10 @@ namespace Contours {
                     link.contour.unlink();
                 }
                 contour.shape.unlink();
+                contour.childs.Clear();
+                contour.parent = null;
             }
+            rootContours.Clear();
         }
         
         static bool compareAngle(VectorInt a, VectorInt b, VectorInt c) {
@@ -692,14 +712,7 @@ namespace Contours {
             };
         }
         
-        void optimizePositions() {
-            // remove extra links
-            for(Position position = positions.getFirst(); position != null; position = position.shape.getNextLinear()) {
-                removeDuplicateLinksFromPosition(position);
-                removeInvisibleContoursFromPosition(position);
-            }
-
-            // remove empty positions
+        void removeEmptyPositions() {
             for(Position position = positions.getFirst(); position != null;) {
                 if (position.links.empty()) {
                     Position p = position;                
@@ -711,26 +724,160 @@ namespace Contours {
             }
         }
         
+        void optimizePositions() {
+            // remove extra links
+            for(Position position = positions.getFirst(); position != null; position = position.shape.getNextLinear()) {
+                removeDuplicateLinksFromPosition(position);
+                removeInvisibleContoursFromPosition(position);
+            }
+        }
+        
         void traceContours() {
-            // TODO:
-            /*
             for(Link linkA = links.getFirst(); linkA != null; linkA = linkA.shape.getNext()) {
                 if (linkA.forward && linkA.contour.getParent() == null) {
                     Contour contour = new Contour();
                     contour.shape.insertBack(contours);
+                    
                     Link forwardLink = linkA;
                     Link backwardLink = null;
-                    
-                    
-                    // find pair
-                    for(Link l = linkA.target.links.getFirst(); l != null; l = l.position.getNext())
-                        if (l.target == linkA.position.getParent())
-                            { backwardLink = l; break; }
-                    
-                    forwardLink contour.forward
+
+                    do {
+                        // find pair
+                        for(Link l = linkA.target.links.getFirst(); l != null; l = l.position.getNext())
+                            if (l.target == linkA.position.getParent())
+                                { backwardLink = l; break; }
+                        if (backwardLink == null)
+                            throw new Exception();
+                        
+                        forwardLink.contour.insertBack(contour.forward);
+                        backwardLink.contour.insertBack(contour.backwardLink);
+                        
+                        forwardLink = backwardLink.position.getNext();
+                        if ( !forwardLink.forward
+                          || forwardLink == backwardLink
+                          || forwardLink.contour.getParent() != null )
+                            throw new Exception();
+                    } while (forwardLink != linkA);
                 }
             }
-            */
+        }
+
+        void removeFreeLinks() {
+            for(Link linkA = links.getFirst(); linkA != null; linkA = linkA.shape.getNext())
+                if (linkA.contour.getParent() == null)
+                    throw Exception();
+        }
+        
+        void makeContourRay(Contour contour, bool invert, out VectorInt p0, out VectorInt p1) {
+            Link first = contour.forward.getFirst();
+            VectorInt previousPosition = first.contour.getPrevious().position.getParent().toVectorInt();
+            VectorInt currentPosition = first.position.getParent().toVectorInt();
+            VectorInt nextPosition = first.contour.getNext().position.getParent().toVectorInt();
+            VectorInt direction = new VectorInt(
+                    previousPosition.y - nextPosition.y,
+                    nextPosition.x - previousPosition.x );
+            
+            if (invert) { direction.x = -direction.x; direction.y = -direction.y; }
+            
+            int amplifierX =
+                direction.x > 0 ? (ContourInt.MaxValue - currentPosition.x)/direction.x + 1
+              : direction.x < 0 ? (ContourInt.MaxValue + currentPosition.x)/(-direction.x) + 1
+              : int.MaxValue;
+            int amplifierY =
+                direction.y > 0 ? (ContourInt.MaxValue - currentPosition.y)/direction.y + 1
+              : direction.y < 0 ? (ContourInt.MaxValue + currentPosition.y)/(-direction.y) + 1
+              : int.MaxValue;
+            int amplifier = Math.Min(amplifierX, amplifierY);
+            VectorInt farPosition = new VectorInt(
+                    currentPosition.x + direction.x*amplifier,
+                    currentPosition.y + direction.y*amplifier );
+                    
+            p0 = currentPosition;
+            p1 = farPosition;
+        }
+        
+        int countContourIntersections(Contour contour, VectorInt p0, VectorInt p1) {
+            int count = 0;
+            for(Link link = contour.forward.getFirst(); link != null; link = link.contour.getNextLinear()) {
+                VectorInt pp0 = link.position.getParent().toVectorInt();
+                VectorInt pp1 = link.contour.getNext().position.getParent().toVectorInt();
+                long d = (long)(p0.y - p1.y)*(long)(pp1.x - pp0.x)
+                       + (long)(p1.x - p0.x)*(long)(pp1.y - pp0.y);
+                d = Math.Sign(d);
+                VectorInt c;
+                switch(findIntersection(p0, p1, pp0, pp1, out c)) {
+                case IntersectionType.Cross:
+                    count += 2*d;
+                    break;
+                case IntersectionType.Touch_b0:
+                    count += d;
+                    break;
+                case IntersectionType.Touch_b1:
+                    count -= d;
+                    break;
+                default:
+                    break;
+                }
+            }
+            return count;
+        }
+
+        bool isContourInverted(Contour contour) {
+            VectorInt p0, p1;
+            makeContourRay(contour, false, out p0, out p1);
+            return countContourIntersections(contour, p0, p1) == 0;
+        }
+        
+        bool isContourInside(Contour inner, Contour outer) {
+            VectorInt p0, p1;
+            makeContourRay(inner, inner.inverted, out p0, out p1);
+            return countContourIntersections(outer, p0, p1) != 0;
+        }
+        
+        Contour findParent(Contour contour, Dictionary<Contour, Dictionary<Contour, bool> > parents) {
+            if (!parents.ContainsKey(contour)) return null;
+            if (parents[contour].Count == 1) return parents[contour].Keys.First;
+            
+        }
+        
+        void sortChilds(Contour contour, Contour parent) {
+            // set parent
+            contour.parent = parent;
+
+            // remove sub-childs from parent list
+            if (parent != null)
+                foreach(Contour c in contour.childs)
+                    parent.childs.Remove(c);
+
+            // sub-calls
+            foreach(Contour c in contour.childs)
+                sortChilds(c, contour);
+        }
+        
+        void sortContours() {
+            // calculate directions of contours
+            for(Contour contourA = contours.getFirst(); contourA != null; contourA = contourA.shape.getNext()) {
+                contourA.inverted = isContourInverted(contourA);
+                rootContours.Add(contourA);
+            }
+                
+            // find childs
+            for(Contour contourA = contours.getFirst(); contourA != null; contourA = contourA.shape.getNext()) {
+                bool isRoot = true;
+                for(Contour contourB = contourA.shape.getNextLinear(); contourB != null; contourB = contourB.shape.getNext())
+                    if (isContourInside(contourA, contourB)) {
+                        contourB.childs.Add(contourA);
+                        rootContours.Remove(contourA);
+                    } else
+                    if (isContourInside(contourA, contourB)) {
+                        contourA.childs.Add(contourB);
+                        rootContours.Remove(contourB);
+                    }
+            }
+            
+            // sort childs
+            foreach(Contour c in rootContours)
+                sortChilds(c, null);
         }
 
         void removeInvisibleContours() {
@@ -743,7 +890,9 @@ namespace Contours {
             sortLinksAtPositions();
             optimizePositions();
             traceContours();
+            removeEmptyContours();
             removeInvisibleContours();
+            removeEmptyPositions();
         }
     }
 }

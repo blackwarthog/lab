@@ -13,6 +13,8 @@ namespace Contours {
     }
 
     public class ContourInt {
+        public static readonly int MaxValue = 1 << 24;    
+    
         public float scale = 1f;
         public readonly List<List<VectorInt>> contours = new List<List<VectorInt>>();
 
