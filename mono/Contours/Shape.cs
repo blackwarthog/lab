@@ -769,35 +769,23 @@ namespace Contours {
                 if (linkA.contour.getParent() == null)
                     throw new Exception();
         }
-        
-        void makeContourRay(Contour contour, bool invert, out VectorInt p0, out VectorInt p1) {
-            Link first = contour.forward.getFirst();
-            VectorInt previousPosition = first.contour.getPrevious().position.getParent().toVectorInt();
-            VectorInt currentPosition = first.position.getParent().toVectorInt();
-            VectorInt nextPosition = first.contour.getNext().position.getParent().toVectorInt();
-            VectorInt direction = new VectorInt(
-                    previousPosition.y - nextPosition.y,
-                    nextPosition.x - previousPosition.x );
-            
-            if (invert) { direction.x = -direction.x; direction.y = -direction.y; }
-            
+
+        static void makeLongestLine(VectorInt p0, ref VectorInt p1) {
+            VectorInt direction = new VectorInt(p1.x - p0.x, p1.y - p0.y);
             int amplifierX =
-                direction.x > 0 ? (ContourInt.MaxValue - currentPosition.x)/direction.x + 1
-              : direction.x < 0 ? (ContourInt.MaxValue + currentPosition.x)/(-direction.x) + 1
+                direction.x > 0 ? (ContourInt.MaxValue - p0.x)/direction.x + 1
+              : direction.x < 0 ? (ContourInt.MaxValue + p0.x)/(-direction.x) + 1
               : int.MaxValue;
             int amplifierY =
-                direction.y > 0 ? (ContourInt.MaxValue - currentPosition.y)/direction.y + 1
-              : direction.y < 0 ? (ContourInt.MaxValue + currentPosition.y)/(-direction.y) + 1
+                direction.y > 0 ? (ContourInt.MaxValue - p0.y)/direction.y + 1
+              : direction.y < 0 ? (ContourInt.MaxValue + p0.y)/(-direction.y) + 1
               : int.MaxValue;
             int amplifier = Math.Min(amplifierX, amplifierY);
-            VectorInt farPosition = new VectorInt(
-                    currentPosition.x + direction.x*amplifier,
-                    currentPosition.y + direction.y*amplifier );
-                    
-            p0 = currentPosition;
-            p1 = farPosition;
+            p1 = new VectorInt(
+                    p0.x + direction.x*amplifier,
+                    p0.y + direction.y*amplifier );
         }
-        
+                
         int countContourIntersections(Contour contour, VectorInt p0, VectorInt p1) {
             int count = 0;
             for(Link link = contour.forward.getFirst(); link != null; link = link.contour.getNextLinear()) {
@@ -824,14 +812,18 @@ namespace Contours {
         }
 
         bool isContourInverted(Contour contour) {
-            VectorInt p0, p1;
-            makeContourRay(contour, false, out p0, out p1);
-            return countContourIntersections(contour, p0, p1) == 0;
+            Link first = contour.forward.getFirst();
+            VectorInt p0 = first.position.getParent().toVectorInt();
+            VectorInt p1 = first.contour.getNext().position.getParent().toVectorInt();
+            makeLongestLine(p0, ref p1);
+            return countContourIntersections(contour, p0, p1) < 0;
         }
         
         bool isContourInside(Contour inner, Contour outer) {
-            VectorInt p0, p1;
-            makeContourRay(inner, inner.inverted, out p0, out p1);
+            Link first = inner.forward.getFirst();
+            VectorInt p0 = first.position.getParent().toVectorInt();
+            VectorInt p1 = first.contour.getNext().position.getParent().toVectorInt();
+            makeLongestLine(p0, ref p1);
             return countContourIntersections(outer, p0, p1) != 0;
         }
         
