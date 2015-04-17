@@ -34,9 +34,9 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="MainForm.cs" />
-    <Compile Include="ContourFloat.cs" />
-    <Compile Include="ContourInt.cs" />
     <Compile Include="Shape.cs" />
+    <Compile Include="Circuit.cs" />
+    <Compile Include="Geometry.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />

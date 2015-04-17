@@ -14,11 +14,11 @@ namespace Contours {
         }
 
         bool drawing = false;
-        ContourFloat contour = new ContourFloat();
+        List<List<PointF>> contours = new List<List<PointF>>();
 
         private void mouseDown(object sender, MouseEventArgs e) {
             if (e.Button == MouseButtons.Left) {
-                contour.contours.Add(new List<VectorFloat>());
+                contours.Add(new List<PointF>());
                 drawing = true;
                 mouseMove(sender, e);
             }
@@ -26,7 +26,7 @@ namespace Contours {
 
         private void mouseMove(object sender, MouseEventArgs e) {
             if (drawing) {
-                contour.contours.Last().Add(new VectorFloat(e.Location.X, e.Location.Y));
+                contours.Last().Add(new PointF(e.Location.X, e.Location.Y));
                 Refresh();
             }
         }
@@ -38,20 +38,17 @@ namespace Contours {
             }
             if (e.Button == MouseButtons.Right) {
                 drawing = false;
-                contour.contours.Clear();
+                contours.Clear();
                 Refresh();
             }
         }
 
         private void paint(object sender, PaintEventArgs e) {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            foreach(List<VectorFloat> c in contour.contours) {
+            foreach(List<PointF> c in contours) {
                 if (c != null && c.Count >= 3) {
-                    List<PointF> newContour = new List<PointF>();
-                    foreach(VectorFloat point in c)
-                        newContour.Add(new PointF(point.x, point.y));
-                    newContour.Add(newContour.First());
-                    e.Graphics.DrawLines(Pens.Black, newContour.ToArray());
+                    e.Graphics.DrawLines(Pens.Black, c.ToArray());
+                    e.Graphics.DrawLine(Pens.Black, c.First(), c.Last());
                 }
             }
         }
