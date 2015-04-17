@@ -114,33 +114,27 @@ namespace Contours {
             
             calculate(true);
         }
-
-        /* TODO:
-        public bool removeEmptyContours() {
-            bool removed = false;
         
-            bool retry = true;
-            while(retry) {
-                retry = false;
-                for(Contour contour = contours.getFirst(); !retry && contour != null; contour = contour.shape.getNextLinear()) {
-                    if (contour.forward.getCount() < 3 || contour.backward.getCount() < 3) {
-                        while(contour.forward.getFirst() != null)
-                            contour.forward.getFirst().unlink();
-                        while(contour.backward.getFirst() != null)
-                            contour.backward.getFirst().unlink();
-                        contour.shape.unlink();
-                        retry = true;
-                        removed = true;
-                        break;
-                    }
-                }
-                if (retry) continue;
+        // returns list of root contour groups
+        // first contour in group is outer contour, others - inner
+        public List<List<List<Point>>> getContours() {
+            List<List<List<Point>>> groups = new List<List<List<Point>>>();
+            foreach(Contour root in rootContours) {
+                List<List<Point>> list = new List<List<Point>>();
+                list.Add(contourToList(root));
+                foreach(Contour c in root.childs)
+                    list.Add(contourToList(c));
             }
-            
-            return removed;
+            return groups;
         }
-        */
-        
+
+        List<Point> contourToList(Contour contour) {
+            List<Point> list = new List<Point>();
+            for(Link link = contour.forward.getFirst(); link != null; link = link.contour.getNext())
+                list.Add(link.position.getParent().point);
+            return list;
+        }
+
         void resetTraceInformation() {
             for(int i = 0; i < contours.Count; ++i) {
                 contours[i].forward.clear();
@@ -540,6 +534,61 @@ namespace Contours {
             removeFreeLinks();
             buildContoursHierarhy(simple);
             removeEmptyPositions();
+        }
+        
+        public void invert() {
+            foreach(Link link in links)
+                link.forward = !link.forward;
+            foreach(Contour contour in contours)
+                contour.forward.swapWith(contour.backward);
+        }
+        
+        static Shape mix(Shape a, bool invertA, Shape b, bool invertB) {
+            Shape sum = new Shape();
+
+            // clone a
+            for(int i = 0; i < a.positions.Count; ++i)
+                sum.positions.Add(new Position(a.positions[i].point));
+            for(int i = 0; i < a.positions.Count; ++i) {
+                for(Link link = a.positions[i].links.getFirst(); link != null; link = link.position.getNext()) {
+                    Link l = new Link();
+                    l.forward = invertA != link.forward;
+                    l.nextPosition = sum.positions[a.positions.IndexOf(link.nextPosition)];
+                    l.position.insertBack(sum.positions[a.positions.IndexOf(a.positions[i])].links);
+                    sum.links.Add(l);
+                }
+            }
+             
+            // clone b
+            for(int i = 0; i < b.positions.Count; ++i)
+                sum.positions.Add(new Position(b.positions[i].point));
+            for(int i = 0; i < b.positions.Count; ++i) {
+                for(Link link = b.positions[i].links.getFirst(); link != null; link = link.position.getNext()) {
+                    Link l = new Link();
+                    l.forward = invertB != link.forward;
+                    l.nextPosition = sum.positions[a.positions.Count + b.positions.IndexOf(link.nextPosition)];
+                    l.position.insertBack(sum.positions[a.positions.Count + b.positions.IndexOf(a.positions[i])].links);
+                }
+            }
+            
+            sum.calculate(false);
+            return sum;
+        }
+        
+        public static Shape add(Shape a, Shape b) {
+            return mix(a, false, b, false);
+        }
+
+        public static Shape subtract(Shape a, Shape b) {
+            return mix(a, false, b, true);
+        }
+
+        public static Shape xor(Shape a, Shape b) {
+            return add(subtract(a, b), subtract(b, a));
+        }
+
+        public static Shape intersection(Shape a, Shape b) {
+            return subtract(add(a, b), xor(a, b));
         }
     }
 }

@@ -156,6 +156,13 @@ namespace Contours {
                 previous = otherPrevious;
                 next = otherNext;
             }
+
+            public static void swapChains(Circuit<Parent, Child> a, Circuit<Parent, Child> b) {
+                for(Entry e = a.getFirstEntry(); e != null; e = e.getNextEntryLinear())
+                    e.circuit = b;
+                for(Entry e = b.getFirstEntry(); e != null; e = e.getNextEntryLinear())
+                    e.circuit = a;
+            }
         }
         
         readonly Parent owner;
@@ -184,6 +191,10 @@ namespace Contours {
 
         public void clear() {
             while(!empty()) getFirstEntry().unlink();
+        }
+        
+        public void swapWith(Circuit<Parent, Child> other) {
+            Entry.swapChains(this, other);
         }
     }
 }
