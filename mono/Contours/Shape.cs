@@ -441,6 +441,8 @@ namespace Contours {
                 }
                 if (retry) continue;
             }
+            
+            return removed;
         }
 
         public void findIntersections() {
@@ -750,7 +752,7 @@ namespace Contours {
                             throw new Exception();
                         
                         forwardLink.contour.insertBack(contour.forward);
-                        backwardLink.contour.insertBack(contour.backwardLink);
+                        backwardLink.contour.insertBack(contour.backward);
                         
                         forwardLink = backwardLink.position.getNext();
                         if ( !forwardLink.forward
@@ -765,7 +767,7 @@ namespace Contours {
         void removeFreeLinks() {
             for(Link linkA = links.getFirst(); linkA != null; linkA = linkA.shape.getNext())
                 if (linkA.contour.getParent() == null)
-                    throw Exception();
+                    throw new Exception();
         }
         
         void makeContourRay(Contour contour, bool invert, out VectorInt p0, out VectorInt p1) {
@@ -801,9 +803,8 @@ namespace Contours {
             for(Link link = contour.forward.getFirst(); link != null; link = link.contour.getNextLinear()) {
                 VectorInt pp0 = link.position.getParent().toVectorInt();
                 VectorInt pp1 = link.contour.getNext().position.getParent().toVectorInt();
-                long d = (long)(p0.y - p1.y)*(long)(pp1.x - pp0.x)
-                       + (long)(p1.x - p0.x)*(long)(pp1.y - pp0.y);
-                d = Math.Sign(d);
+                int d = Math.Sign( (long)(p0.y - p1.y)*(long)(pp1.x - pp0.x)
+                                 + (long)(p1.x - p0.x)*(long)(pp1.y - pp0.y) );
                 VectorInt c;
                 switch(findIntersection(p0, p1, pp0, pp1, out c)) {
                 case IntersectionType.Cross:
@@ -834,12 +835,6 @@ namespace Contours {
             return countContourIntersections(outer, p0, p1) != 0;
         }
         
-        Contour findParent(Contour contour, Dictionary<Contour, Dictionary<Contour, bool> > parents) {
-            if (!parents.ContainsKey(contour)) return null;
-            if (parents[contour].Count == 1) return parents[contour].Keys.First;
-            
-        }
-        
         void sortChilds(Contour contour, Contour parent) {
             // set parent
             contour.parent = parent;
@@ -863,8 +858,7 @@ namespace Contours {
                 
             // find childs
             for(Contour contourA = contours.getFirst(); contourA != null; contourA = contourA.shape.getNext()) {
-                bool isRoot = true;
-                for(Contour contourB = contourA.shape.getNextLinear(); contourB != null; contourB = contourB.shape.getNext())
+                for(Contour contourB = contourA.shape.getNextLinear(); contourB != null; contourB = contourB.shape.getNext()) {
                     if (isContourInside(contourA, contourB)) {
                         contourB.childs.Add(contourA);
                         rootContours.Remove(contourA);
@@ -873,17 +867,53 @@ namespace Contours {
                         contourA.childs.Add(contourB);
                         rootContours.Remove(contourB);
                     }
+                }
             }
             
             // sort childs
             foreach(Contour c in rootContours)
                 sortChilds(c, null);
+                
+            // remove invisible contours
+            bool retry = true;
+            while(retry) {
+                retry = false;
+                for(Contour contourA = contours.getFirst(); contourA != null; contourA = contourA.shape.getNext()) {
+                    bool parentInverted = contourA.parent == null || contourA.parent.inverted;
+                    if (parentInverted == contourA.inverted) {
+                        // remove contour
+                        List<Contour> parentList = contourA.parent == null ? rootContours : contourA.parent.childs;
+                        foreach(Contour c in contourA.childs)
+                            c.parent = contourA.parent;
+                        parentList.AddRange(contourA.childs);
+                        
+                        contourA.parent = null;
+                        contourA.childs.Clear();
+                        contourA.shape.unlink();
+                        while(!contourA.backward.empty())
+                            contourA.forward.getFirst().unlink();
+                        while(!contourA.backward.empty())
+                            contourA.forward.getFirst().unlink();
+                        
+                        retry = true;
+                        break;
+                    }
+                }
+            }
+
+            // move contours in the holes to root
+            for(int i = 0; i < rootContours.Count; ++i) {
+                Contour contourA = rootContours[i];
+                foreach(Contour contourB in contourA.childs) {
+                    if (contourB.childs.Count != 0) {
+                        foreach(Contour c in contourB.childs)
+                            c.parent = null;
+                        rootContours.AddRange(contourB.childs);
+                    }
+                }
+            }
         }
 
-        void removeInvisibleContours() {
-            // TODO:
-        }
-        
         void optimizeContours() {
             findIntersections();
             unlinkContoursChains();
@@ -891,7 +921,7 @@ namespace Contours {
             optimizePositions();
             traceContours();
             removeEmptyContours();
-            removeInvisibleContours();
+            sortContours();
             removeEmptyPositions();
         }
     }
