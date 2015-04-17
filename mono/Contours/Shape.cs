@@ -464,6 +464,15 @@ namespace Contours {
                 organizeChildContours(c, contour);
         }
         
+        void invertContour(Contour contour) {
+            contour.inverted = !contour.inverted;
+            contour.forward.swapWith(contour.backward);
+            for(Link link = contour.forward.getFirst(); link != null; link.contour.getNextLinear())
+                link.forward = !link.forward;
+            for(Link link = contour.backward.getFirst(); link != null; link.contour.getNextLinear())
+                link.forward = !link.forward;
+        }
+        
         void buildContoursHierarhy(bool simple) {
             // calculate directions of contours
             foreach(Contour contour in contours)
@@ -488,28 +497,31 @@ namespace Contours {
             foreach(Contour c in rootContours)
                 organizeChildContours(c, null);
            
-            // TODO: if simple then invert invisible contours instead of removing
-           
             // remove invisible contours
             for(int i = 0; i < contours.Count; ++i) {
                 bool parentInverted = contours[i].parent == null || contours[i].parent.inverted;
                 if (parentInverted == contours[i].inverted) {
-                    // remove contour
-                    foreach(Contour c in contours[i].childs)
-                        c.parent = contours[i].parent;
-                    List<Contour> parentList = contours[i].parent == null
-                                             ? rootContours
-                                             : contours[i].parent.childs;
-                    parentList.AddRange(contours[i].childs);
-                    
-                    contours[i].parent = null;
-                    contours[i].childs.Clear();
-                    while(!contours[i].forward.empty())
-                        removeLink(contours[i].forward.getFirst());
-                    while(!contours[i].backward.empty())
-                        removeLink(contours[i].backward.getFirst());
-                    
-                    contours.RemoveAt(i--);
+                    if (simple) {
+                        // if simple then invert invisible contours instead of removing
+                        invertContour(contours[i]);
+                    } else {
+                        // remove contour
+                        foreach(Contour c in contours[i].childs)
+                            c.parent = contours[i].parent;
+                        List<Contour> parentList = contours[i].parent == null
+                                                 ? rootContours
+                                                 : contours[i].parent.childs;
+                        parentList.AddRange(contours[i].childs);
+                        
+                        contours[i].parent = null;
+                        contours[i].childs.Clear();
+                        while(!contours[i].forward.empty())
+                            removeLink(contours[i].forward.getFirst());
+                        while(!contours[i].backward.empty())
+                            removeLink(contours[i].backward.getFirst());
+                        
+                        contours.RemoveAt(i--);
+                    }
                 }
             }
 
@@ -537,10 +549,8 @@ namespace Contours {
         }
         
         public void invert() {
-            foreach(Link link in links)
-                link.forward = !link.forward;
             foreach(Contour contour in contours)
-                contour.forward.swapWith(contour.backward);
+                invertContour(contour);
         }
         
         static Shape mix(Shape a, bool invertA, Shape b, bool invertB) {
