@@ -37,6 +37,7 @@
     <Compile Include="Shape.cs" />
     <Compile Include="Circuit.cs" />
     <Compile Include="Geometry.cs" />
+    <Compile Include="Test.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />
@@ -46,5 +47,10 @@
     <Reference Include="System.Data.Linq" />
     <Reference Include="System.Data" />
     <Reference Include="System.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="tests.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

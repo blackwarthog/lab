@@ -5,6 +5,8 @@ using System.Drawing;
 
 namespace Contours {
     public class Shape {
+        class Exception: System.Exception { }
+    
         class Position {
             public Point point;
             public readonly Circuit<Position, Link> links;
@@ -75,6 +77,13 @@ namespace Contours {
 
         public void setContour(IEnumerable<Point> contour) {
             setContours(new IEnumerable<Point>[] { contour });
+        }
+
+        public void setContours(IEnumerable<IEnumerable<IEnumerable<Point>>> contours) {
+            List<IEnumerable<Point>> list = new List<IEnumerable<Point>>();
+            foreach(IEnumerable<IEnumerable<Point>> c in contours)
+                list.AddRange(c);
+            setContours(list);
         }
 
         public void setContours(IEnumerable<IEnumerable<Point>> contours) {
