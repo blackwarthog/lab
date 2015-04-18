@@ -15,26 +15,68 @@ namespace Contours {
         
         public static readonly List<Test> tests = new List<Test>();
         
-        void check(string name, List<List<List<Point>>> calculatedContours) {
-            output.Add(name, calculatedContours);
+        void check(string name, Shape shape) {
+            if (!input.ContainsKey(name)) return;
+            List<List<List<Point>>> contours = null;
+            try {
+                contours = shape.getContours();
+            } catch(System.Exception) { }
+            output.Add(name, contours);
             results.Add(name, compareContours(input[name], output[name]));
             if (!results[name]) result = false;
         }
         
+        Shape tryCreateShape(List<List<List<Point>>> contours) {
+            try {
+                Shape shape = new Shape();
+                shape.setContours(contours);
+                return shape;
+            } catch (System.Exception) {
+                return null;
+            }
+        }
+
+        delegate Shape CombineShapesFunc(Shape a, Shape b);
+        Shape tryCombineShapes(CombineShapesFunc func, List<List<List<Point>>> a, List<List<List<Point>>> b) {
+            try {
+                Shape sa = new Shape();
+                Shape sb = new Shape();
+                sa.setContours(a);
+                sb.setContours(b);
+                return func(sa, sb);
+            } catch (System.Exception) {
+                return null;
+            }
+        }
+                
         public bool run() {
             result = true;
-            Shape a = new Shape();
-            Shape b = new Shape();
-            a.setContours(input["a"]);
-            b.setContours(input["b"]);
-            check("add", Shape.add(a, b).getContours());
-            check("subtract", Shape.subtract(a, b).getContours());
-            check("xor", Shape.xor(a, b).getContours());
-            check("intersection", Shape.intersection(a, b).getContours());
+            
+            List<List<List<Point>>> a = null;
+            List<List<List<Point>>> b = null;
+
+            if (input.ContainsKey("dirtyA")) a = input["dirtyA"]; else
+                if (input.ContainsKey("a")) a = input["a"];
+            if (input.ContainsKey("dirtyB")) b = input["dirtyB"]; else
+                if (input.ContainsKey("b")) b = input["b"];
+            
+            if (a != null)
+                check("a", tryCreateShape(a));
+            if (b != null)
+                check("b", tryCreateShape(b));
+                
+            if (a != null && b != null) {
+                check("add", tryCombineShapes(Shape.add, a, b));
+                check("subtract", tryCombineShapes(Shape.subtract, a, b));
+                check("xor", tryCombineShapes(Shape.xor, a, b));
+                check("intersection", tryCombineShapes(Shape.intersection, a, b));
+            }
+
             return result;
         }
 
         public static bool compareContours(List<Point> a, List<Point> b) {
+            if (a == null || b == null) return false;
             if (a.Count == b.Count) {
                 for(int offset = 0; offset < a.Count; ++offset) {
                     bool equal = true;
@@ -48,6 +90,7 @@ namespace Contours {
         }
 
         public static bool compareContours(List<List<Point>> a, List<List<Point>> b) {
+            if (a == null || b == null) return false;
             if (a.Count != b.Count) return false;
             if (a.Count == 0) return true;
             if (!compareContours(a[0], b[0])) return false;
@@ -64,6 +107,7 @@ namespace Contours {
         }
 
         public static bool compareContours(List<List<List<Point>>> a, List<List<List<Point>>> b) {
+            if (a == null || b == null) return false;
             if (a.Count != b.Count) return false;
             bool[] compared = new bool[a.Count];
             for(int i = 0; i < a.Count; ++i) {
@@ -173,8 +217,9 @@ namespace Contours {
             string loadName() {
                 string name = "";
                 loadKey("(");
-                while(tryLoadKey(")") == null)
+                while(text[position] != ')')
                     name += text[position++];
+                ++position;
                 return name.Trim();
             }
 

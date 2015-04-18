@@ -11,6 +11,9 @@ namespace Contours {
         ComboBox cbViews;
     
         public MainForm() {
+            Width = 800;
+            Height = 600;
+        
             bTest = new Button();
             bTest.Left = 20;
             bTest.Top = 20;
@@ -124,6 +127,8 @@ namespace Contours {
                 }
             }
             
+            System.Drawing.Drawing2D.Matrix m = e.Graphics.Transform;
+            e.Graphics.TranslateTransform(50, 100);
             if (testContours != null) {
                 foreach(List<List<Point>> group in testContours) {
                     Color color = Color.Black;
@@ -133,6 +138,7 @@ namespace Contours {
                     }
                 }
             }
+            e.Graphics.Transform = m;
         }
     }
 }
