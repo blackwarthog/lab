@@ -97,8 +97,8 @@ namespace Contours {
             bool[] compared = new bool[a.Count];
             for(int i = 1; i < a.Count; ++i) {
                 bool equal = false;
-                for(int j = i + 1; j < b.Count; ++j) {
-                    if (!compared[i] && compareContours(a[i], b[j]))
+                for(int j = 1; j < b.Count; ++j) {
+                    if (!compared[j] && compareContours(a[i], b[j]))
                         { equal = true; compared[j] = true; break; }
                 }
                 if (!equal) return false;
@@ -112,8 +112,8 @@ namespace Contours {
             bool[] compared = new bool[a.Count];
             for(int i = 0; i < a.Count; ++i) {
                 bool equal = false;
-                for(int j = i + 1; j < b.Count; ++j) {
-                    if (!compared[i] && compareContours(a[i], b[j]))
+                for(int j = i; j < b.Count; ++j) {
+                    if (!compared[j] && compareContours(a[i], b[j]))
                         { equal = true; compared[j] = true; break; }
                 }
                 if (!equal) return false;

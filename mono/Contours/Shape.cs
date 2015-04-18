@@ -22,7 +22,7 @@ namespace Contours {
             public bool inverted = false;
             
             public Contour parent;
-            public List<Contour> childs;
+            public readonly List<Contour> childs = new List<Contour>();
 
             public readonly Circuit<Contour, Link> forward;
             public readonly Circuit<Contour, Link> backward;
@@ -96,6 +96,7 @@ namespace Contours {
                     Link previousBackward = null;
                     foreach(Point point in contour) {
                         Position position = new Position(point);
+                        positions.Add(position);
 
                         Link forward = new Link();
                         forward.forward = true;
@@ -133,13 +134,14 @@ namespace Contours {
                 list.Add(contourToList(root));
                 foreach(Contour c in root.childs)
                     list.Add(contourToList(c));
+                groups.Add(list);
             }
             return groups;
         }
 
         List<Point> contourToList(Contour contour) {
             List<Point> list = new List<Point>();
-            for(Link link = contour.forward.getFirst(); link != null; link = link.contour.getNext())
+            for(Link link = contour.forward.getFirst(); link != null; link = link.contour.getNextLinear())
                 list.Add(link.position.getParent().point);
             return list;
         }
@@ -390,11 +392,14 @@ namespace Contours {
                     Link backwardLink = null;
 
                     do {
+                        if (forwardLink == null || !forwardLink.forward || forwardLink.contour.getParent() != null)
+                            throw new Exception();
+                    
                         // find pair
                         for(Link l = forwardLink.nextPosition.links.getFirst(); l != null; l = l.position.getNext())
                             if (l.nextPosition == forwardLink.position.getParent())
                                 { backwardLink = l; break; }
-                        if (backwardLink == null || backwardLink.forward)
+                        if (backwardLink == null || backwardLink.forward || backwardLink.contour.getParent() != null)
                             throw new Exception();
                         
                         forwardLink.contour.insertBack(contour.forward);
@@ -402,10 +407,6 @@ namespace Contours {
                         
                         // select first link by the left (links should be CCW-ordered)
                         forwardLink = backwardLink.position.getNext();
-                        if ( !forwardLink.forward
-                          || forwardLink == backwardLink
-                          || forwardLink.contour.getParent() != null )
-                            throw new Exception();
                     } while (forwardLink != links[i]);
                 }
             }
@@ -569,11 +570,11 @@ namespace Contours {
             for(int i = 0; i < a.positions.Count; ++i)
                 sum.positions.Add(new Position(a.positions[i].point));
             for(int i = 0; i < a.positions.Count; ++i) {
-                for(Link link = a.positions[i].links.getFirst(); link != null; link = link.position.getNext()) {
+                for(Link link = a.positions[i].links.getFirst(); link != null; link = link.position.getNextLinear()) {
                     Link l = new Link();
                     l.forward = invertA != link.forward;
                     l.nextPosition = sum.positions[a.positions.IndexOf(link.nextPosition)];
-                    l.position.insertBack(sum.positions[a.positions.IndexOf(a.positions[i])].links);
+                    l.position.insertBack(sum.positions[i].links);
                     sum.links.Add(l);
                 }
             }
@@ -582,11 +583,12 @@ namespace Contours {
             for(int i = 0; i < b.positions.Count; ++i)
                 sum.positions.Add(new Position(b.positions[i].point));
             for(int i = 0; i < b.positions.Count; ++i) {
-                for(Link link = b.positions[i].links.getFirst(); link != null; link = link.position.getNext()) {
+                for(Link link = b.positions[i].links.getFirst(); link != null; link = link.position.getNextLinear()) {
                     Link l = new Link();
                     l.forward = invertB != link.forward;
                     l.nextPosition = sum.positions[a.positions.Count + b.positions.IndexOf(link.nextPosition)];
-                    l.position.insertBack(sum.positions[a.positions.Count + b.positions.IndexOf(a.positions[i])].links);
+                    l.position.insertBack(sum.positions[a.positions.Count + i].links);
+                    sum.links.Add(l);
                 }
             }
             
