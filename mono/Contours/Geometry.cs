@@ -67,16 +67,16 @@ namespace Contours {
                 int b1b0 = -b0b1;
 
                 // a0a1b0b1
-                if (a1b0 == 0 && b0b1 < 0)
+                if (a1b0 == 0 && b0b1 <= 0)
                     return IntersectionType.Touch_a1_b0;
                 // a0a1b1b0
-                if (a1b1 == 0 && b1b0 < 0)
+                if (a1b1 == 0 && b1b0 <= 0)
                     return IntersectionType.Touch_a1_b1;
                 // b0b1a0a1
-                if (b0b1 < 0 && b1a0 == 0)
+                if (b0b1 <= 0 && b1a0 == 0)
                     return IntersectionType.Touch_a0_b1;
                 // b1b0a0a1
-                if (b1b0 < 0 && b0a0 == 0)
+                if (b1b0 <= 0 && b0a0 == 0)
                     return IntersectionType.Touch_a0_b0;
 
                 if (a0b0 <= 0 && b0a1 <= 0 && a1b1 <= 0)
@@ -113,7 +113,10 @@ namespace Contours {
             long numeratorY = (long)db.Y*((long)a1.X*(long)a0.Y - (long)a0.X*(long)a1.Y)
                             - (long)da.Y*((long)b1.X*(long)b0.Y - (long)b0.X*(long)b1.Y);
             Point p = new Point((int)(numeratorX/divider), (int)(numeratorY/divider));
-            if (comparePointsAtLine(p, a0, a0, a1) < 0 || comparePointsAtLine(p, a1, a0, a1) > 0)
+            if ( comparePointsAtLine(p, a0, a0, a1) < 0
+              || comparePointsAtLine(p, a1, a0, a1) > 0
+              || comparePointsAtLine(p, b0, b0, b1) < 0
+              || comparePointsAtLine(p, b1, b0, b1) > 0 )
                 return IntersectionType.None;
 
             if (p.X == a0.X && p.Y == a0.Y)

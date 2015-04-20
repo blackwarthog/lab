@@ -46,6 +46,11 @@ namespace Contours {
             }
 
             public Link split(Shape shape, Position position) {
+                if (position.point == this.position.getParent().point) return this;
+                if (position.point == nextPosition.point) return nextPosition.links.getFirst();
+                
+                shape.log.linkSplitted(this, position);
+                
                 Link link = new Link();
                 link.position.insertBack(position.links);
                 link.contour.insertAfterOf(contour);
@@ -60,13 +65,63 @@ namespace Contours {
                 return split(shape, positionLink.position.getParent());
             }
         }
+        
+        class Log {
+            public bool enabled = true;
+            public string filename = "log.txt";
+            
+            public void line(string line) {
+                if (!enabled) return;
+                System.IO.File.AppendAllLines(filename, new string[] { line });
+            }
+            
+            public void linkCreated(Link link) {
+                if (!enabled) return;
+                line(string.Format(
+                    "Link created {0} {1} {2}",
+                    link.forward ? "->" : "<-",
+                    link.position.getParent().point,
+                    link.nextPosition.point ));
+            }
+            
+            public void linkRemoved(Link link) {
+                if (!enabled) return;
+                line(string.Format(
+                    "Link removed {0} {1} {2}",
+                    link.forward ? "->" : "<-",
+                    link.position.getParent().point,
+                    link.nextPosition.point ));
+            }
+            
+            public void linkSplitted(Link link, Position position) {
+                if (!enabled) return;
+                line(string.Format(
+                    "Link splitted {0} {1}/{3}/{2}",
+                    link.forward ? "->" : "<-",
+                    link.position.getParent().point,
+                    link.nextPosition.point,
+                    position.point ));
+            }
+            
+            public void linkSwapped(Link a, Link b) {
+                if (!enabled) return;
+                line(string.Format(
+                    "Link swapped {0} {1} {2} - {3} {4} {5}",
+                    a.forward ? "->" : "<-",
+                    a.position.getParent().point,
+                    a.nextPosition.point,
+                    b.forward ? "->" : "<-",
+                    b.position.getParent().point,
+                    b.nextPosition.point ));
+            }
+        }
 
 
         readonly List<Position> positions = new List<Position>();
         readonly List<Link> links = new List<Link>();
         readonly List<Contour> contours = new List<Contour>();
         readonly List<Contour> rootContours = new List<Contour>();
-
+        readonly Log log = new Log();
 
         public void clear() {
             positions.Clear();
@@ -88,6 +143,9 @@ namespace Contours {
 
         public void setContours(IEnumerable<IEnumerable<Point>> contours) {
             clear();
+            
+            log.line("---- setContours begin ----");
+            
             foreach(IEnumerable<Point> contour in contours) {
                 if (contour.Count() >= 3) {
                     Link firstForward = null;
@@ -121,8 +179,12 @@ namespace Contours {
                     firstBackward.nextPosition = previousBackward.position.getParent();
                 }
             }
+            foreach(Link link in links)
+                log.linkCreated(link);
             
             calculate(true);
+
+            log.line("---- setContours end ----");
         }
         
         // returns list of root contour groups
@@ -158,6 +220,7 @@ namespace Contours {
         }
         
         void removeLink(Link link) {
+            log.linkRemoved(link);
             link.position.unlink();
             link.contour.unlink();
             link.nextPosition = null;
@@ -273,19 +336,17 @@ namespace Contours {
             Position position = link.position.getParent();
             Link nextToRemove = null;
             
-            // remove back link            
+            // remove back link
             if (link.nextPosition != null) {
                 Link backLink = link.nextPosition.links.getFirst();
                 while (backLink != null) {
-                    Link l = backLink;
-                    backLink = backLink.position.getNextLinear();
-                    if ( l.forward != link.forward
-                      && l.contour.getNext() != null
-                      && l.contour.getNext().position.getParent() == position )
+                    if ( backLink.forward != link.forward
+                      && backLink.nextPosition == position )
                     {
-                        removeLink(l);
+                        removeLink(backLink);
                         break;
                     }
+                    backLink = backLink.position.getNextLinear();
                 }
                 
                 if (link.nextPosition.links.getCount() == 1)
@@ -354,6 +415,7 @@ namespace Contours {
                                 b.nextPosition.point,
                                 c.nextPosition.point ))
                         {
+                            log.linkSwapped(b, c);
                             b.position.swapWith(c.position);
                             first = a = c;
                             continue;
@@ -363,9 +425,8 @@ namespace Contours {
                     };
                     
                     // remove invisible contours from position
-                    first = position.links.getFirst();
-                    a = first.position.getNext();
-                    while(a != first) {
+                    a = first = position.links.getFirst();
+                    while(true) {
                         bool previous = a.position.getPrevious().forward;
                         bool current = a.forward;
                         bool next = a.position.getNext().forward;
@@ -374,8 +435,11 @@ namespace Contours {
                         {
                             // remove link
                             removeLinkFromPosition(a);
-                            first = position.links.getFirst();
-                            a = first.position.getNext();
+                            if (position.links.getCount() < 3) break;
+                            a = first = position.links.getFirst();
+                        } else {
+                            a = a.position.getNext();
+                            if (a == first) break;
                         }
                     };
                 }
@@ -396,7 +460,7 @@ namespace Contours {
                             throw new Exception();
                     
                         // find pair
-                        for(Link l = forwardLink.nextPosition.links.getFirst(); l != null; l = l.position.getNext())
+                        for(Link l = forwardLink.nextPosition.links.getFirst(); l != null; l = l.position.getNextLinear())
                             if (l.nextPosition == forwardLink.position.getParent())
                                 { backwardLink = l; break; }
                         if (backwardLink == null || backwardLink.forward || backwardLink.contour.getParent() != null)
@@ -565,6 +629,9 @@ namespace Contours {
         
         static Shape mix(Shape a, bool invertA, Shape b, bool invertB) {
             Shape sum = new Shape();
+            sum.log.enabled = a.log.enabled && b.log.enabled;
+
+            sum.log.line("---- mix begin ----");
 
             // clone a
             for(int i = 0; i < a.positions.Count; ++i)
@@ -591,8 +658,13 @@ namespace Contours {
                     sum.links.Add(l);
                 }
             }
+            foreach(Link link in sum.links)
+                sum.log.linkCreated(link);
             
             sum.calculate(false);
+
+            sum.log.line("---- mix end ----");
+
             return sum;
         }
         

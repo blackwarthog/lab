@@ -129,32 +129,57 @@ namespace Contours {
 
             public void swapWith(Entry other) {
                 if (other == this || other == null) return;
+                
+                if (this.next == other || other.previous == this) {
+                    this.next = other.next;
+                    other.next.previous = this;
+                    other.previous = this.previous;
+                    this.previous.next = other;
+                    this.previous = other;
+                    other.next = this;
+                    return;
+                }
+
+                if (other.next == this || this.previous == other) {
+                    other.next = this.next;
+                    this.next.previous = other;
+                    this.previous = other.previous;
+                    other.previous.next = this;
+                    other.previous = this;
+                    this.next = other;
+                    return;
+                }
+
+                if (other.circuit != null) {
+                    if (other.circuit.first == other)
+                        other.circuit.first = this;
+                    if (other.circuit.last == other)
+                        other.circuit.last = this;
+                }
+
+                if (this.circuit != null) {
+                    if (this.circuit.first == this)
+                        this.circuit.first = other;
+                    if (this.circuit.last == this)
+                        this.circuit.last = other;
+                }
 
                 Circuit<Parent, Child> otherCircuit = other.circuit;
                 Entry otherPrevious = other.previous;
                 Entry otherNext = other.next;
 
-                other.circuit = circuit;
-                other.previous = previous;
-                other.next = next;
+                other.circuit = this.circuit;
+                other.previous = this.previous;
+                other.next = this.next;
 
-                if (otherCircuit != null) {
-                    if (otherCircuit.first == other)
-                        otherCircuit.first = this;
-                    if (otherCircuit.last == other)
-                        otherCircuit.last = this;
-                }
+                this.circuit = otherCircuit;
+                this.previous = otherPrevious;
+                this.next = otherNext;
 
-                if (circuit != null) {
-                    if (circuit.first == this)
-                        circuit.first = other;
-                    if (circuit.last == this)
-                        circuit.last = other;
-                }
-
-                circuit = otherCircuit;
-                previous = otherPrevious;
-                next = otherNext;
+                if (other.previous != null) other.previous.next = other;
+                if (other.next != null) other.next.previous = other;
+                if (this.previous != null) this.previous.next = this;
+                if (this.next != null) this.next.previous = this;
             }
 
             public static void swapChains(Circuit<Parent, Child> a, Circuit<Parent, Child> b) {
