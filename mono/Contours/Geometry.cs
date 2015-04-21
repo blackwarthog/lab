@@ -157,7 +157,7 @@ namespace Contours {
         }
         
         public static void makeLongestLine(Point p0, ref Point p1) {
-            int MaxValue = int.MaxValue << 1;
+            int MaxValue = int.MaxValue >> 1;
             Point direction = new Point(p1.X - p0.X, p1.Y - p0.Y);
             int amplifierX =
                 direction.X > 0 ? (MaxValue - p0.X)/direction.X + 1
