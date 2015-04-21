@@ -111,7 +111,7 @@ namespace Contours {
             bool[] compared = new bool[a.Count];
             for(int i = 0; i < a.Count; ++i) {
                 bool equal = false;
-                for(int j = i; j < b.Count; ++j) {
+                for(int j = 0; j < b.Count; ++j) {
                     if (!compared[j] && compareContours(a[i], b[j]))
                         { equal = true; compared[j] = true; break; }
                 }
