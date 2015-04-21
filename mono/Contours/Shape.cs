@@ -97,6 +97,15 @@ namespace Contours {
                     toString(link.nextPosition) );
             }
             
+            string toString(Contour contour) {
+                string s = "";
+                for(Link link = contour.links.getFirst(); link != null; link = link.contour.getNextLinear()) {
+                    if (s != "") s += ", ";
+                    s += string.Format("({0}, {1})", link.position.getParent().point.X, link.position.getParent().point.Y);
+                }
+                return s;
+            }
+            
             public void line(string line) {
                 if (!enabled) return;
                 System.IO.File.AppendAllLines(filename, new string[] { line });
@@ -137,6 +146,9 @@ namespace Contours {
                 line("-- positions --");
                 foreach(Position position in shape.positions)
                     positionState(position);
+                line("-- contours --");
+                foreach(Contour contour in shape.contours)
+                    line("    " + toString(contour));
                 line("-- current state end --");
             }
         }
@@ -254,13 +266,11 @@ namespace Contours {
                 for(int i = 0; i < positions.Count; ++i) {
                     for(int j = i+1; j < positions.Count; ++j) {
                         if (positions[i].point == positions[j].point) {
-                            while(positions[j].links.getFirst() != null) {
-                                Link link = positions[j].links.getFirst();
-                                for(Link l = link.nextPosition.links.getFirst(); l != null; l = l.position.getNextLinear())
-                                    if (l.nextPosition == positions[j])
-                                        l.nextPosition = positions[i];
-                                link.position.insertBack(positions[i].links);
-                            }
+                            while(positions[j].links.getFirst() != null)
+                                positions[j].links.getFirst().position.insertBack(positions[i].links);
+                            foreach(Link link in links)
+                                if (link.nextPosition == positions[j])
+                                    link.nextPosition = positions[i];
                             positions.RemoveAt(j--);
                         }
                     }
@@ -488,6 +498,25 @@ namespace Contours {
             }
         }
 
+        void concatenateLinks() {
+            foreach(Contour contour in contours) {
+                for(Link linkA = contour.links.getFirst(); linkA != null;) {
+                    Link linkB = linkA.contour.getNext();
+                    if ( Geometry.isPointAtLine(
+                            linkA.nextPosition.point,
+                            linkA.position.getParent().point,
+                            linkB.nextPosition.point ))
+                    {
+                        linkA.nextPosition = linkB.nextPosition;
+                        removeLink(linkB);
+                        if (linkA == linkB) break;
+                    } else {
+                        linkA = linkA.contour.getNextLinear();
+                    }
+                }
+            }
+        }
+
         // Normally we should not have free links after tracing
         void removeFreeLinks() {
             for(int i = 0; i < links.Count; ++i)
@@ -556,16 +585,14 @@ namespace Contours {
             // find childs
             rootContours.AddRange(contours);
             for(int i = 0; i < contours.Count; ++i) {
-                for(int j = 0; j < contours.Count; ++j) {
-                    if (i != j) {
-                        if (isContourInside(contours[i], contours[j])) {
-                            contours[j].childs.Add(contours[i]);
-                            rootContours.Remove(contours[i]);
-                        } else
-                        if (isContourInside(contours[j], contours[i])) {
-                            contours[i].childs.Add(contours[j]);
-                            rootContours.Remove(contours[j]);
-                        }
+                for(int j = i+1; j < contours.Count; ++j) {
+                    if (isContourInside(contours[i], contours[j])) {
+                        contours[j].childs.Add(contours[i]);
+                        rootContours.Remove(contours[i]);
+                    } else
+                    if (isContourInside(contours[j], contours[i])) {
+                        contours[i].childs.Add(contours[j]);
+                        rootContours.Remove(contours[j]);
                     }
                 }
             }
@@ -625,6 +652,9 @@ namespace Contours {
 
             buildContours();
             removeFreeLinks();
+            concatenateLinks();
+            log.state("links concatenated");
+
             buildContoursHierarhy();
             removeEmptyPositions();
 

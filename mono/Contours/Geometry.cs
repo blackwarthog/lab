@@ -39,6 +39,23 @@ namespace Contours {
             return 0;
         }
 
+        public static bool isPointAtLine(Point p, Point p0, Point p1) {
+            if (p == p0 || p == p1)
+                return true;
+            if (p0 == p1)
+                return false;
+            if ((long)(p.Y-p0.Y)*(long)(p1.X-p0.X) != (long)(p.X-p0.X)*(long)(p1.Y-p0.Y))
+                return false;
+            if (p1.X > p0.X)
+                return p.X >= p0.X && p.X <= p1.X;
+            if (p1.X < p0.X)
+                return p.X >= p1.X && p.X <= p0.X;
+            if (p1.Y > p0.Y)
+                return p.Y >= p0.Y && p.Y <= p1.Y;
+            //if (p1.Y < p0.Y)
+                return p.Y >= p1.Y && p.Y <= p0.Y;
+        }
+
         public static IntersectionType findIntersection(Point a0, Point a1, Point b0, Point b1, out Point c) {
             c = new Point(0, 0);
             Point da = new Point(a1.X - a0.X, a1.Y - a0.Y);
