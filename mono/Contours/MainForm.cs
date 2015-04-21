@@ -50,7 +50,8 @@ namespace Contours {
             foreach(Test test in Test.tests)
                 cbTests.Items.Add(test.name);
             
-            if (!success) MessageBox.Show("Tests failed");
+            if (success) MessageBox.Show("Tests passed");
+                    else MessageBox.Show("Tests failed");
         }
 
         void cbTestsChanged(object sender, EventArgs e) {

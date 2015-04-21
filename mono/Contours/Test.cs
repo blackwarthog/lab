@@ -36,14 +36,13 @@ namespace Contours {
             }
         }
 
-        delegate Shape CombineShapesFunc(Shape a, Shape b);
-        Shape tryCombineShapes(CombineShapesFunc func, List<List<List<Point>>> a, List<List<List<Point>>> b) {
+        Shape tryCombineShapes(Shape.CombinationMode mode, List<List<List<Point>>> a, List<List<List<Point>>> b) {
             try {
                 Shape sa = new Shape();
                 Shape sb = new Shape();
                 sa.setContours(a);
                 sb.setContours(b);
-                return func(sa, sb);
+                return Shape.combine(mode, sa, sb);
             } catch (System.Exception) {
                 return null;
             }
@@ -66,10 +65,10 @@ namespace Contours {
                 check("b", tryCreateShape(b));
                 
             if (a != null && b != null) {
-                check("add", tryCombineShapes(Shape.add, a, b));
-                check("subtract", tryCombineShapes(Shape.subtract, a, b));
-                check("xor", tryCombineShapes(Shape.xor, a, b));
-                check("intersection", tryCombineShapes(Shape.intersection, a, b));
+                check("add", tryCombineShapes(Shape.CombinationMode.Add, a, b));
+                check("subtract", tryCombineShapes(Shape.CombinationMode.Subtract, a, b));
+                check("intersection", tryCombineShapes(Shape.CombinationMode.Intersection, a, b));
+                check("xor", tryCombineShapes(Shape.CombinationMode.Xor, a, b));
             }
 
             return result;
