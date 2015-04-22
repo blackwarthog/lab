@@ -34,10 +34,12 @@ namespace Contours {
         class Position {
             public Point point;
             public bool processed = false;
-            public readonly Circuit<Position, Link> links;
+            public readonly Circuit<Position, Link> output;
+            public readonly Circuit<Position, Link> input;
 
             public Position() {
-                links = new Circuit<Position, Link>(this);
+                output = new Circuit<Position, Link>(this);
+                input = new Circuit<Position, Link>(this);
             }
 
             public Position(Point point): this() { this.point = point; }
@@ -58,34 +60,46 @@ namespace Contours {
         class Link {
             public bool alien = false;
             public bool inside = false;
-            public Position nextPosition = null;
 
-            public readonly Circuit<Position, Link>.Entry position;
+            public readonly Circuit<Position, Link>.Entry p0;
+            public readonly Circuit<Position, Link>.Entry p1;
             public readonly Circuit<Contour, Link>.Entry contour;
 
             public Link() {
-                position = new Circuit<Position, Link>.Entry(this);
+                p0 = new Circuit<Position, Link>.Entry(this);
+                p1 = new Circuit<Position, Link>.Entry(this);
                 contour = new Circuit<Contour, Link>.Entry(this);
             }
 
             public Link split(Shape shape, Position position) {
-                if (position.point == this.position.getParent().point) return this;
-                if (position.point == nextPosition.point) return nextPosition.links.getFirst();
+                if (position.point == p0.getParent().point)
+                    return this;
+                if (position.point == p1.getParent().point)
+                    return p1.getCircuit().getFirst();
                 
                 shape.log.linkSplitted(this, position);
                 
                 Link link = new Link();
-                link.position.insertBack(position.links);
-                link.contour.insertAfterOf(contour);
                 link.alien = alien;
-                link.nextPosition = nextPosition;
-                nextPosition = position;
+                link.p0.insertBack(position.output);
+                link.p1.insertBack(p1.getCircuit());
+                link.contour.insertAfterOf(contour);
+                
+                p1.insertBack(position.input);
                 shape.links.Add(link);
                 return link;
             }
 
             public Link split(Shape shape, Link positionLink) {
-                return split(shape, positionLink.position.getParent());
+                return split(shape, positionLink.p0.getParent());
+            }
+            
+            public void flip(Shape shape) {
+                shape.log.linkFlipped(this);
+                Position pos0 = p0.getParent();
+                Position pos1 = p1.getParent();
+                p0.insertFront(pos1.output);
+                p1.insertFront(pos0.input);
             }
         }
         
@@ -110,15 +124,15 @@ namespace Contours {
                     shape.links.IndexOf(link),
                     link.alien ? "B" : "A",
                     link.inside ? "I" : "O",
-                    toString(link.position.getParent()),
-                    toString(link.nextPosition) );
+                    toString(link.p0.getParent()),
+                    toString(link.p1.getParent()) );
             }
             
             string toString(Contour contour) {
                 string s = "";
                 for(Link link = contour.links.getFirst(); link != null; link = link.contour.getNextLinear()) {
                     if (s != "") s += ", ";
-                    s += string.Format("({0}, {1})", link.position.getParent().point.X, link.position.getParent().point.Y);
+                    s += string.Format("({0}, {1})", link.p0.getParent().point.X, link.p0.getParent().point.Y);
                 }
                 return s;
             }
@@ -143,15 +157,22 @@ namespace Contours {
                 line("Link splitted " + toString(link) + " / " + toString(position));
             }
             
+            public void linkFlipped(Link link) {
+                if (!enabled) return;
+                line("Link flipped " + toString(link));
+            }
+            
             public void linkSwapped(Link a, Link b) {
                 if (!enabled) return;
                 line("Link swapped " + toString(a) + " <-> " + toString(b));
             }
 
             public void positionState(Position position) {
-                line("Position " + toString(position));
-                for(Link link = position.links.getFirst(); link != null; link = link.position.getNextLinear())
-                    line("    link " + toString(link));
+                line("position " + toString(position));
+                for(Link link = position.output.getFirst(); link != null; link = link.p0.getNextLinear())
+                    line("    output " + toString(link));
+                for(Link link = position.input.getFirst(); link != null; link = link.p1.getNextLinear())
+                    line("    input " + toString(link));
             }
 
             public void state(string title) {
@@ -211,15 +232,15 @@ namespace Contours {
                         positions.Add(position);
 
                         Link link = new Link();
-                        link.position.insertBack(position.links);
+                        link.p0.insertBack(position.output);
                         if (previous != null)
-                            previous.nextPosition = link.position.getParent();
+                            previous.p1.insertBack(link.p0.getParent().input);
                         links.Add(link);
                         
                         if (first == null) first = link;
                         previous = link;
                     }
-                    previous.nextPosition = first.position.getParent();
+                    previous.p1.insertBack(first.p0.getParent().input);
                 }
             }
             
@@ -245,7 +266,7 @@ namespace Contours {
         List<Point> contourToList(Contour contour) {
             List<Point> list = new List<Point>();
             for(Link link = contour.links.getFirst(); link != null; link = link.contour.getNextLinear())
-                list.Add(link.position.getParent().point);
+                list.Add(link.p0.getParent().point);
             return list;
         }
 
@@ -261,15 +282,18 @@ namespace Contours {
         
         void removeLink(Link link) {
             log.linkRemoved(link);
-            link.position.unlink();
+            link.p0.unlink();
+            link.p1.unlink();
             link.contour.unlink();
-            link.nextPosition = null;
             links.Remove(link);
         }
 
         void removeEmptyPositions() {
             for(int i = 0; i < positions.Count; ++i)
-                if (positions[i].links.empty())
+                if (positions[i].output.empty() != positions[i].input.empty())
+                    throw new Exception();
+                else
+                if (positions[i].output.empty() && positions[i].input.empty())
                     positions.RemoveAt(i--);
         }
         
@@ -283,11 +307,10 @@ namespace Contours {
                 for(int i = 0; i < positions.Count; ++i) {
                     for(int j = i+1; j < positions.Count; ++j) {
                         if (positions[i].point == positions[j].point) {
-                            while(positions[j].links.getFirst() != null)
-                                positions[j].links.getFirst().position.insertBack(positions[i].links);
-                            foreach(Link link in links)
-                                if (link.nextPosition == positions[j])
-                                    link.nextPosition = positions[i];
+                            while(positions[j].output.getFirst() != null)
+                                positions[j].output.getFirstEntry().insertBack(positions[i].output);
+                            while(positions[j].input.getFirst() != null)
+                                positions[j].input.getFirstEntry().insertBack(positions[i].input);
                             positions.RemoveAt(j--);
                         }
                     }
@@ -296,7 +319,7 @@ namespace Contours {
                 // remove zero-length links
                 // this procedure may create empty positions
                 for(int i = 0; i < links.Count; ++i)
-                    if (links[i].position.getParent() == links[i].nextPosition)
+                    if (links[i].p0.getParent() == links[i].p1.getParent())
                         removeLink(links[i--]);
                 
                 // so we need to...
@@ -309,10 +332,10 @@ namespace Contours {
                     for(int j = i+1; j < links.Count; ++j) {
                         Link a = links[i];
                         Link b = links[j];
-                        Position a0 = a.position.getParent();
-                        Position a1 = a.nextPosition;
-                        Position b0 = b.position.getParent();
-                        Position b1 = b.nextPosition;
+                        Position a0 = a.p0.getParent();
+                        Position a1 = a.p1.getParent();
+                        Position b0 = b.p0.getParent();
+                        Position b1 = b.p1.getParent();
                         Point c = new Point(0, 0);
                         retry = true; // will reset to false if no intersection
                         
@@ -373,17 +396,22 @@ namespace Contours {
             }
         }
         
+        void removeInternalLinks() {
+            // find left top position
+            // TODO:
+        }
+        
         void findLinksInside() {
             for(int i = 0; i < links.Count; ++i) {
                 int intersectionsCount = 0;
-                Point p0 = links[i].position.getParent().point;
-                Point p1 = links[i].nextPosition.point;
+                Point p0 = links[i].p0.getParent().point;
+                Point p1 = links[i].p1.getParent().point;
                 Geometry.makeLongestLine(p0, ref p1);
                 for(int j = 0; j < links.Count; ++j) {
                     if (i != j && links[i].alien != links[j].alien) {
                         Point c = new Point(0, 0);
-                        Point pp0 = links[j].position.getParent().point;
-                        Point pp1 = links[j].nextPosition.point;
+                        Point pp0 = links[j].p0.getParent().point;
+                        Point pp1 = links[j].p1.getParent().point;
                         int d = Math.Sign( (long)(p0.Y - p1.Y)*(long)(pp1.X - pp0.X)
                                          + (long)(p1.X - p0.X)*(long)(pp1.Y - pp0.Y) );
                         switch(Geometry.findIntersection(p0, p1, pp0, pp1, out c)) {
@@ -419,10 +447,21 @@ namespace Contours {
                 position.processed = false;
             foreach(Position position in positions) {
                 position.processed = true;
-                for(Link la = position.links.getFirst(); la != null;) {
-                    Link linkA = la;
-                    Position nextPosition = linkA.nextPosition;
-                    while(la != null && la.nextPosition == linkA.nextPosition) la = la.position.getNextLinear();
+                Link ol = position.output.getFirst();
+                Link il = position.input.getFirst();
+                while(ol != null || il != null) {
+                    Link linkOut = ol;
+                    Link linkIn = il;
+                    Position nextPosition = linkOut == null
+                                          ? linkIn.p0.getParent()
+                                          : linkOut.p1.getParent();
+
+                    while(ol != null && ol.p1.getParent() == nextPosition)
+                        ol = ol.p0.getNextLinear();
+                    while(il != null && il.p0.getParent() == nextPosition)
+                        il = il.p1.getNextLinear();
+                        
+                    if (nextPosition.processed) continue;
                     
                     bool forwardSelf = false;
                     bool forwardAlien = false;
@@ -431,10 +470,10 @@ namespace Contours {
                     bool backwardAlien = false;
                     Link backwardLink = null;
 
-                    for(Link lb = linkA; lb != null;) {
+                    for(Link lb = linkOut; lb != null;) {
                         Link linkB = lb;
-                        lb = lb.position.getNextLinear();
-                        if (linkB.nextPosition == nextPosition) {
+                        lb = lb.p0.getNextLinear();
+                        if (linkB.p1.getParent() == nextPosition) {
                             if (linkB.alien) {
                                 forwardAlien = true;
                                 if (linkB.inside) forwardSelf = backwardSelf = true;
@@ -446,41 +485,36 @@ namespace Contours {
                         }
                     }
 
-                    if (!nextPosition.processed) {
-                        for(Link lb = nextPosition.links.getFirst(); lb != null;) {
-                            Link linkB = lb;
-                            lb = lb.position.getNextLinear();
-                            if (linkB.nextPosition == position) {
-                                if (linkB.alien) {
-                                    backwardAlien = true;
-                                    if (linkB.inside) forwardSelf = backwardSelf = true;
-                                } else {
-                                    backwardSelf = true;
-                                    if (linkB.inside) forwardAlien = backwardAlien = true;
-                                }
-                                if (backwardLink == null) backwardLink = linkB; else removeLink(linkB);
+                    for(Link lb = linkIn; lb != null;) {
+                        Link linkB = lb;
+                        lb = lb.p1.getNextLinear();
+                        if (linkB.p0.getParent() == nextPosition) {
+                            if (linkB.alien) {
+                                backwardAlien = true;
+                                if (linkB.inside) forwardSelf = backwardSelf = true;
+                            } else {
+                                backwardSelf = true;
+                                if (linkB.inside) forwardAlien = backwardAlien = true;
                             }
+                            if (backwardLink == null) backwardLink = linkB; else removeLink(linkB);
                         }
                     }
                     
                     bool forward = combine(mode, forwardSelf, forwardAlien);
                     bool backward = combine(mode, backwardSelf, backwardAlien);
-                    if (forward && backward) forward = backward = false;
-                    if (!forward && forwardLink != null) removeLink(forwardLink);
-                    if (!backward && backwardLink != null) removeLink(backwardLink);
-                    if (forward && forwardLink == null) {
-                        forwardLink = new Link();
-                        forwardLink.position.insertBack(position.links);
-                        forwardLink.nextPosition = nextPosition;
-                        links.Add(forwardLink);
-                        log.linkAdded(forwardLink);
-                    }
-                    if (backward && backwardLink == null) {
-                        backwardLink = new Link();
-                        backwardLink.position.insertBack(nextPosition.links);
-                        backwardLink.nextPosition = position;
-                        links.Add(backwardLink);
-                        log.linkAdded(backwardLink);
+                    if (forwardLink == null && backwardLink == null)
+                        throw new Exception();
+
+                    if (forward && !backward) {
+                        if (forwardLink == null) backwardLink.flip(this);
+                            else if (backwardLink != null) removeLink(backwardLink);
+                    } else
+                    if (!forward && backward) {
+                        if (backwardLink == null) forwardLink.flip(this);
+                            else if (forwardLink != null) removeLink(forwardLink);
+                    } else {
+                        if (forwardLink != null) removeLink(forwardLink);
+                        if (backwardLink != null) removeLink(backwardLink);
                     }
                 }
             }
@@ -499,13 +533,13 @@ namespace Contours {
                         link.contour.insertBack(contour.links);
                         
                         // find first link CW order (so we turns left)
-                        Link nextLink = link.nextPosition.links.getFirst();
-                        for(Link l = nextLink.position.getNext(); l != null; l = l.position.getNextLinear())
+                        Link nextLink = link.p1.getParent().output.getFirst();
+                        for(Link l = nextLink.p0.getNext(); l != null; l = l.p0.getNextLinear())
                             if ( Geometry.isCCW(
-                                    link.nextPosition.point,
-                                    link.position.getParent().point,
-                                    nextLink.nextPosition.point,
-                                    l.nextPosition.point ))
+                                    link.p1.getParent().point,
+                                    link.p0.getParent().point,
+                                    nextLink.p1.getParent().point,
+                                    l.p1.getParent().point ))
                                 { nextLink = l; }
                         
                         // select first link by the left (links should be CCW-ordered)
@@ -520,11 +554,11 @@ namespace Contours {
                 for(Link linkA = contour.links.getFirst(); linkA != null;) {
                     Link linkB = linkA.contour.getNext();
                     if ( Geometry.isPointAtLine(
-                            linkA.nextPosition.point,
-                            linkA.position.getParent().point,
-                            linkB.nextPosition.point ))
+                            linkA.p1.getParent().point,
+                            linkA.p0.getParent().point,
+                            linkB.p1.getParent().point ))
                     {
-                        linkA.nextPosition = linkB.nextPosition;
+                        linkA.p1.insertAfterOf(linkB.p1);
                         removeLink(linkB);
                         if (linkA == linkB) break;
                     } else {
@@ -544,8 +578,8 @@ namespace Contours {
         int countIntersectionsWithContour(Point p0, Point p1, Contour contour) {
             int count = 0;
             for(Link link = contour.links.getFirst(); link != null; link = link.contour.getNextLinear()) {
-                Point pp0 = link.position.getParent().point;
-                Point pp1 = link.contour.getNext().position.getParent().point;
+                Point pp0 = link.p0.getParent().point;
+                Point pp1 = link.contour.getNext().p0.getParent().point;
                 int d = Math.Sign( (long)(p0.Y - p1.Y)*(long)(pp1.X - pp0.X)
                                  + (long)(p1.X - p0.X)*(long)(pp1.Y - pp0.Y) );
                 Point c;
@@ -566,16 +600,16 @@ namespace Contours {
 
         bool isContourInverted(Contour contour) {
             Link first = contour.links.getFirst();
-            Point p0 = first.position.getParent().point;
-            Point p1 = first.contour.getNext().position.getParent().point;
+            Point p0 = first.p0.getParent().point;
+            Point p1 = first.contour.getNext().p0.getParent().point;
             Geometry.makeLongestLine(p0, ref p1);
             return countIntersectionsWithContour(p0, p1, contour) < 0;
         }
         
         bool isContourInside(Contour inner, Contour outer) {
             Link first = inner.links.getFirst();
-            Point p0 = first.position.getParent().point;
-            Point p1 = first.contour.getNext().position.getParent().point;
+            Point p0 = first.p0.getParent().point;
+            Point p1 = first.contour.getNext().p0.getParent().point;
             Geometry.makeLongestLine(p0, ref p1);
             return countIntersectionsWithContour(p0, p1, outer) != 0;
         }
@@ -688,11 +722,11 @@ namespace Contours {
             for(int i = 0; i < a.positions.Count; ++i)
                 sum.positions.Add(new Position(a.positions[i].point));
             for(int i = 0; i < a.positions.Count; ++i) {
-                for(Link link = a.positions[i].links.getFirst(); link != null; link = link.position.getNextLinear()) {
+                for(Link link = a.positions[i].output.getFirst(); link != null; link = link.p0.getNextLinear()) {
                     Link l = new Link();
                     l.alien = false;
-                    l.nextPosition = sum.positions[a.positions.IndexOf(link.nextPosition)];
-                    l.position.insertBack(sum.positions[i].links);
+                    l.p0.insertBack(sum.positions[i].output);
+                    l.p1.insertBack(sum.positions[a.positions.IndexOf(link.p1.getParent())].input);
                     sum.links.Add(l);
                 }
             }
@@ -701,11 +735,11 @@ namespace Contours {
             for(int i = 0; i < b.positions.Count; ++i)
                 sum.positions.Add(new Position(b.positions[i].point));
             for(int i = 0; i < b.positions.Count; ++i) {
-                for(Link link = b.positions[i].links.getFirst(); link != null; link = link.position.getNextLinear()) {
+                for(Link link = b.positions[i].output.getFirst(); link != null; link = link.p0.getNextLinear()) {
                     Link l = new Link();
                     l.alien = true;
-                    l.nextPosition = sum.positions[a.positions.Count + b.positions.IndexOf(link.nextPosition)];
-                    l.position.insertBack(sum.positions[a.positions.Count + i].links);
+                    l.p0.insertBack(sum.positions[a.positions.Count + i].output);
+                    l.p1.insertBack(sum.positions[a.positions.Count + b.positions.IndexOf(link.p1.getParent())].input);
                     sum.links.Add(l);
                 }
             }
