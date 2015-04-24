@@ -244,7 +244,25 @@ namespace Contours {
                 }
             }
             
-            calculate(CombinationMode.Add);
+            log.state("loaded");
+
+            findIntersections();
+            log.state("intersections solved");
+
+            removeDuplicateLinks();
+            log.state("duplicates removed");
+
+            fixLinksDirections();
+            log.state("directions fixed");
+
+            buildContours();
+            removeFreeLinks();
+            concatenateLinks();
+            log.state("links concatenated");
+
+            buildContoursHierarhy();
+            removeEmptyPositions();
+            log.state("setContours complete");
 
             log.line("---- setContours end ----");
         }
@@ -396,9 +414,101 @@ namespace Contours {
             }
         }
         
-        void removeInternalLinks() {
-            // find left top position
-            // TODO:
+        void removeDuplicateLinks() {
+            foreach(Position position in positions)
+                position.processed = false;
+            foreach(Position position in positions) {
+                position.processed = true;
+                Link ol = position.output.getFirst();
+                Link il = position.input.getFirst();
+                while(ol != null || il != null) {
+                    Link linkOut = ol;
+                    Link linkIn = il;
+                    Position nextPosition = linkOut == null
+                                          ? linkIn.p0.getParent()
+                                          : linkOut.p1.getParent();
+
+                    while(ol != null && ol.p1.getParent() == nextPosition)
+                        ol = ol.p0.getNextLinear();
+                    while(il != null && il.p0.getParent() == nextPosition)
+                        il = il.p1.getNextLinear();
+                        
+                    if (nextPosition.processed) continue;
+                    
+                    bool remove = true;
+                    Link first = null;
+
+                    for(Link lb = linkOut; lb != null;) {
+                        Link linkB = lb;
+                        lb = lb.p0.getNextLinear();
+                        if (linkB.p1.getParent() == nextPosition) {
+                            remove = !remove;
+                            if (first == null) first = linkB; else removeLink(linkB);
+                        }
+                    }
+
+                    for(Link lb = linkIn; lb != null;) {
+                        Link linkB = lb;
+                        lb = lb.p1.getNextLinear();
+                        if (linkB.p0.getParent() == nextPosition) {
+                            remove = !remove;
+                            if (first == null) first = linkB; else removeLink(linkB);
+                        }
+                    }
+                    
+                    if (remove) removeLink(first);
+                }
+            }
+        }
+        
+        void fixLinksDirections() {
+            log.line("-- fixLinksDirections begin --");
+        
+            if (positions.Count == 0) return;
+            
+            foreach(Link linkA in links) {
+                Point p0 = linkA.p0.getParent().point;
+                Point p1 = linkA.p1.getParent().point;
+                Point d = new Point(p1.X - p0.X, p1.Y - p0.Y);
+                p1 = new Point(p0.X - d.Y, p0.Y + d.X);
+                Geometry.makeLongestLine(p0, ref p1);
+                bool inside = true;
+                foreach(Link linkB in links) {
+                    if (linkA != linkB) {
+                        Point pp0 = linkB.p0.getParent().point;
+                        Point pp1 = linkB.p1.getParent().point;
+                        Point c = new Point(0, 0);
+                        switch( Geometry.findIntersection(p0, p1, pp0, pp1, out c) ) {
+                            case Geometry.IntersectionType.Cross:
+                                inside = !inside;
+                                break;
+                            case Geometry.IntersectionType.Touch_b0:
+                                if ((long)(pp1.X-p0.X)*(long)d.X + (long)(pp1.Y-p0.Y)*(long)d.Y > 0)
+                                    inside = !inside;
+                                break;
+                            case Geometry.IntersectionType.Touch_b1:
+                                if ((long)(pp0.X-p0.X)*(long)d.X + (long)(pp0.Y-p0.Y)*(long)d.Y > 0)
+                                    inside = !inside;
+                                break;
+                            case Geometry.IntersectionType.Touch_a0_b0:
+                                if ((long)(pp1.X-p0.X)*(long)d.X + (long)(pp1.Y-p0.Y)*(long)d.Y > 0
+                                 && (long)(pp1.Y-p0.Y)*(long)d.X - (long)(pp1.X-p0.X)*(long)d.Y > 0)
+                                    inside = !inside;
+                                break;
+                            case Geometry.IntersectionType.Touch_a0_b1:
+                                if ((long)(pp0.X-p0.X)*(long)d.X + (long)(pp0.Y-p0.Y)*(long)d.Y > 0
+                                 && (long)(pp0.Y-p0.Y)*(long)d.X - (long)(pp0.X-p0.X)*(long)d.Y > 0)
+                                    inside = !inside;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+                if (inside) linkA.flip(this);
+            }
+
+            log.line("-- fixLinksDirections end --");
         }
         
         void findLinksInside() {
