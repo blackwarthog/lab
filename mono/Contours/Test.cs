@@ -71,9 +71,9 @@ namespace Contours {
             List<List<List<Point>>> a = null;
             List<List<List<Point>>> b = null;
 
-            if (input.ContainsKey("dirtyA")) a = input["dirtyA"]; else
+            if (input.ContainsKey("badA")) a = input["badA"]; else
                 if (input.ContainsKey("a")) a = input["a"];
-            if (input.ContainsKey("dirtyB")) b = input["dirtyB"]; else
+            if (input.ContainsKey("badB")) b = input["badB"]; else
                 if (input.ContainsKey("b")) b = input["b"];
             
             if (a != null)
