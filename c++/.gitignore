@@ -1,0 +1,7 @@
+*.exe
+*.o
+*/.project
+*/.cproject
+*/.settings/
+*/test_*
+*~
