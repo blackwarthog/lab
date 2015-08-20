@@ -1,8 +1,9 @@
-DEPS = gl x11
+DEPLIBS = gl x11
 
-CXXFLAGS = -O2 -g -Wall -fmessage-length=0 `pkg-config --libs $(DEPS)` -DGL_GLEXT_PROTOTYPES
-OBJS = contourgl.o
-LIBS = `pkg-config --libs $(DEPS)`
+CXXFLAGS = -O3 -Wall -fmessage-length=0 `pkg-config --libs $(DEPLIBS)` -DGL_GLEXT_PROTOTYPES
+DEPS = contour.h contourbuilder.h
+OBJS = contour.o contourgl.o contourbuilder.o
+LIBS = `pkg-config --libs $(DEPLIBS)`
 TARGET = contourgl
 
 $(TARGET):	$(OBJS)

@@ -28,6 +28,7 @@
 #include <GL/glext.h>
 #include <GL/glx.h>
 
+#include "contourbuilder.h"
 
 #define GLX_CONTEXT_MAJOR_VERSION_ARB 0x2091
 #define GLX_CONTEXT_MINOR_VERSION_ARB 0x2092
@@ -36,9 +37,6 @@ typedef GLXContext (*GLXCREATECONTEXTATTRIBSARBPROC)(Display*, GLXFBConfig, GLXC
 
 using namespace std;
 
-
-typedef pair<float, float> vec2;
-typedef vector<vec2> contour;
 
 void save_rgba(const void *buffer, int width, int height, const string &filename) {
 	// create file
@@ -72,7 +70,6 @@ void save_rgba(const void *buffer, int width, int height, const string &filename
 }
 
 void save_viewport(const string &filename) {
-	cout << filename << endl;
 	glFinish();
 	int vp[4] = {};
 	glGetIntegerv(GL_VIEWPORT, vp);
@@ -81,82 +78,40 @@ void save_viewport(const string &filename) {
 	save_rgba(buffer, vp[2], vp[3], filename);
 }
 
-void build_contour(contour &c) {
-	const float min_segment_length = 0.001f;
-	const float rounds = 10.f;
-	const float rounds2 = 1.f;
-
-	contour back;
-
-	float angle = 360.f;
-	float offset = 0.25f/(rounds + 1.f);
-
-	// go front
-	while(true) {
-		float radius = angle/360.f/(rounds + 1.f);
-		float step = min_segment_length*180.f/M_PI/radius;
-		if (radius > 1.f - 2.f*offset) break;
-
-		float fr = radius + offset;
-		float fx = fr*sinf(angle/180.f*M_PI);
-		float fy = fr*cosf(angle/180.f*M_PI);
-
-		float br = radius - offset;
-		float bx = br*sinf(angle/180.f*M_PI);
-		float by = br*cosf(angle/180.f*M_PI);
-
-		c.push_back(vec2(fx, fy));
-		back.push_back(vec2(bx, by));
-
-		angle += step;
-	}
-
-	float max_angle = angle;
-
-	while(true) {
-		float radius = max_angle/360.f/(rounds + 1.f)
-				     + (max_angle-angle)/360.f/rounds2;
-		float step = min_segment_length*180.f/M_PI/radius;
-		if (radius < 1.f/(rounds + 1.f))
-			break;
-
-		float fr = radius + offset;
-		float fx = fr*sinf(angle/180.f*M_PI);
-		float fy = fr*cosf(angle/180.f*M_PI);
-
-		float br = radius - offset;
-		float bx = br*sinf(angle/180.f*M_PI);
-		float by = br*cosf(angle/180.f*M_PI);
-
-		c.push_back(vec2(fx, fy));
-		back.push_back(vec2(bx, by));
-
-		angle += step;
-	}
-
-
-	// go back
-	c.reserve(c.size() + back.size() + 1);
-	for(contour::reverse_iterator ri = back.rbegin(); ri != back.rend(); ++ri)
-		c.push_back(*ri);
-
-	// close
-	c.push_back(c.front());
-
-	cout << c.size() << " vertices" << endl;
-}
-
-void draw_contour_strip(const contour &c) {
+void draw_contour_strip(const vector<Vector> &c) {
 	glBegin(GL_TRIANGLE_STRIP);
-	for(contour::const_iterator i = c.begin(); i != c.end(); ++i) {
-		glVertex2f(i->first, i->second);
-		glVertex2f(-1.f, i->second);
+	for(vector<Vector>::const_iterator i = c.begin(); i != c.end(); ++i) {
+		glVertex2d(i->x, i->y);
+		glVertex2d(-1.0, i->y);
 	}
 	glEnd();
 }
 
+void draw_contour_strip(const Contour &c) {
+	glBegin(GL_TRIANGLE_STRIP);
+	const Contour::ChunkList &chunks = c.get_chunks();
+	Vector prev;
+	for(Contour::ChunkList::const_iterator i = chunks.begin(); i != chunks.end(); ++i) {
+		if ( i->type == Contour::LINE
+		  || i->type == Contour::CLOSE)
+		{
+			glVertex2d(i->p1.x, i->p1.y);
+			glVertex2d(-1.0, i->p1.y);
+			prev.x = -1.0;
+			prev.y = i->p1.y;
+		} else {
+			glVertex2d(prev.x, prev.y);
+			glVertex2d(prev.x, prev.y);
+			glVertex2d(i->p1.x, i->p1.y);
+			glVertex2d(i->p1.x, i->p1.y);
+			prev = i->p1;
+		}
+	}
+	glEnd();
+}
 
-void draw_contour(const contour &c, bool even_odd, bool invert) {
+template<typename T>
+void draw_contour(const T &c, bool even_odd, bool invert) {
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 	glEnable(GL_STENCIL_TEST);
 
@@ -185,10 +140,10 @@ void draw_contour(const contour &c, bool even_odd, bool invert) {
 		glStencilFunc(GL_EQUAL, 0, 1);
 
 	glBegin(GL_TRIANGLE_STRIP);
-	glVertex2d(-1.f, -1.f);
-	glVertex2d( 1.f, -1.f);
-	glVertex2d(-1.f,  1.f);
-	glVertex2d( 1.f,  1.f);
+	glVertex2d(-1.0, -1.0);
+	glVertex2d( 1.0, -1.0);
+	glVertex2d(-1.0,  1.0);
+	glVertex2d( 1.0,  1.0);
 	glEnd();
 
 	glPopAttrib();
@@ -204,46 +159,104 @@ public:
 	test_wrapper(const string &filename): filename(filename), t(clock()) { }
 	~test_wrapper() {
 		glFinish();
-		cout << 1000.0*(double)(clock() - t)/(double)(CLOCKS_PER_SEC) << " ms" << endl;
-		cout << filename << endl;
-		save_viewport(filename);
+		double ms = 1000.0*(double)(clock() - t)/(double)(CLOCKS_PER_SEC);
+		cout << ms << " ms - " << filename << endl;
+		if (filename.size() > 4 && filename.substr(filename.size()-4, 4) == ".tga")
+			save_viewport(filename);
 		glClear(GL_COLOR_BUFFER_BIT);
+		glFinish();
 	}
 };
 
-void test() {
-	contour c;
-	build_contour(c);
+void test1() {
+	vector<Vector> c;
+	ContourBuilder::build_simple(c);
+	cout << c.size() << " vertices" << endl;
 
-	glColor4f(0.f, 0.f, 1.f, 1.f);
+	glPushAttrib(GL_ALL_ATTRIB_BITS);
+	glColor4d(0.0, 0.0, 1.0, 1.0);
 
 	{
-		test_wrapper t("test_contour.tga");
+		test_wrapper t("test_1_contour.tga");
 		glBegin(GL_LINE_STRIP);
-		for(contour::const_iterator i = c.begin(); i != c.end(); ++i)
-			glVertex2f(i->first, i->second);
+		for(vector<Vector>::const_iterator i = c.begin(); i != c.end(); ++i)
+			glVertex2d(i->x, i->y);
 		glEnd();
 	}
 
 	{
-		test_wrapper t("test_contour_fill.tga");
+		test_wrapper t("test_1_contour_fill.tga");
 		draw_contour(c, false, false);
 	}
 
 	{
-		test_wrapper t("test_contour_fill_invert.tga");
+		test_wrapper t("test_1_contour_fill_invert.tga");
 		draw_contour(c, false, true);
 	}
 
 	{
-		test_wrapper t("test_contour_evenodd.tga");
+		test_wrapper t("test_1_contour_evenodd.tga");
 		draw_contour(c, true, false);
 	}
 
 	{
-		test_wrapper t("test_contour_evenodd_invert.tga");
+		test_wrapper t("test_1_contour_evenodd_invert.tga");
 		draw_contour(c, true, true);
 	}
+
+	glPopAttrib();
+}
+
+void test2() {
+	Contour c, cc;
+	ContourBuilder::build(cc);
+	cout << cc.get_chunks().size() << " commands" << endl;
+
+	Rect bounds;
+	bounds.p0 = Vector(-1.0, -1.0);
+	bounds.p1 = Vector( 1.0,  1.0);
+	Vector min_size(1.0/1024.0, 1.0/1024.0);
+
+	{
+		test_wrapper("test_2_split");
+		cc.split(c, bounds, min_size);
+	}
+
+	const Contour::ChunkList &chunks = c.get_chunks();
+	cout << chunks.size() << " vertices" << endl;
+
+	glPushAttrib(GL_ALL_ATTRIB_BITS);
+	glColor4d(0.0, 0.0, 1.0, 1.0);
+
+	{
+		test_wrapper t("test_2_contour.tga");
+		glBegin(GL_LINE_STRIP);
+		for(Contour::ChunkList::const_iterator i = chunks.begin(); i != chunks.end(); ++i)
+			glVertex2d(i->p1.x, i->p1.y);
+		glEnd();
+	}
+
+	{
+		test_wrapper t("test_2_contour_fill.tga");
+		draw_contour(c, false, false);
+	}
+
+	{
+		test_wrapper t("test_2_contour_fill_invert.tga");
+		draw_contour(c, false, true);
+	}
+
+	{
+		test_wrapper t("test_2_contour_evenodd.tga");
+		draw_contour(c, true, false);
+	}
+
+	{
+		test_wrapper t("test_2_contour_evenodd_invert.tga");
+		draw_contour(c, true, true);
+	}
+
+	glPopAttrib();
 }
 
 int main() {
@@ -298,7 +311,8 @@ int main() {
 	glViewport(0, 0, pbuffer_width, pbuffer_height);
 
 	// do something
-	test();
+	test1();
+	test2();
 
 	// deinitialization
 	glXMakeContextCurrent(display, None, None, NULL);
