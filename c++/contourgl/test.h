@@ -15,11 +15,37 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "contour.h"
+#ifndef _TEST_H_
+#define _TEST_H_
 
-class ContourBuilder {
+#include <ctime>
+#include <string>
+
+class Surface;
+
+class Test {
 public:
-	static void build_simple(std::vector<Vector> &c);
-	static void build_car(Contour &c, const Vector &o, Real s);
-	static void build(Contour &c);
+	class Wrapper {
+	private:
+		std::string filename;
+		Surface *surface;
+		clock_t t;
+
+		Wrapper(const Wrapper&): surface(), t() { }
+		Wrapper& operator= (const Wrapper&) { return *this; }
+	public:
+		Wrapper(const std::string &filename): filename(filename), surface(), t(clock()) { }
+		Wrapper(const std::string &filename, Surface &surface): filename(filename), surface(&surface), t(clock()) { }
+		~Wrapper();
+	};
+
+private:
+	class Helper;
+
+public:
+	static void test1();
+	static void test2();
+	static void test3();
 };
+
+#endif

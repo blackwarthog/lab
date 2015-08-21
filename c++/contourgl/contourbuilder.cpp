@@ -82,7 +82,7 @@ void ContourBuilder::build_simple(vector<Vector> &c) {
 	c.push_back(c.front());
 }
 
-void ContourBuilder::build_car(Contour &c, const Vector &o, double s) {
+void ContourBuilder::build_car(Contour &c, const Vector &o, Real s) {
 	c.move_to(  Vector( 5, -1)*s + o);
 	c.line_to(  Vector( 4, -1)*s + o);
 	c.conic_to( Vector( 2, -1)*s + o, Vector( 0, -1)*s);
@@ -98,22 +98,22 @@ void ContourBuilder::build_car(Contour &c, const Vector &o, double s) {
 }
 
 void ContourBuilder::build(Contour &c) {
-	double scale = 0.8/5.0;
+	Real scale = 0.8/5.0;
 
 	int count = 100;
-	double size = (double)(count + 2)/(double)(count);
-	double step = 2.0*size/(double)(count + 1);
-	double origin = step - size;
-	double s = 2*size*scale/(double)(count);
+	Real size = (Real)(count + 2)/(Real)(count);
+	Real step = 2.0*size/(Real)(count + 1);
+	Real origin = step - size;
+	Real s = 2*size*scale/(Real)(count);
 	for(int i = 0; i < count; ++i)
 		for(int j = 0; j < count; ++j)
 			build_car(c, Vector(origin + i*step, origin + j*step), s);
 
 	count = 100;
-	size = (double)(count + 2)/(double)(count);
-	step = 2.0*size/(double)(count + 1);
+	size = (Real)(count + 2)/(Real)(count);
+	step = 2.0*size/(Real)(count + 1);
 	origin = step - size;
-	s = size*scale/(double)(count);
+	s = size*scale/(Real)(count);
 	for(int i = 0; i < count; ++i)
 		for(int j = 0; j < count; ++j)
 			build_car(c, Vector(origin + i*step, origin + j*step), s);

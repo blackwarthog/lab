@@ -15,7 +15,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <assert.h>
+#include <cassert>
 
 #include "contour.h"
 
@@ -78,11 +78,6 @@ void Contour::close() {
 	}
 }
 
-void Contour::assign(const Contour &other) {
-	chunks = other.chunks;
-	first = other.first;
-}
-
 void Contour::line_split(
 	Rect &ref_line_bounds,
 	const Rect &bounds,
@@ -118,9 +113,9 @@ void Contour::conic_split(
 	const Vector &min_size,
 	const Vector &p1,
 	const Vector &center,
-	double radius,
-	double radians0,
-	double radians1,
+	Real radius,
+	Real radians0,
+	Real radians1,
 	int level )
 {
 	assert(level > 0);
@@ -131,7 +126,7 @@ void Contour::conic_split(
 	{
 		Rect b = conic_bounds(p0, p1, center, radius, radians0, radians1);
 		if (bounds.intersects(b)) {
-			double radians = 0.5*(radians0 + radians1);
+			Real radians = 0.5*(radians0 + radians1);
 			Vector p( radius*cos(radians) + center.x,
 					  radius*sin(radians) + center.y );
 			conic_split(ref_line_bounds, bounds, min_size,  p, center, radius, radians0, radians, level - 1);
@@ -196,9 +191,9 @@ void Contour::split(Contour &c, const Rect &bounds, const Vector &min_size) cons
 			{
 				const Vector &p0 = c.current();
 				Vector center;
-				double radius = 0.0;
-				double radians0 = 0.0;
-				double radians1 = 0.0;
+				Real radius = 0.0;
+				Real radians0 = 0.0;
+				Real radians1 = 0.0;
 				if (conic_convert(p0, i->p1, i->t0, center, radius, radians0, radians1))
 					c.conic_split(line_bounds, bounds, min_size, i->p1, center, radius, radians0, radians1);
 				else
@@ -222,11 +217,11 @@ bool Contour::conic_convert(
 	const Vector &p1,
 	const Vector &t,
 	Vector &out_center,
-	double &out_radius,
-	double &out_radians0,
-	double &out_radians1 )
+	Real &out_radius,
+	Real &out_radians0,
+	Real &out_radians1 )
 {
-	double tl = sqrt(t.x*t.x + t.y*t.y);
+	Real tl = sqrt(t.x*t.x + t.y*t.y);
 	if (fabs(tl) < 1e-6) {
 		out_center = Vector();
 		out_radius = 0.0;
@@ -238,7 +233,7 @@ bool Contour::conic_convert(
 	Vector d = p1 - p0;
 	Vector n(-t.y/tl, t.x/tl);
 
-	double r = 0.5*(d.x*d.x + d.y*d.y)/(d.x*n.x + d.y*n.y);
+	Real r = 0.5*(d.x*d.x + d.y*d.y)/(d.x*n.x + d.y*n.y);
 	out_center = p0 + n*r;
 	out_radius = fabs(r);
 	out_radians0 = atan2(p0.y - out_center.y, p0.x - out_center.x);
@@ -257,9 +252,9 @@ Rect Contour::conic_bounds(
 	const Vector &p0,
 	const Vector &p1,
 	const Vector &center,
-	double radius,
-	double radians0,
-	double radians1 )
+	Real radius,
+	Real radians0,
+	Real radians1 )
 {
 	radius = fabs(radius);
 
@@ -303,4 +298,58 @@ Rect Contour::cubic_bounds(
 	r.p1.x = max(max(p0.x, bezier_pp0.x), max(p1.x, bezier_pp1.x));
 	r.p1.y = max(max(p0.y, bezier_pp0.y), max(p1.y, bezier_pp1.y));
 	return r;
+}
+
+void Contour::transform(const Rect &from, const Rect &to) {
+	Vector s( (to.p1.x - to.p0.x)/(from.p1.x - from.p0.x),
+			  (to.p1.y - to.p0.y)/(from.p1.y - from.p0.y) );
+	Vector o( to.p0.x - from.p0.x*s.x,
+			  to.p0.y - from.p0.y*s.y );
+	for(Contour::ChunkList::iterator i = chunks.begin(); i != chunks.end(); ++i) {
+		i->p1 = i->p1*s + o;
+		i->t0 = i->t0*s;
+		i->t1 = i->t1*s;
+	}
+}
+
+void Contour::to_polyspan(Polyspan &polyspan) const {
+	polyspan.move_to(0.0, 0.0);
+	Vector p0;
+	for(Contour::ChunkList::const_iterator i = chunks.begin(); i != chunks.end(); ++i) {
+		switch(i->type) {
+			case Contour::CLOSE:
+				polyspan.close();
+				break;
+			case Contour::MOVE:
+				polyspan.move_to(i->p1.x, i->p1.y);
+				break;
+			case Contour::LINE:
+				polyspan.line_to(i->p1.x, i->p1.y);
+				break;
+			case Contour::CONIC: {
+					Vector center;
+					Real radius = 0.0;
+					Real radians0 = 0.0;
+					Real radians1 = 0.0;
+					if (conic_convert(p0, i->p1, i->t0, center, radius, radians0, radians1)) {
+						// TODO: fix bugs
+						Vector pp0( center.x + 2.0*radius*cos(0.5*(radians0 + radians1)),
+								    center.y + 2.0*radius*sin(0.5*(radians0 + radians1)) );
+						polyspan.conic_to(pp0.x, pp0.y, i->p1.x, i->p1.y);
+					} else {
+						polyspan.line_to(i->p1.x, i->p1.y);
+					}
+				}
+				break;
+			case Contour::CUBIC: {
+					Vector pp0, pp1;
+					cubic_convert(p0, i->p1, i->t0, i->t1, pp0, pp1);
+					polyspan.cubic_to(pp0.x, pp0.y, pp1.x, pp1.y, i->p1.x, i->p1.y);
+				}
+				break;
+			default:
+				break;
+		}
+		p0 = i->p1;
+	}
 }
