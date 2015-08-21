@@ -130,6 +130,10 @@ public:
 		glEnd();
 	}
 
+	static void draw_contour_strip(const int &count) {
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, count);
+	}
+
 	template<typename T>
 	static void draw_contour(const T &c, bool even_odd, bool invert) {
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -140,7 +144,7 @@ public:
 		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 		glStencilFunc(GL_ALWAYS, 0, 0);
 		if (even_odd) {
-			glStencilOp(GL_KEEP, GL_KEEP, GL_INCR_WRAP);
+			glStencilOp(GL_INCR_WRAP, GL_INCR_WRAP, GL_INCR_WRAP);
 		} else {
 			glStencilOpSeparate(GL_FRONT, GL_INCR_WRAP, GL_INCR_WRAP, GL_INCR_WRAP);
 			glStencilOpSeparate(GL_BACK, GL_DECR_WRAP, GL_DECR_WRAP, GL_DECR_WRAP);
@@ -250,6 +254,50 @@ void Test::test2() {
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 	glColor4d(0.0, 0.0, 1.0, 1.0);
 
+	GLuint buf_id = 0;
+	int count = 0;
+	vector<Vector> vertices;
+
+	{
+		Wrapper t("test_2_init_buffer");
+		vertices.resize(4*chunks.size());
+		glGenBuffers(1, &buf_id);
+		glBindBuffer(GL_ARRAY_BUFFER, buf_id);
+		glBufferData( GL_ARRAY_BUFFER,
+				      vertices.size()*sizeof(Vector),
+					  &vertices.front(),
+					  GL_DYNAMIC_DRAW );
+		vertices.clear();
+	}
+
+
+	{
+		Wrapper t("test_2_prepare_data");
+		for(Contour::ChunkList::const_iterator i = chunks.begin(); i != chunks.end(); ++i) {
+			if ( i->type == Contour::LINE
+			  || i->type == Contour::CLOSE)
+			{
+				vertices.push_back(i->p1);
+				vertices.push_back(Vector(-1.0, i->p1.y));
+			} else {
+				vertices.push_back(vertices.empty() ? Vector() : vertices.back());
+				vertices.push_back(vertices.back());
+				vertices.push_back(i->p1);
+				vertices.push_back(i->p1);
+			}
+		}
+		count = vertices.size();
+	}
+
+	{
+		Wrapper t("test_2_send_data");
+		glBufferData( GL_ARRAY_BUFFER,
+					  vertices.size()*sizeof(Vector),
+					  &vertices.front(),
+					  GL_DYNAMIC_DRAW );
+		glVertexPointer(2, GL_FLOAT, sizeof(Vector), 0);
+	}
+
 	{
 		Wrapper t("test_2_contour.tga");
 		glBegin(GL_LINE_STRIP);
@@ -260,22 +308,22 @@ void Test::test2() {
 
 	{
 		Wrapper t("test_2_contour_fill.tga");
-		Helper::draw_contour(c, false, false);
+		Helper::draw_contour(count, false, false);
 	}
 
 	{
 		Wrapper t("test_2_contour_fill_invert.tga");
-		Helper::draw_contour(c, false, true);
+		Helper::draw_contour(count, false, true);
 	}
 
 	{
 		Wrapper t("test_2_contour_evenodd.tga");
-		Helper::draw_contour(c, true, false);
+		Helper::draw_contour(count, true, false);
 	}
 
 	{
 		Wrapper t("test_2_contour_evenodd_invert.tga");
-		Helper::draw_contour(c, true, true);
+		Helper::draw_contour(count, true, true);
 	}
 
 	glPopAttrib();
