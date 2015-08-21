@@ -23,6 +23,9 @@
 #include "polyspan.h"
 
 
+using namespace std;
+
+
 Polyspan::Polyspan():
 	open_index(0),
 	cur_x(0.0),
@@ -83,6 +86,7 @@ void Polyspan::sort_marks() {
 		current.setcover(0, 0);
 
 		sort(covers.begin() + open_index, covers.end());
+
 		flags &= ~NotSorted;
 	}
 }
@@ -171,12 +175,12 @@ void Polyspan::line_to(Real x, Real y) {
 		  || (cur_x <  window.minx && x <  window.minx) )
 		{
 			//clip both vertices - but only needed in the x direction
-			cur_x = std::max(cur_x,	(Real)window.minx);
-			cur_x = std::min(cur_x,	(Real)window.maxx);
+			cur_x = max(cur_x,	(Real)window.minx);
+			cur_x = min(cur_x,	(Real)window.maxx);
 
 			//clip the dest values - y is already clipped
-			x = std::max(x, (Real)window.minx);
-			x = std::min(x, (Real)window.maxx);
+			x = max(x, (Real)window.minx);
+			x = min(x, (Real)window.maxx);
 
 			//must start at new point...
 			move_pen((int)floor(cur_x), (int)floor(cur_y));
@@ -257,10 +261,10 @@ void Polyspan::line_to(Real x, Real y) {
 }
 
 bool Polyspan::clip_conic(const Vector * const p, const ContextRect &r) {
-	const Real minx = std::min(std::min(p[0][0], p[1][0]), p[2][0]);
-	const Real miny = std::min(std::min(p[0][1], p[1][1]), p[2][1]);
-	const Real maxx = std::max(std::max(p[0][0], p[1][0]), p[2][0]);
-	const Real maxy = std::max(std::max(p[0][1], p[1][1]), p[2][1]);
+	const Real minx = min(min(p[0][0], p[1][0]), p[2][0]);
+	const Real miny = min(min(p[0][1], p[1][1]), p[2][1]);
+	const Real maxx = max(max(p[0][0], p[1][0]), p[2][0]);
+	const Real maxy = max(max(p[0][1], p[1][1]), p[2][1]);
 
 	return 	(minx > r.maxx) ||
 			(maxx < r.minx) ||
@@ -278,7 +282,7 @@ Real Polyspan::max_edges_conic(const Vector *const p) {
 	const Real d1 = x1*x1 + y1*y1;
 	const Real d2 = x2*x2 + y2*y2;
 
-	return std::max(d1,d2);
+	return max(d1,d2);
 }
 
 void Polyspan::subd_conic_stack(Vector *arc) {
@@ -406,7 +410,7 @@ Real Polyspan::max_edges_cubic(const Vector *const p) {
 	const Real d2 = x2*x2 + y2*y2;
 	const Real d3 = x3*x3 + y3*y3;
 
-	return std::max(std::max(d1, d2), d3);
+	return max(max(d1, d2), d3);
 }
 
 void Polyspan::subd_cubic_stack(Vector *arc) {

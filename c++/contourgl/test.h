@@ -31,13 +31,14 @@ public:
 	private:
 		std::string filename;
 		Surface *surface;
+		bool tga;
 		clock_t t;
 
-		Wrapper(const Wrapper&): surface(), t() { }
+		Wrapper(const Wrapper&): surface(), tga(), t() { }
 		Wrapper& operator= (const Wrapper&) { return *this; }
 	public:
 		Wrapper(const std::string &filename);
-		Wrapper(const std::string &filename, Surface &surface): filename(filename), surface(&surface), t(clock()) { }
+		Wrapper(const std::string &filename, Surface &surface);
 		~Wrapper();
 	};
 

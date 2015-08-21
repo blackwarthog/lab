@@ -176,16 +176,26 @@ public:
 };
 
 Test::Wrapper::Wrapper(const std::string &filename):
-	filename(filename), surface(), t(get_clock())
+	filename(filename),
+	surface(),
+	tga(filename.size() > 4 && filename.substr(filename.size()-4, 4) == ".tga"),
+	t(get_clock())
+{ }
+
+Test::Wrapper::Wrapper(const std::string &filename, Surface &surface):
+	filename(filename),
+	surface(&surface),
+	tga(filename.size() > 4 && filename.substr(filename.size()-4, 4) == ".tga"),
+	t(get_clock())
 { }
 
 Test::Wrapper::~Wrapper() {
-	if (!surface) glFinish();
+	if (!surface && tga) glFinish();
 	Real ms = 1000.0*(Real)(get_clock() - t)/(Real)(CLOCKS_PER_SEC);
 	cout << setw(8) << fixed << setprecision(3)
 	     << ms << " ms - " << filename << endl;
 
-	if (filename.size() > 4 && filename.substr(filename.size()-4, 4) == ".tga") {
+	if (tga) {
 		if (surface)
 			Helper::save_surface(*surface, filename);
 		else
@@ -206,7 +216,17 @@ void Test::test1() {
 	cout << c.size() << " vertices" << endl;
 
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
-	glColor4d(0.0, 0.0, 1.0, 1.0);
+
+	int random = (int)get_clock();
+	{
+		Wrapper t("test_1_control_timer_200000_simple_ops");
+		int j = random;
+		for(long long i = 0; i < 200000; ++i)
+			if (j > i) ++j;
+		glColor4f(j%2, j%2, j%2, j%2);
+	}
+
+	glColor4f(0.f, 0.f, 1.f, 1.f);
 
 	{
 		Wrapper t("test_1_contour.tga");
@@ -250,7 +270,7 @@ void Test::test2() {
 	Vector min_size(1.75/1024.0, 1.75/1024.0);
 
 	{
-		Wrapper("test_2_split");
+		Wrapper t("test_2_split");
 		cc.split(c, bounds, min_size);
 	}
 
@@ -319,6 +339,14 @@ void Test::test2() {
 		glEnd();
 	}
 
+	glPushAttrib(GL_ALL_ATTRIB_BITS);
+	//glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	{
+		Wrapper t("test_2_array.tga");
+		glDrawArrays(GL_POINTS, 0, count);
+	}
+	glPopAttrib();
+
 	{
 		Wrapper t("test_2_contour_fill.tga");
 		Helper::draw_contour(count, false, false);
@@ -366,7 +394,7 @@ void Test::test3() {
 	Color color(0.f, 0.f, 1.f, 1.f);
 
 	{
-		Wrapper("test_3_build_polyspan");
+		Wrapper t("test_3_build_polyspan");
 		c.to_polyspan(polyspan);
 	}
 
@@ -385,7 +413,7 @@ void Test::test3() {
 
 
 	{
-		Wrapper("test_3_polyspan_sort");
+		Wrapper t("test_3_polyspan_sort");
 		polyspan.sort_marks();
 	}
 
