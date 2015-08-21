@@ -46,41 +46,50 @@ inline bool angle_between(Real a0, Real a1, Real a, Real round) {
 	return a0 < a && a < a1;
 }
 
-class Vector {
+template<typename T>
+class vec2 {
 public:
+	typedef T type;
+
 	union {
-		struct { Real x, y; };
-		struct { Real coords[]; };
+		struct { type x, y; };
+		struct { type coords[]; };
 	};
 
-	Vector():
+	vec2():
 		x(), y() { }
-	Vector(Real x, Real y):
+	vec2(type x, type y):
 		x(x), y(y) { }
 
-	Real& operator[] (int index)
+	template<typename TT>
+	explicit vec2(const vec2<TT> &other):
+		x((type)other.x), y((type)other.y) { }
+
+	type& operator[] (int index)
 		{ return coords[index]; }
-	const Real& operator[] (int index) const
+	const type& operator[] (int index) const
 		{ return coords[index]; }
-	bool is_equal_to(const Vector &other) const
+	bool is_equal_to(const vec2 &other) const
 		{ return fabs(x - other.x) < 1e-6 && fabs(y - other.y) < 1e-6; }
 
-	Vector operator+(const Vector &a) const
-		{ return Vector(x + a.x, y + a.y); }
-	Vector operator-(const Vector &a) const
-		{ return Vector(x - a.x, y - a.y); }
-	Vector operator*(const Vector &a) const
-		{ return Vector(x*a.x, y*a.y); }
-	Vector operator/(const Vector &a) const
-		{ return Vector(x/a.x, y/a.y); }
+	vec2 operator+(const vec2 &a) const
+		{ return vec2(x + a.x, y + a.y); }
+	vec2 operator-(const vec2 &a) const
+		{ return vec2(x - a.x, y - a.y); }
+	vec2 operator*(const vec2 &a) const
+		{ return vec2(x*a.x, y*a.y); }
+	vec2 operator/(const vec2 &a) const
+		{ return vec2(x/a.x, y/a.y); }
 
-	Vector operator*(Real a) const
-		{ return Vector(x*a, y*a); }
-	Vector operator/(Real a) const
-		{ return Vector(x/a, y/a); }
+	vec2 operator*(type a) const
+		{ return vec2(x*a, y*a); }
+	vec2 operator/(type a) const
+		{ return vec2(x/a, y/a); }
 
-	static Vector zero() { return Vector(); }
+	static vec2 zero() { return vec2(); }
 };
+
+typedef vec2<Real> Vector;
 
 class Rect {
 public:

@@ -23,6 +23,8 @@
 
 class Surface;
 
+clock_t get_clock();
+
 class Test {
 public:
 	class Wrapper {
@@ -34,7 +36,7 @@ public:
 		Wrapper(const Wrapper&): surface(), t() { }
 		Wrapper& operator= (const Wrapper&) { return *this; }
 	public:
-		Wrapper(const std::string &filename): filename(filename), surface(), t(clock()) { }
+		Wrapper(const std::string &filename);
 		Wrapper(const std::string &filename, Surface &surface): filename(filename), surface(&surface), t(clock()) { }
 		~Wrapper();
 	};

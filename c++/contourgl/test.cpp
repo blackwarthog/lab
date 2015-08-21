@@ -17,6 +17,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 
 #include <GL/gl.h>
 #include <GL/glext.h>
@@ -174,10 +175,15 @@ public:
 	}
 };
 
+Test::Wrapper::Wrapper(const std::string &filename):
+	filename(filename), surface(), t(get_clock())
+{ }
+
 Test::Wrapper::~Wrapper() {
 	if (!surface) glFinish();
-	Real ms = 1000.0*(Real)(clock() - t)/(Real)(CLOCKS_PER_SEC);
-	cout << ms << " ms - " << filename << endl;
+	Real ms = 1000.0*(Real)(get_clock() - t)/(Real)(CLOCKS_PER_SEC);
+	cout << setw(8) << fixed << setprecision(3)
+	     << ms << " ms - " << filename << endl;
 
 	if (filename.size() > 4 && filename.substr(filename.size()-4, 4) == ".tga") {
 		if (surface)
@@ -241,7 +247,7 @@ void Test::test2() {
 	Rect bounds;
 	bounds.p0 = Vector(-1.0, -1.0);
 	bounds.p1 = Vector( 1.0,  1.0);
-	Vector min_size(1.0/1024.0, 1.0/1024.0);
+	Vector min_size(1.75/1024.0, 1.75/1024.0);
 
 	{
 		Wrapper("test_2_split");
@@ -256,7 +262,7 @@ void Test::test2() {
 
 	GLuint buf_id = 0;
 	int count = 0;
-	vector<Vector> vertices;
+	vector< vec2<float> > vertices;
 
 	{
 		Wrapper t("test_2_init_buffer");
@@ -264,26 +270,33 @@ void Test::test2() {
 		glGenBuffers(1, &buf_id);
 		glBindBuffer(GL_ARRAY_BUFFER, buf_id);
 		glBufferData( GL_ARRAY_BUFFER,
-				      vertices.size()*sizeof(Vector),
+				      vertices.size()*sizeof(vec2<float>),
 					  &vertices.front(),
 					  GL_DYNAMIC_DRAW );
 		vertices.clear();
-	}
+		vertices.reserve(4*chunks.size());
 
+		glEnableClientState(GL_VERTEX_ARRAY);
+		glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+		glClear(GL_COLOR_BUFFER_BIT);
+		glFinish();
+	}
 
 	{
 		Wrapper t("test_2_prepare_data");
+		vertices.push_back(vec2<float>());
+		vertices.push_back(vec2<float>());
 		for(Contour::ChunkList::const_iterator i = chunks.begin(); i != chunks.end(); ++i) {
 			if ( i->type == Contour::LINE
 			  || i->type == Contour::CLOSE)
 			{
-				vertices.push_back(i->p1);
-				vertices.push_back(Vector(-1.0, i->p1.y));
+				vertices.push_back(vec2<float>(i->p1));
+				vertices.push_back(vec2<float>(-1.f, (float)i->p1.y));
 			} else {
-				vertices.push_back(vertices.empty() ? Vector() : vertices.back());
 				vertices.push_back(vertices.back());
-				vertices.push_back(i->p1);
-				vertices.push_back(i->p1);
+				vertices.push_back(vertices.back());
+				vertices.push_back(vec2<float>(i->p1));
+				vertices.push_back(vertices.back());
 			}
 		}
 		count = vertices.size();
@@ -291,11 +304,11 @@ void Test::test2() {
 
 	{
 		Wrapper t("test_2_send_data");
-		glBufferData( GL_ARRAY_BUFFER,
-					  vertices.size()*sizeof(Vector),
-					  &vertices.front(),
-					  GL_DYNAMIC_DRAW );
-		glVertexPointer(2, GL_FLOAT, sizeof(Vector), 0);
+		glBufferSubData( GL_ARRAY_BUFFER,
+						 0,
+					     vertices.size()*sizeof(vec2<float>),
+					     &vertices.front() );
+		glVertexPointer(2, GL_FLOAT, sizeof(vec2<float>), 0);
 	}
 
 	{
@@ -326,6 +339,8 @@ void Test::test2() {
 		Helper::draw_contour(count, true, true);
 	}
 
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glDeleteBuffers(1, &buf_id);
 	glPopAttrib();
 }

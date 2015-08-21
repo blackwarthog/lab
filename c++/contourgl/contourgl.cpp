@@ -15,13 +15,11 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cmath>
+#include <ctime>
 #include <cassert>
 
-#include <fstream>
 #include <iostream>
-#include <vector>
-#include <map>
+#include <iomanip>
 
 #include <GL/gl.h>
 #include <GL/glext.h>
@@ -37,6 +35,10 @@ typedef GLXContext (*GLXCREATECONTEXTATTRIBSARBPROC)(Display*, GLXFBConfig, GLXC
 
 using namespace std;
 
+
+clock_t get_clock() {
+	return clock();
+}
 
 int main() {
 	// open display (we will use default display and screen 0)
