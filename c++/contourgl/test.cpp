@@ -326,6 +326,7 @@ void Test::test2() {
 		Helper::draw_contour(count, true, true);
 	}
 
+	glDeleteBuffers(1, &buf_id);
 	glPopAttrib();
 }
 
