@@ -15,42 +15,33 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _TEST_H_
-#define _TEST_H_
+#include <GL/gl.h>
+#include <GL/glext.h>
+#include <GL/glx.h>
 
-#include <ctime>
-#include <string>
+#include "rendersw.h"
 
-class Surface;
-
-clock_t get_clock();
-
-class Test {
-public:
-	class Wrapper {
-	private:
-		std::string filename;
-		Surface *surface;
-		bool tga;
-		clock_t t;
-
-		Wrapper(const Wrapper&): surface(), tga(), t() { }
-		Wrapper& operator= (const Wrapper&) { return *this; }
-	public:
-		Wrapper(const std::string &filename);
-		Wrapper(const std::string &filename, Surface &surface);
-		~Wrapper();
-	};
-
+class Shaders {
 private:
-	class Helper;
+	GLuint simple_vertex_id;
+	GLuint simpleProgramId;
+
+	GLuint color_fragment_id;
+	GLuint colorProgramId;
+	GLint colorUniform;
+
+	Shaders();
+	~Shaders();
+
+	static Shaders *instance;
+
+	void check_shader(GLuint id, const char *src);
+	void check_program(GLuint id, const char *name);
 
 public:
-	static void check_gl(const std::string &s = std::string());
+	static void initialize();
+	static void deinitialize();
 
-	static void test1();
-	static void test2();
-	static void test3();
+	static void simple();
+	static void color(const Color &c);
 };
-
-#endif

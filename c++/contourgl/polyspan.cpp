@@ -81,7 +81,7 @@ void Polyspan::merge_all() {
 // will sort the marks if they are not sorted
 void Polyspan::sort_marks() {
 	if (flags & NotSorted) {
-		//only sort the open index
+		// only sort the open index
 		addcurrent();
 		current.setcover(0, 0);
 

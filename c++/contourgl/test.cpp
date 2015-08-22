@@ -15,6 +15,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cassert>
+
 #include <fstream>
 #include <iostream>
 #include <iomanip>
@@ -28,6 +30,7 @@
 #include "contour.h"
 #include "rendersw.h"
 #include "contourbuilder.h"
+#include "shaders.h"
 
 
 using namespace std;
@@ -132,12 +135,11 @@ public:
 	}
 
 	static void draw_contour_strip(const int &count) {
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, count);
+		glDrawArrays(GL_TRIANGLE_STRIP, 4, count);
 	}
 
 	template<typename T>
 	static void draw_contour(const T &c, bool even_odd, bool invert) {
-		glPushAttrib(GL_ALL_ATTRIB_BITS);
 		glEnable(GL_STENCIL_TEST);
 
 		// render mask
@@ -150,6 +152,7 @@ public:
 			glStencilOpSeparate(GL_FRONT, GL_INCR_WRAP, GL_INCR_WRAP, GL_INCR_WRAP);
 			glStencilOpSeparate(GL_BACK, GL_DECR_WRAP, GL_DECR_WRAP, GL_DECR_WRAP);
 		}
+		Shaders::simple();
 		draw_contour_strip(c);
 
 		// fill mask
@@ -164,14 +167,10 @@ public:
 		if ( even_odd &&  invert)
 			glStencilFunc(GL_EQUAL, 0, 1);
 
-		glBegin(GL_TRIANGLE_STRIP);
-		glVertex2d(-1.0, -1.0);
-		glVertex2d( 1.0, -1.0);
-		glVertex2d(-1.0,  1.0);
-		glVertex2d( 1.0,  1.0);
-		glEnd();
+		Shaders::color(Color(0.f, 0.f, 1.f, 1.f));
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-		glPopAttrib();
+		glDisable(GL_STENCIL_TEST);
 	}
 };
 
@@ -210,7 +209,16 @@ Test::Wrapper::~Wrapper() {
 	}
 }
 
+void Test::check_gl(const std::string &s) {
+	GLenum error = glGetError();
+	if (error) {
+		cout << s << " GL error: 0x" << setbase(16) << error << setbase(10) << endl;
+	}
+}
+
 void Test::test1() {
+	// OpenGl 2 code
+
 	vector<Vector> c;
 	ContourBuilder::build_simple(c);
 	cout << c.size() << " vertices" << endl;
@@ -277,33 +285,41 @@ void Test::test2() {
 	const Contour::ChunkList &chunks = c.get_chunks();
 	cout << chunks.size() << " vertices" << endl;
 
-	glPushAttrib(GL_ALL_ATTRIB_BITS);
-	glColor4d(0.0, 0.0, 1.0, 1.0);
-
-	GLuint buf_id = 0;
+	GLuint buffer_id = 0;
+	GLuint array_id = 0;
 	int count = 0;
 	vector< vec2<float> > vertices;
 
 	{
 		Wrapper t("test_2_init_buffer");
-		vertices.resize(4*chunks.size());
-		glGenBuffers(1, &buf_id);
-		glBindBuffer(GL_ARRAY_BUFFER, buf_id);
+		vertices.resize(4+4*chunks.size());
+		glGenBuffers(1, &buffer_id);
+		glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
 		glBufferData( GL_ARRAY_BUFFER,
 				      vertices.size()*sizeof(vec2<float>),
 					  &vertices.front(),
 					  GL_DYNAMIC_DRAW );
 		vertices.clear();
-		vertices.reserve(4*chunks.size());
+		vertices.reserve(4+4*chunks.size());
 
-		glEnableClientState(GL_VERTEX_ARRAY);
-		glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+		glGenVertexArrays(1, &array_id);
+		glBindVertexArray(array_id);
+
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_TRUE, 0, NULL);
+		Shaders::color(Color(0.f, 0.f, 1.f, 1.f));
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, vertices.size());
+		glFinish();
 		glClear(GL_COLOR_BUFFER_BIT);
 		glFinish();
 	}
 
 	{
 		Wrapper t("test_2_prepare_data");
+		vertices.push_back(vec2<float>(bounds.p0.x, bounds.p0.y));
+		vertices.push_back(vec2<float>(bounds.p0.x, bounds.p1.y));
+		vertices.push_back(vec2<float>(bounds.p1.x, bounds.p0.y));
+		vertices.push_back(vec2<float>(bounds.p1.x, bounds.p1.y));
 		vertices.push_back(vec2<float>());
 		vertices.push_back(vec2<float>());
 		for(Contour::ChunkList::const_iterator i = chunks.begin(); i != chunks.end(); ++i) {
@@ -319,33 +335,29 @@ void Test::test2() {
 				vertices.push_back(vertices.back());
 			}
 		}
-		count = vertices.size();
+		count = vertices.size() - 4;
 	}
 
 	{
 		Wrapper t("test_2_send_data");
 		glBufferSubData( GL_ARRAY_BUFFER,
 						 0,
-					     vertices.size()*sizeof(vec2<float>),
+					     vertices.size()*sizeof(vertices.front()),
 					     &vertices.front() );
-		glVertexPointer(2, GL_FLOAT, sizeof(vec2<float>), 0);
 	}
+
 
 	{
-		Wrapper t("test_2_contour.tga");
-		glBegin(GL_LINE_STRIP);
-		for(Contour::ChunkList::const_iterator i = chunks.begin(); i != chunks.end(); ++i)
-			glVertex2d(i->p1.x, i->p1.y);
-		glEnd();
+		Wrapper t("test_2_simple_fill.tga");
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	}
 
-	glPushAttrib(GL_ALL_ATTRIB_BITS);
-	//glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 	{
 		Wrapper t("test_2_array.tga");
-		glDrawArrays(GL_POINTS, 0, count);
+		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+		glDrawArrays(GL_TRIANGLE_STRIP, 4, count);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	}
-	glPopAttrib();
 
 	{
 		Wrapper t("test_2_contour_fill.tga");
@@ -367,10 +379,8 @@ void Test::test2() {
 		Helper::draw_contour(count, true, true);
 	}
 
-	glDisableClientState(GL_VERTEX_ARRAY);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glDeleteBuffers(1, &buf_id);
-	glPopAttrib();
+	glDeleteBuffers(1, &buffer_id);
 }
 
 void Test::test3() {

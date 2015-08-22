@@ -53,7 +53,7 @@ public:
 
 	union {
 		struct { type x, y; };
-		struct { type coords[]; };
+		struct { type coords[2]; };
 	};
 
 	vec2():

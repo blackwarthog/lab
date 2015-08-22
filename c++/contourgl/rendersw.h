@@ -25,7 +25,11 @@
 class Color {
 public:
 	typedef float type;
-	type r, g, b, a;
+	union {
+		struct { type r, g, b, a; };
+		struct { type channels[4]; };
+	};
+
 	Color(): r(), g(), b(), a() { }
 	Color(type r, type g, type b, type a): r(r), g(g), b(b), a(a) { }
 	Color(const Color &color, type a): r(color.r), g(color.g), b(color.b), a(color.a*a) { }

@@ -26,6 +26,7 @@
 #include <GL/glx.h>
 
 #include "test.h"
+#include "shaders.h"
 
 
 #define GLX_CONTEXT_MAJOR_VERSION_ARB 0x2091
@@ -78,8 +79,8 @@ int main() {
 
 	// create context
 	int context_attribs[] = {
-		GLX_CONTEXT_MAJOR_VERSION_ARB, 2,
-		GLX_CONTEXT_MINOR_VERSION_ARB, 1,
+		GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
+		GLX_CONTEXT_MINOR_VERSION_ARB, 3,
 		None };
 	GLXCREATECONTEXTATTRIBSARBPROC glXCreateContextAttribsARB = (GLXCREATECONTEXTATTRIBSARBPROC) glXGetProcAddress((const GLubyte*)"glXCreateContextAttribsARB");
 	GLXContext context = glXCreateContextAttribsARB(display, config, NULL, True, context_attribs);
@@ -91,10 +92,14 @@ int main() {
 	// set view port
 	glViewport(0, 0, pbuffer_width, pbuffer_height);
 
+	Shaders::initialize();
+
 	// do something
-	Test::test1();
+	//Test::test1();
 	Test::test2();
 	Test::test3();
+
+	Shaders::deinitialize();
 
 	// deinitialization
 	glXMakeContextCurrent(display, None, None, NULL);
