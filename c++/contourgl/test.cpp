@@ -81,10 +81,24 @@ public:
 
 	static void save_viewport(const string &filename) {
 		glFinish();
-		int vp[4] = {};
+
+		GLint  vp[4] = {};
 		glGetIntegerv(GL_VIEWPORT, vp);
+
+		GLint draw_buffer = 0, read_buffer = 0;
+		glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_buffer);
+		glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_buffer);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)read_buffer);
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)draw_buffer);
+		glBlitFramebuffer(vp[0], vp[1], vp[2], vp[3], vp[0], vp[1], vp[2], vp[3], GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		glFinish();
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)draw_buffer);
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)read_buffer);
+
 		char *buffer = new char[vp[2]*vp[3]*4];
 		glReadPixels(vp[0], vp[1], vp[2], vp[3], GL_BGRA, GL_UNSIGNED_BYTE, buffer);
+
+
 		save_rgba(buffer, vp[2], vp[3], false, filename);
 		delete buffer;
 	}
@@ -201,7 +215,7 @@ Test::Wrapper::~Wrapper() {
 	if (!surface && tga) glFinish();
 	Real ms = 1000.0*(Real)(get_clock() - t)/(Real)(CLOCKS_PER_SEC);
 	cout << setw(8) << fixed << setprecision(3)
-	     << ms << " ms - " << filename << endl;
+	     << ms << " ms - " << filename << flush << endl;
 
 	if (tga) {
 		if (surface)
@@ -318,6 +332,7 @@ void Test::test2() {
 
 		glEnableVertexAttribArray(0);
 		glVertexAttribPointer(0, 2, GL_FLOAT, GL_TRUE, 0, NULL);
+
 		Shaders::color(Color(0.f, 0.f, 1.f, 1.f));
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, vertices.size());
 		glFinish();
@@ -356,7 +371,6 @@ void Test::test2() {
 					     vertices.size()*sizeof(vertices.front()),
 					     &vertices.front() );
 	}
-
 
 	{
 		Wrapper t("test_2_simple_fill.tga");

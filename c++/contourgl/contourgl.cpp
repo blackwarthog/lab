@@ -90,29 +90,44 @@ int main() {
 	glXMakeContextCurrent(display, pbuffer, pbuffer, context);
 
 	// frame buffer
-	int framebuffer_width = 2048;
-	int framebuffer_height = 2048;
+	int framebuffer_width = 512;
+	int framebuffer_height = 512;
+
+	GLuint multisample_texture_id = 0;
+	glGenTextures(1, &multisample_texture_id);
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisample_texture_id);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA16F, framebuffer_width, framebuffer_height, GL_TRUE);
+
+	GLuint multisample_renderbuffer_id = 0;
+	glGenRenderbuffers(1, &multisample_renderbuffer_id);
+	glBindRenderbuffer(GL_RENDERBUFFER, multisample_renderbuffer_id);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_STENCIL_INDEX8, framebuffer_width, framebuffer_height);
+
+	GLuint multisample_framebuffer_id = 0;
+	glGenFramebuffers(1, &multisample_framebuffer_id);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisample_framebuffer_id);
+	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, multisample_framebuffer_id);
+	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisample_texture_id, 0);
 
 	GLuint texture_id = 0;
 	glGenTextures(1, &texture_id);
 	glBindTexture(GL_TEXTURE_2D, texture_id);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, framebuffer_width, framebuffer_height, 0, GL_RGBA, GL_FLOAT, NULL);
 
-	GLuint renderbuffer_id = 0;
-	glGenRenderbuffers(1, &renderbuffer_id);
-	glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer_id);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, framebuffer_width, framebuffer_height);
-
 	GLuint framebuffer_id = 0;
 	glGenFramebuffers(1, &framebuffer_id);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer_id);
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer_id);
-	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, framebuffer_id);
-	glFramebufferTexture(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_id, 0);
-	glFramebufferTexture(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_id, 0);
+	glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_id, 0);
+
+	cout << "Framebuffer status:" << setbase(16)
+		 << " 0x" << glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER)
+		 << " 0x" << glCheckFramebufferStatus(GL_READ_FRAMEBUFFER)
+		 << setbase(10) << endl;
 
 	// set view port
 	glViewport(0, 0, framebuffer_width, framebuffer_height);
+
+	glEnable(GL_MULTISAMPLE);
 
 	Shaders::initialize();
 
@@ -124,15 +139,20 @@ int main() {
 	Shaders::deinitialize();
 
 	// deinitialization
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	glDeleteFramebuffers(1, &framebuffer_id);
 
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	glDeleteRenderbuffers(1, &renderbuffer_id);
-
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glDeleteTextures(1, &texture_id);
+
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glDeleteFramebuffers(1, &multisample_framebuffer_id);
+
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glDeleteRenderbuffers(1, &multisample_renderbuffer_id);
+
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+	glDeleteTextures(1, &multisample_texture_id);
 
 	glXMakeContextCurrent(display, None, None, NULL);
 	glXDestroyContext(display, context);
