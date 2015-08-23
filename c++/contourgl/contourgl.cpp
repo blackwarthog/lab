@@ -96,12 +96,12 @@ int main() {
 	GLuint multisample_texture_id = 0;
 	glGenTextures(1, &multisample_texture_id);
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisample_texture_id);
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA16F, framebuffer_width, framebuffer_height, GL_TRUE);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 16, GL_RGBA16F, framebuffer_width, framebuffer_height, GL_TRUE);
 
 	GLuint multisample_renderbuffer_id = 0;
 	glGenRenderbuffers(1, &multisample_renderbuffer_id);
 	glBindRenderbuffer(GL_RENDERBUFFER, multisample_renderbuffer_id);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_STENCIL_INDEX8, framebuffer_width, framebuffer_height);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 16, GL_STENCIL_INDEX8, framebuffer_width, framebuffer_height);
 
 	GLuint multisample_framebuffer_id = 0;
 	glGenFramebuffers(1, &multisample_framebuffer_id);
