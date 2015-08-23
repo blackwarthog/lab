@@ -68,8 +68,8 @@ int main() {
 	assert(config);
 
 	// create pbuffer
-	int pbuffer_width = 1024;
-	int pbuffer_height = 1024;
+	int pbuffer_width = 256;
+	int pbuffer_height = 256;
 	int pbuffer_attribs[] = {
 		GLX_PBUFFER_WIDTH, pbuffer_width,
 		GLX_PBUFFER_HEIGHT, pbuffer_height,
@@ -89,8 +89,30 @@ int main() {
 	// make context current
 	glXMakeContextCurrent(display, pbuffer, pbuffer, context);
 
+	// frame buffer
+	int framebuffer_width = 1024;
+	int framebuffer_height = 1024;
+
+	GLuint texture_id = 0;
+	glGenTextures(1, &texture_id);
+	glBindTexture(GL_TEXTURE_2D, texture_id);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, framebuffer_width, framebuffer_height, 0, GL_RGBA, GL_FLOAT, NULL);
+
+	GLuint renderbuffer_id = 0;
+	glGenRenderbuffers(1, &renderbuffer_id);
+	glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer_id);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, framebuffer_width, framebuffer_height);
+
+	GLuint framebuffer_id = 0;
+	glGenFramebuffers(1, &framebuffer_id);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer_id);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer_id);
+	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, framebuffer_id);
+	glFramebufferTexture(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_id, 0);
+	glFramebufferTexture(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_id, 0);
+
 	// set view port
-	glViewport(0, 0, pbuffer_width, pbuffer_height);
+	glViewport(0, 0, framebuffer_width, framebuffer_height);
 
 	Shaders::initialize();
 
@@ -102,6 +124,16 @@ int main() {
 	Shaders::deinitialize();
 
 	// deinitialization
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glDeleteFramebuffers(1, &framebuffer_id);
+
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	glDeleteRenderbuffers(1, &renderbuffer_id);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glDeleteTextures(1, &texture_id);
+
 	glXMakeContextCurrent(display, None, None, NULL);
 	glXDestroyContext(display, context);
 	glXDestroyPbuffer(display, pbuffer);
