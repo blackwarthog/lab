@@ -90,8 +90,8 @@ int main() {
 	glXMakeContextCurrent(display, pbuffer, pbuffer, context);
 
 	// frame buffer
-	int framebuffer_width = 1024;
-	int framebuffer_height = 1024;
+	int framebuffer_width = 2048;
+	int framebuffer_height = 2048;
 
 	GLuint texture_id = 0;
 	glGenTextures(1, &texture_id);

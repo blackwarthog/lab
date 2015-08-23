@@ -143,8 +143,10 @@ public:
 		glEnable(GL_STENCIL_TEST);
 
 		// render mask
+		GLint draw_buffer;
+		glGetIntegerv(GL_DRAW_BUFFER, &draw_buffer);
+		glDrawBuffer(GL_NONE);
 		glClear(GL_STENCIL_BUFFER_BIT);
-		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 		glStencilFunc(GL_ALWAYS, 0, 0);
 		if (even_odd) {
 			glStencilOp(GL_INCR_WRAP, GL_INCR_WRAP, GL_INCR_WRAP);
@@ -154,9 +156,9 @@ public:
 		}
 		Shaders::simple();
 		draw_contour_strip(c);
+		glDrawBuffer((GLenum)draw_buffer);
 
 		// fill mask
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 		if (!even_odd && !invert)
 			glStencilFunc(GL_NOTEQUAL, 0, -1);
@@ -172,6 +174,13 @@ public:
 
 		glDisable(GL_STENCIL_TEST);
 	}
+
+	static Vector get_frame_size() {
+		int vp[4] = {};
+		glGetIntegerv(GL_VIEWPORT, vp);
+		return Vector((Real)vp[2], (Real)vp[3]);
+	}
+
 };
 
 Test::Wrapper::Wrapper(const std::string &filename):
@@ -272,10 +281,12 @@ void Test::test2() {
 	ContourBuilder::build(cc);
 	cout << cc.get_chunks().size() << " commands" << endl;
 
+	Vector frame_size = Helper::get_frame_size();
+
 	Rect bounds;
 	bounds.p0 = Vector(-1.0, -1.0);
 	bounds.p1 = Vector( 1.0,  1.0);
-	Vector min_size(1.75/1024.0, 1.75/1024.0);
+	Vector min_size(1.75/frame_size.x, 1.75/frame_size.y);
 
 	{
 		Wrapper t("test_2_split");
@@ -388,19 +399,23 @@ void Test::test3() {
 	ContourBuilder::build(c);
 	cout << c.get_chunks().size() << " commands" << endl;
 
+	Vector frame_size = Helper::get_frame_size();
+	int width = (int)frame_size.x;
+	int height = (int)frame_size.y;
+
 	Rect bounds;
 	bounds.p0 = Vector(-1.0, -1.0);
 	bounds.p1 = Vector( 1.0,  1.0);
 	Rect pixel_bounds;
-	pixel_bounds.p0 = Vector(   0.0,    0.0);
-	pixel_bounds.p1 = Vector(1024.0, 1024.0);
+	pixel_bounds.p0 = Vector::zero();
+	pixel_bounds.p1 = frame_size;
 
 	c.transform(bounds, pixel_bounds);
 
 	Polyspan polyspan;
-	polyspan.init(0, 0, 1024, 1024);
+	polyspan.init(0, 0, width, height);
 
-	Surface surface(1024, 1024);
+	Surface surface(width, height);
 	Color color(0.f, 0.f, 1.f, 1.f);
 
 	{
