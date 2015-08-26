@@ -21,6 +21,9 @@
 #include <ctime>
 #include <string>
 
+#include "contour.h"
+#include "rendersw.h"
+
 class Surface;
 
 clock_t get_clock();
@@ -42,15 +45,28 @@ public:
 		~Wrapper();
 	};
 
+	struct ContourInfo {
+		bool invert;
+		bool antialias;
+		bool evenodd;
+		Color color;
+		Contour contour;
+		ContourInfo(): invert(), antialias(), evenodd() { }
+	};
+
 private:
 	class Helper;
 
 public:
 	static void check_gl(const std::string &s = std::string());
 
+	static void load(std::vector<ContourInfo> &contours, const std::string &filename);
+
 	static void test1();
 	static void test2();
 	static void test3();
+
+	static void test4();
 };
 
 #endif

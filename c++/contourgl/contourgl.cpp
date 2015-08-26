@@ -92,21 +92,23 @@ int main() {
 	// frame buffer
 	int framebuffer_width = 512;
 	int framebuffer_height = 512;
+	int framebuffer_samples = 16;
+	bool antialising = true;
 
 	GLuint multisample_texture_id = 0;
 	glGenTextures(1, &multisample_texture_id);
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisample_texture_id);
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 16, GL_RGBA16F, framebuffer_width, framebuffer_height, GL_TRUE);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, framebuffer_samples, GL_RGBA16F, framebuffer_width, framebuffer_height, GL_TRUE);
 
 	GLuint multisample_renderbuffer_id = 0;
 	glGenRenderbuffers(1, &multisample_renderbuffer_id);
 	glBindRenderbuffer(GL_RENDERBUFFER, multisample_renderbuffer_id);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 16, GL_STENCIL_INDEX8, framebuffer_width, framebuffer_height);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, framebuffer_samples, GL_STENCIL_INDEX8, framebuffer_width, framebuffer_height);
 
 	GLuint multisample_framebuffer_id = 0;
 	glGenFramebuffers(1, &multisample_framebuffer_id);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisample_framebuffer_id);
-	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, multisample_framebuffer_id);
+	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, multisample_renderbuffer_id);
 	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisample_texture_id, 0);
 
 	GLuint texture_id = 0;
@@ -114,9 +116,15 @@ int main() {
 	glBindTexture(GL_TEXTURE_2D, texture_id);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, framebuffer_width, framebuffer_height, 0, GL_RGBA, GL_FLOAT, NULL);
 
+	GLuint renderbuffer_id = 0;
+	glGenRenderbuffers(1, &renderbuffer_id);
+	glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer_id);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, framebuffer_width, framebuffer_height);
+
 	GLuint framebuffer_id = 0;
 	glGenFramebuffers(1, &framebuffer_id);
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer_id);
+	glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, renderbuffer_id);
 	glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_id, 0);
 
 	cout << "Framebuffer status:" << setbase(16)
@@ -127,14 +135,18 @@ int main() {
 	// set view port
 	glViewport(0, 0, framebuffer_width, framebuffer_height);
 
-	glEnable(GL_MULTISAMPLE);
+	if (antialising)
+		glEnable(GL_MULTISAMPLE);
+	else
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer_id);
 
 	Shaders::initialize();
 
 	// do something
 	//Test::test1();
-	Test::test2();
-	Test::test3();
+	//Test::test2();
+	//Test::test3();
+	Test::test4();
 
 	Shaders::deinitialize();
 

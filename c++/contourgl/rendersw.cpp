@@ -63,10 +63,10 @@ void RenderSW::row_alpha(
 	int length )
 {
 	for(Color *i = &target[top][left], *end = i + length; i < end; ++i) {
-		i->r = color.r;
-		i->g = color.g;
-		i->b = color.b;
-		i->a = min(1.f, i->a + alpha);
+		i->r = i->r*(1.f - alpha) + color.r*alpha;
+		i->g = i->g*(1.f - alpha) + color.g*alpha;
+		i->b = i->b*(1.f - alpha) + color.b*alpha;
+		i->a = i->a*(1.f - alpha) + color.a*alpha;
 	}
 }
 
@@ -131,11 +131,12 @@ void RenderSW::polyspan(
 			alpha = polyspan.extract_alpha(cover - area, evenodd);
 			if (invert) alpha = 1 - alpha;
 			if (alpha) {
+				Color::type a = (Color::type)alpha;
 				Color &c = target[y][x];
-				c.r = color.r;
-				c.g = color.g;
-				c.b = color.b;
-				c.a = min(1.f, c.a + (Color::type)alpha);
+				c.r = c.r*(1.f - a) + color.r*a;
+				c.g = c.g*(1.f - a) + color.g*a;
+				c.b = c.b*(1.f - a) + color.b*a;
+				c.a = c.a*(1.f - a) + color.a*a;
 			}
 			++x;
 		}
