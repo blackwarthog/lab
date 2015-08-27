@@ -31,6 +31,7 @@
 #include "rendersw.h"
 #include "contourbuilder.h"
 #include "shaders.h"
+#include "triangulator.h"
 
 
 using namespace std;
@@ -621,6 +622,8 @@ void Test::test4() {
 			commands_count += i->contour.get_chunks().size();
 		}
 
+		// gl_stencil
+
 		GLuint buffer_id = 0;
 		GLuint array_id = 0;
 		vector< vec2<float> > vertices;
@@ -653,7 +656,7 @@ void Test::test4() {
 		}
 
 		{
-			Wrapper t("test_4_gl_prepare_data");
+			Wrapper t("test_4_gl_stencil_prepare_data");
 			vertices.push_back(vec2<float>(bounds_gl.p0.x, bounds_gl.p0.y));
 			vertices.push_back(vec2<float>(bounds_gl.p0.x, bounds_gl.p1.y));
 			vertices.push_back(vec2<float>(bounds_gl.p1.x, bounds_gl.p0.y));
@@ -681,7 +684,7 @@ void Test::test4() {
 		}
 
 		{
-			Wrapper t("test_4_gl_send_data");
+			Wrapper t("test_4_gl_stencil_send_data");
 			glBufferSubData( GL_ARRAY_BUFFER,
 							 0,
 						     vertices.size()*sizeof(vertices.front()),
@@ -689,7 +692,12 @@ void Test::test4() {
 		}
 
 		{
-			Wrapper t("test_4_gl_render.tga");
+			Wrapper t("test_4_gl_stencil_points.tga");
+			glDrawArrays(GL_POINTS, 0, vertices.size());
+		}
+
+		{
+			Wrapper t("test_4_gl_stencil_render.tga");
 			for(int i = 0; i < (int)contours_gl.size(); ++i) {
 				Helper::draw_contour(
 					starts[i],
@@ -699,6 +707,70 @@ void Test::test4() {
 					contours_gl[i].color );
 			}
 			// glDrawArrays(GL_POINTS, 0, vertices.size());
+		}
+
+		// gl_triangles
+
+		GLuint index_buffer_id = 0;
+		vector<int> triangle_starts(contours_gl.size());
+		vector<int> triangle_counts(contours_gl.size());
+		vector<int> triangles;
+		vertices.clear();
+		vertices.reserve(commands_count);
+
+		{
+			Wrapper t("test_4_gl_init_index_buffer");
+			triangles.resize(3*commands_count);
+			glGenBuffers(1, &index_buffer_id);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
+			glBufferData( GL_ELEMENT_ARRAY_BUFFER,
+						  triangles.size()*sizeof(triangles.front()),
+						  &triangles.front(),
+						  GL_DYNAMIC_DRAW );
+			triangles.clear();
+			triangles.reserve(3*commands_count);
+		}
+
+		{
+			Wrapper t("test_4_gl_triangulate");
+			int index_offset = 4;
+			for(int i = 0; i < (int)contours_gl.size(); ++i) {
+				triangle_starts[i] = (int)triangles.size();
+				Triangulator::triangulate(contours_gl[i].contour, triangles, index_offset);
+				triangle_counts[i] = (int)triangles.size() - triangle_starts[i];
+				index_offset += (int)contours_gl[i].contour.get_chunks().size();
+			}
+		}
+
+		cout << triangles.size() << " triangles" << endl;
+
+		{
+			Wrapper t("test_4_gl_triangles_prepare_vertices");
+			for(int i = 0; i < (int)contours_gl.size(); ++i) {
+				const Contour::ChunkList &chunks = contours_gl[i].contour.get_chunks();
+				for(Contour::ChunkList::const_iterator j = chunks.begin(); j != chunks.end(); ++j)
+					vertices.push_back(vec2<float>(j->p1));
+			}
+		}
+
+		{
+			Wrapper t("test_4_gl_triangles_send_data");
+			glBufferSubData( GL_ARRAY_BUFFER,
+							 4*sizeof(vertices.front()),
+						     vertices.size()*sizeof(vertices.front()),
+						     &vertices.front() );
+			glBufferSubData( GL_ELEMENT_ARRAY_BUFFER,
+							 0,
+						     triangles.size()*sizeof(triangles.front()),
+						     &triangles.front() );
+		}
+
+		{
+			Wrapper t("test_4_gl_triangles_render.tga");
+			for(int i = 0; i < (int)contours_gl.size(); ++i) {
+				Shaders::color(contours_gl[i].color);
+				glDrawElements(GL_TRIANGLES, triangle_counts[i], GL_UNSIGNED_INT, (char*)NULL + triangle_starts[i]*sizeof(int));
+			}
 		}
 	}
 

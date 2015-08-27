@@ -86,6 +86,9 @@ public:
 	vec2 operator/(type a) const
 		{ return vec2(x/a, y/a); }
 
+	type dot(const vec2 &a) const
+		{ return x*a.x + y*a.y; }
+
 	static vec2 zero() { return vec2(); }
 };
 
