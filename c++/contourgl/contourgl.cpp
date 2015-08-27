@@ -25,6 +25,7 @@
 #include <GL/glext.h>
 #include <GL/glx.h>
 
+#include "clcontext.h"
 #include "test.h"
 #include "shaders.h"
 
@@ -93,12 +94,16 @@ int main() {
 	int framebuffer_width = 512;
 	int framebuffer_height = 512;
 	int framebuffer_samples = 16;
-	bool antialising = true;
+	bool antialising = false;
+	bool hdr = false;
+
+	GLenum internal_format = hdr ? GL_RGBA16F : GL_RGBA;
+	GLenum color_type = hdr ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
 	GLuint multisample_texture_id = 0;
 	glGenTextures(1, &multisample_texture_id);
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisample_texture_id);
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, framebuffer_samples, GL_RGBA16F, framebuffer_width, framebuffer_height, GL_TRUE);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, framebuffer_samples, internal_format, framebuffer_width, framebuffer_height, GL_TRUE);
 
 	GLuint multisample_renderbuffer_id = 0;
 	glGenRenderbuffers(1, &multisample_renderbuffer_id);
@@ -114,7 +119,7 @@ int main() {
 	GLuint texture_id = 0;
 	glGenTextures(1, &texture_id);
 	glBindTexture(GL_TEXTURE_2D, texture_id);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, framebuffer_width, framebuffer_height, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, internal_format, framebuffer_width, framebuffer_height, 0, GL_RGBA, color_type, NULL);
 
 	GLuint renderbuffer_id = 0;
 	glGenRenderbuffers(1, &renderbuffer_id);
@@ -146,7 +151,9 @@ int main() {
 	//Test::test1();
 	//Test::test2();
 	//Test::test3();
-	Test::test4();
+	//Test::test4();
+
+	ClContext().hello();
 
 	Shaders::deinitialize();
 
