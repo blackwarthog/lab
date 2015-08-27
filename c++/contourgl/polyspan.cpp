@@ -260,7 +260,7 @@ void Polyspan::line_to(Real x, Real y) {
 	flags |= NotClosed | NotSorted;
 }
 
-bool Polyspan::clip_conic(const Vector * const p, const ContextRect &r) {
+bool Polyspan::clip_conic(const Vector *p, const ContextRect &r) {
 	const Real minx = min(min(p[0][0], p[1][0]), p[2][0]);
 	const Real miny = min(min(p[0][1], p[1][1]), p[2][1]);
 	const Real maxx = max(max(p[0][0], p[1][0]), p[2][0]);
@@ -272,7 +272,7 @@ bool Polyspan::clip_conic(const Vector * const p, const ContextRect &r) {
 			(maxy < r.miny);
 }
 
-Real Polyspan::max_edges_conic(const Vector *const p) {
+Real Polyspan::max_edges_conic(const Vector *p) {
 	const Real x1 = p[1][0] - p[0][0];
 	const Real y1 = p[1][1] - p[0][1];
 
@@ -389,14 +389,14 @@ void Polyspan::conic_to(Real x1, Real y1, Real x, Real y) {
 	}
 }
 
-bool Polyspan::clip_cubic(const Vector *const p, const ContextRect &r) {
+bool Polyspan::clip_cubic(const Vector *p, const ContextRect &r) {
 	return 	((p[0][0] > r.maxx) && (p[1][0] > r.maxx) && (p[2][0] > r.maxx) && (p[3][0] > r.maxx)) ||
 			((p[0][0] < r.minx) && (p[1][0] < r.minx) && (p[2][0] < r.minx) && (p[3][0] < r.minx)) ||
 			((p[0][1] > r.maxy) && (p[1][1] > r.maxy) && (p[2][1] > r.maxy) && (p[3][1] > r.maxy)) ||
 			((p[0][1] < r.miny) && (p[1][1] < r.miny) && (p[2][1] < r.miny) && (p[3][1] < r.miny));
 }
 
-Real Polyspan::max_edges_cubic(const Vector *const p) {
+Real Polyspan::max_edges_cubic(const Vector *p) {
 	const Real x1 = p[1][0] - p[0][0];
 	const Real y1 = p[1][1] - p[0][1];
 

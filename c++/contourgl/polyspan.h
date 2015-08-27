@@ -87,12 +87,12 @@ private:
 	//move to the next cell (cover values 0 initially), keeping the current if necessary
 	void move_pen(int x, int y);
 
-	static bool clip_conic(const Vector *const p, const ContextRect &r);
-	static Real max_edges_conic(const Vector *const p);
+	static bool clip_conic(const Vector *p, const ContextRect &r);
+	static Real max_edges_conic(const Vector *p);
 	static void subd_conic_stack(Vector *arc);
 
-	static bool clip_cubic(const Vector *const p, const ContextRect &r);
-	static Real max_edges_cubic(const Vector *const p);
+	static bool clip_cubic(const Vector *p, const ContextRect &r);
+	static Real max_edges_cubic(const Vector *p);
 	static void subd_cubic_stack(Vector *arc);
 
 public:
