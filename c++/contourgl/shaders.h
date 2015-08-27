@@ -15,6 +15,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef _SHADERS_H_
+#define _SHADERS_H_
+
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <GL/glx.h>
@@ -22,7 +25,7 @@
 #include "rendersw.h"
 
 class Shaders {
-private:
+public:
 	GLuint simple_vertex_id;
 	GLuint simpleProgramId;
 
@@ -30,18 +33,14 @@ private:
 	GLuint colorProgramId;
 	GLint colorUniform;
 
-	Shaders();
-	~Shaders();
-
-	static Shaders *instance;
-
 	void check_shader(GLuint id, const char *src);
 	void check_program(GLuint id, const char *name);
 
-public:
-	static void initialize();
-	static void deinitialize();
+	Shaders();
+	~Shaders();
 
-	static void simple();
-	static void color(const Color &c);
+	void simple();
+	void color(const Color &c);
 };
+
+#endif

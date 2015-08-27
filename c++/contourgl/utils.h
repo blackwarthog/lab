@@ -15,24 +15,28 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _CLCONTEXT_H_
-#define _CLCONTEXT_H_
+#ifndef _UTILS_H_
+#define _UTILS_H_
 
-#include <vector>
+#include <string>
 
-#include <CL/opencl.h>
+#include "geometry.h"
+#include "rendersw.h"
 
-
-class ClContext {
+class Utils {
 public:
-	cl_int err;
-	cl_context context;
-	std::vector<cl_device_id> devices;
+	static Vector get_frame_size();
 
-	ClContext();
-	~ClContext();
+	static void save_rgba(
+		const void *buffer,
+		int width,
+		int height,
+		bool flip,
+		const std::string &filename );
 
-	void hello();
+	static void save_viewport(const std::string &filename);
+
+	static void save_surface(const Surface &surface, const std::string &filename);
 };
 
 #endif

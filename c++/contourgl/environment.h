@@ -15,24 +15,18 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _CLCONTEXT_H_
-#define _CLCONTEXT_H_
+#ifndef _ENVIRONMENT_H_
+#define _ENVIRONMENT_H_
 
-#include <vector>
+#include "glcontext.h"
+#include "clcontext.h"
+#include "shaders.h"
 
-#include <CL/opencl.h>
-
-
-class ClContext {
+class Environment {
 public:
-	cl_int err;
-	cl_context context;
-	std::vector<cl_device_id> devices;
-
-	ClContext();
-	~ClContext();
-
-	void hello();
+	GlContext gl;
+	ClContext cl;
+	Shaders shaders;
 };
 
 #endif

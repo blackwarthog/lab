@@ -22,29 +22,10 @@
 #include <string>
 
 #include "contour.h"
-#include "rendersw.h"
-
-class Surface;
-
-clock_t get_clock();
+#include "environment.h"
 
 class Test {
 public:
-	class Wrapper {
-	private:
-		std::string filename;
-		Surface *surface;
-		bool tga;
-		clock_t t;
-
-		Wrapper(const Wrapper&): surface(), tga(), t() { }
-		Wrapper& operator= (const Wrapper&) { return *this; }
-	public:
-		Wrapper(const std::string &filename);
-		Wrapper(const std::string &filename, Surface &surface);
-		~Wrapper();
-	};
-
 	struct ContourInfo {
 		bool invert;
 		bool antialias;
@@ -54,19 +35,18 @@ public:
 		ContourInfo(): invert(), antialias(), evenodd() { }
 	};
 
-private:
-	class Helper;
+	Environment &e;
 
-public:
-	static void check_gl(const std::string &s = std::string());
+	Test(Environment &e): e(e) { }
+	~Test() { }
 
-	static void load(std::vector<ContourInfo> &contours, const std::string &filename);
+	void draw_contour(int start, int count, bool even_odd, bool invert, const Color &color);
+	void load(std::vector<ContourInfo> &contours, const std::string &filename);
 
-	static void test1();
-	static void test2();
-	static void test3();
-
-	static void test4();
+	void test1();
+	void test2();
+	void test3();
+	void test4();
 };
 
 #endif

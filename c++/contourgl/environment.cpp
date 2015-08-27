@@ -15,24 +15,4 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _CLCONTEXT_H_
-#define _CLCONTEXT_H_
-
-#include <vector>
-
-#include <CL/opencl.h>
-
-
-class ClContext {
-public:
-	cl_int err;
-	cl_context context;
-	std::vector<cl_device_id> devices;
-
-	ClContext();
-	~ClContext();
-
-	void hello();
-};
-
-#endif
+#include "environment.h"

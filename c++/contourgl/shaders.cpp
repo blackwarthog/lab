@@ -25,18 +25,6 @@
 using namespace std;
 
 
-Shaders* Shaders::instance = NULL;
-
-void Shaders::initialize() {
-	assert(!instance);
-	instance = new Shaders();
-}
-
-void Shaders::deinitialize() {
-	assert(instance);
-	delete instance;
-}
-
 Shaders::Shaders():
 	simple_vertex_id(),
 	simpleProgramId(),
@@ -149,14 +137,12 @@ void Shaders::check_program(GLuint id, const char *name) {
 }
 
 void Shaders::simple() {
-	assert(instance);
-	glUseProgram(instance->simpleProgramId);
+	glUseProgram(simpleProgramId);
 }
 
 void Shaders::color(const Color &c) {
-	assert(instance);
-	glUseProgram(instance->colorProgramId);
-	glUniform4fv(instance->colorUniform, 1, c.channels);
+	glUseProgram(colorProgramId);
+	glUniform4fv(colorUniform, 1, c.channels);
 }
 
 

@@ -15,24 +15,34 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _CLCONTEXT_H_
-#define _CLCONTEXT_H_
+#ifndef _GLCONTEXT_H_
+#define _GLCONTEXT_H_
 
-#include <vector>
+#include <string>
 
-#include <CL/opencl.h>
+#include <GL/gl.h>
+#include <GL/glext.h>
+#include <GL/glx.h>
 
 
-class ClContext {
+class GlContext {
 public:
-	cl_int err;
-	cl_context context;
-	std::vector<cl_device_id> devices;
+	Display *display;
+	GLXPbuffer pbuffer;
+	GLXContext context;
 
-	ClContext();
-	~ClContext();
+	GLuint texture_id;
+	GLuint framebuffer_id;
+	GLuint renderbuffer_id;
 
-	void hello();
+	GLuint multisample_texture_id;
+	GLuint multisample_renderbuffer_id;
+	GLuint multisample_framebuffer_id;
+
+	GlContext();
+	~GlContext();
+
+	void check(const std::string &s = std::string());
 };
 
 #endif

@@ -15,24 +15,32 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _CLCONTEXT_H_
-#define _CLCONTEXT_H_
+#ifndef _MEASURE_H_
+#define _MEASURE_H_
+
+#include <ctime>
 
 #include <vector>
+#include <string>
 
-#include <CL/opencl.h>
+#include "rendersw.h"
 
 
-class ClContext {
+class Measure {
+private:
+	static std::vector<Measure*> stack;
+	std::string filename;
+	Surface *surface;
+	bool tga;
+	clock_t sub_tasks;
+	clock_t t;
+
+	Measure(const Measure&): surface(), tga(), sub_tasks(), t() { }
+	Measure& operator= (const Measure&) { return *this; }
 public:
-	cl_int err;
-	cl_context context;
-	std::vector<cl_device_id> devices;
-
-	ClContext();
-	~ClContext();
-
-	void hello();
+	Measure(const std::string &filename);
+	Measure(const std::string &filename, Surface &surface);
+	~Measure();
 };
 
 #endif
