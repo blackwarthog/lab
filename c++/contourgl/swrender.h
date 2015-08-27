@@ -15,8 +15,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _RENDERSW_H_
-#define _RENDERSW_H_
+#ifndef _SWRENDER_H_
+#define _SWRENDER_H_
 
 #include <cstring>
 
@@ -53,7 +53,7 @@ public:
 	const Color* operator[] (int row) const { return data + row*width; }
 };
 
-class RenderSW {
+class SwRender {
 public:
 	static void fill(
 		Surface &target,

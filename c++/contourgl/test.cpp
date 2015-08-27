@@ -308,22 +308,22 @@ void Test::test3() {
 
 	{
 		Measure t("test_3_polyspan_fill.tga", surface);
-		RenderSW::polyspan(surface, polyspan, color, false, false);
+		SwRender::polyspan(surface, polyspan, color, false, false);
 	}
 
 	{
 		Measure t("test_3_polyspan_fill_invert.tga", surface);
-		RenderSW::polyspan(surface, polyspan, color, false, true);
+		SwRender::polyspan(surface, polyspan, color, false, true);
 	}
 
 	{
 		Measure t("test_3_polyspan_evenodd.tga", surface);
-		RenderSW::polyspan(surface, polyspan, color, true, false);
+		SwRender::polyspan(surface, polyspan, color, true, false);
 	}
 
 	{
 		Measure t("test_3_polyspan_evenodd_invert.tga", surface);
-		RenderSW::polyspan(surface, polyspan, color, true, true);
+		SwRender::polyspan(surface, polyspan, color, true, true);
 	}
 }
 
@@ -531,7 +531,7 @@ void Test::test4() {
 		{
 			Measure t("test_4_sw_render_polyspans.tga", surface);
 			for(int i = 0; i < (int)contours_sw.size(); ++i)
-				RenderSW::polyspan(surface, polyspans[i], contours_sw[i].color, contours_sw[i].evenodd, contours_sw[i].invert);
+				SwRender::polyspan(surface, polyspans[i], contours_sw[i].color, contours_sw[i].evenodd, contours_sw[i].invert);
 		}
 	}
 }

@@ -22,7 +22,7 @@
 #include <GL/glext.h>
 #include <GL/glx.h>
 
-#include "rendersw.h"
+#include "swrender.h"
 
 class Shaders {
 public:

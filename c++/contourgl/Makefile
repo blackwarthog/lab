@@ -1,9 +1,10 @@
 DEPLIBS = gl x11 OpenCL
 
-CXXFLAGS = -O0 -g -Wall -fmessage-length=0 `pkg-config --cflags $(DEPLIBS)` -DGL_GLEXT_PROTOTYPES
+CXXFLAGS = -O3 -Wall -fmessage-length=0 `pkg-config --cflags $(DEPLIBS)` -DGL_GLEXT_PROTOTYPES
 
 HEADERS = \
 	clcontext.h \
+	clrender.h \
 	contour.h \
 	contourbuilder.h \
 	environment.h \
@@ -11,8 +12,8 @@ HEADERS = \
 	glcontext.h \
 	measure.h \
 	polyspan.h \
-	rendersw.h \
 	shaders.h \
+	swrender.h \
 	test.h \
 	triangulator.h \
 	utils.h
@@ -20,6 +21,7 @@ HEADERS = \
 SOURCES = \
 	contourgl.cpp \
 	clcontext.cpp \
+	clrender.cpp \
 	contour.cpp \
 	contourbuilder.cpp \
 	environment.cpp \
@@ -27,8 +29,8 @@ SOURCES = \
 	glcontext.cpp \
 	measure.cpp \
 	polyspan.cpp \
-	rendersw.cpp \
 	shaders.cpp \
+	swrender.cpp \
 	test.cpp \
 	triangulator.cpp \
 	utils.cpp
@@ -36,6 +38,7 @@ SOURCES = \
 OBJS = \
 	contourgl.o \
 	clcontext.o \
+	clrender.o \
 	contour.o \
 	contourbuilder.o \
 	environment.o \
@@ -43,8 +46,8 @@ OBJS = \
 	glcontext.o \
 	measure.o \
 	polyspan.o \
-	rendersw.o \
 	shaders.o \
+	swrender.o \
 	test.o \
 	triangulator.o \
 	utils.o

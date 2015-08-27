@@ -15,13 +15,13 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "rendersw.h"
+#include "swrender.h"
 
 
 using namespace std;
 
 
-void RenderSW::fill(
+void SwRender::fill(
 	Surface &target,
 	const Color &color )
 {
@@ -29,7 +29,7 @@ void RenderSW::fill(
 		*i = color;
 }
 
-void RenderSW::fill(
+void SwRender::fill(
 	Surface &target,
 	const Color &color,
 	int left,
@@ -43,7 +43,7 @@ void RenderSW::fill(
 			*i = color;
 }
 
-void RenderSW::row(
+void SwRender::row(
 	Surface &target,
 	const Color &color,
 	int left,
@@ -54,7 +54,7 @@ void RenderSW::row(
 		*i = color;
 }
 
-void RenderSW::row_alpha(
+void SwRender::row_alpha(
 	Surface &target,
 	const Color &color,
 	Color::type alpha,
@@ -70,7 +70,7 @@ void RenderSW::row_alpha(
 	}
 }
 
-void RenderSW::polyspan(
+void SwRender::polyspan(
 	Surface &target,
 	const Polyspan &polyspan,
 	const Color &color,
