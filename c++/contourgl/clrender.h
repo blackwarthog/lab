@@ -51,7 +51,7 @@ public:
 
 	void send_surface(Surface *surface);
 	Surface* receive_surface();
-	void contour(const Contour &contour, const Rect &rect, const Color &color);
+	void contour(const Contour &contour, const Rect &rect, const Color &color, bool invert, bool evenodd);
 };
 
 

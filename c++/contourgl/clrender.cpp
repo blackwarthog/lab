@@ -120,7 +120,7 @@ Surface* ClRender::receive_surface() {
 }
 
 
-void ClRender::contour(const Contour &contour, const Rect &rect, const Color &color) {
+void ClRender::contour(const Contour &contour, const Rect &rect, const Color &color, bool invert, bool evenodd) {
 	Measure t("ClRender::contour");
 
 	Contour transformed, splitted;
@@ -138,6 +138,7 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 
 	{
 		Measure t("split");
+		transformed.allow_split_lines = true;
 		transformed.split(splitted, to, Vector(0.5, 0.5));
 	}
 
@@ -206,18 +207,22 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 		clFinish(cl.queue);
 
 		// kernel args
+		int width = surface->width;
 
-		cl.err |= clSetKernelArg(contour_lines_kernel, 0, sizeof(lines_buffer), &lines_buffer);
-		cl.err |= clSetKernelArg(contour_lines_kernel, 1, sizeof(rows_buffer), &rows_buffer);
-		cl.err |= clSetKernelArg(contour_lines_kernel, 2, sizeof(mark_buffer), &mark_buffer);
+		cl.err |= clSetKernelArg(contour_lines_kernel, 0, sizeof(width), &width);
+		cl.err |= clSetKernelArg(contour_lines_kernel, 1, sizeof(lines_buffer), &lines_buffer);
+		cl.err |= clSetKernelArg(contour_lines_kernel, 2, sizeof(rows_buffer), &rows_buffer);
+		cl.err |= clSetKernelArg(contour_lines_kernel, 3, sizeof(mark_buffer), &mark_buffer);
 		assert(!cl.err);
 
-		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(mark_buffer), &mark_buffer);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(surface_buffer), &surface_buffer);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(Color::type), &color.r);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(Color::type), &color.g);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(Color::type), &color.b);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(Color::type), &color.a);
+		// TODO: invert, evenodd
+		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(width), &width);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(mark_buffer), &mark_buffer);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(surface_buffer), &surface_buffer);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(Color::type), &color.r);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(Color::type), &color.g);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(Color::type), &color.b);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(Color::type), &color.a);
 		assert(!cl.err);
 
 		// prepare buffers

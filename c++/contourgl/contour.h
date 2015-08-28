@@ -50,7 +50,9 @@ private:
 	size_t first;
 
 public:
-	Contour(): first(0) { }
+	bool allow_split_lines;
+
+	Contour(): first(0), allow_split_lines() { }
 
 	void clear();
 	void move_to(const Vector &v);
@@ -75,7 +77,8 @@ private:
 		Rect &ref_line_bounds,
 		const Rect &bounds,
 		const Vector &min_size,
-		const Vector &p1 );
+		const Vector &p1,
+		int level = 64 );
 
 	void conic_split(
 		Rect &ref_line_bounds,

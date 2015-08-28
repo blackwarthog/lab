@@ -82,8 +82,23 @@ void Contour::line_split(
 	Rect &ref_line_bounds,
 	const Rect &bounds,
 	const Vector &min_size,
-	const Vector &p1 )
+	const Vector &p1,
+	int level )
 {
+	assert(level > 0);
+
+	if (allow_split_lines) {
+		const Vector &p0 = current();
+		if ( fabs(p1.x - p0.x) > min_size.x
+		  || fabs(p1.y - p0.y) > min_size.y )
+		{
+			Vector p = (p0 + p1)*0.5;
+			line_split(ref_line_bounds, bounds, min_size, p, level-1);
+			line_split(ref_line_bounds, bounds, min_size, p, level-1);
+			return;
+		}
+	}
+
 	line_to(p1);
 	return;
 

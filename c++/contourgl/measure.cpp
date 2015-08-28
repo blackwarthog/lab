@@ -47,6 +47,7 @@ Measure::Measure(const std::string &filename, Surface &surface):
 	sub_tasks(),
 	t()
 {
+	cout << string(stack.size()*2, ' ') << "begin " << filename;
 	stack.push_back(this);
 	t = clock();
 }
@@ -58,7 +59,7 @@ Measure::~Measure() {
 	Real ms = 1000.0*(Real)(clock() - t)/(Real)(CLOCKS_PER_SEC);
 
 	cout << setw(8) << fixed << setprecision(3)
-	     << string(stack.size()*2, ' ') << "|"
+	     << string(stack.size()*2, ' ') << "end "
 		 << ms << " ms - "
 		 << filename
 		 << endl << flush;

@@ -23,6 +23,7 @@
 #include "triangulator.h"
 #include "measure.h"
 #include "utils.h"
+#include "clrender.h"
 
 
 using namespace std;
@@ -533,5 +534,20 @@ void Test::test4() {
 			for(int i = 0; i < (int)contours_sw.size(); ++i)
 				SwRender::polyspan(surface, polyspans[i], contours_sw[i].color, contours_sw[i].evenodd, contours_sw[i].invert);
 		}
+	}
+
+	{
+		// cl
+
+		vector<ContourInfo> contours_cl = contours;
+		Surface surface(width+2, height+2);
+
+		Measure t("test_4_cl.tga", surface);
+
+		ClRender clr(e.cl);
+		clr.send_surface(&surface);
+		for(vector<ContourInfo>::const_iterator i = contours_cl.begin(); i != contours_cl.end(); ++i)
+			clr.contour(i->contour, bounds_file, i->color, i->invert, i->evenodd);
+		clr.receive_surface();
 	}
 }
