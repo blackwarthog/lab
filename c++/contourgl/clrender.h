@@ -27,13 +27,31 @@
 
 
 class ClRender {
-public:
+private:
 	ClContext &cl;
+	cl_program contour_program;
+	cl_kernel contour_lines_kernel;
+	cl_kernel contour_fill_kernel;
 
+	Surface *surface;
+	cl_mem rows_buffer;
+	cl_mem mark_buffer;
+	cl_mem surface_buffer;
+
+	size_t rows_count;
+	size_t even_rows_count;
+	size_t odd_rows_count;
+
+	typedef std::pair<int, int> Row;
+	std::vector<Row> rows;
+
+public:
 	ClRender(ClContext &cl);
 	~ClRender();
 
-	void contour(const Contour &contour, Surface &target);
+	void send_surface(Surface *surface);
+	Surface* receive_surface();
+	void contour(const Contour &contour, const Rect &rect, const Color &color);
 };
 
 

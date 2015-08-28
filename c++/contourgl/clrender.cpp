@@ -15,25 +15,280 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <cassert>
+
+#include <algorithm>
+
 #include "clrender.h"
+#include "measure.h"
 
 
 using namespace std;
 
 
-ClRender::ClRender(ClContext &cl): cl(cl) {
-	// TODO: init programs
+ClRender::ClRender(ClContext &cl):
+	cl(cl),
+	contour_program(),
+	contour_lines_kernel(),
+	contour_fill_kernel(),
+	surface(),
+	rows_buffer(),
+	mark_buffer(),
+	surface_buffer(),
+	rows_count(),
+	even_rows_count(),
+	odd_rows_count()
+{
+	contour_program = cl.load_program("contour.cl");
+	contour_lines_kernel = clCreateKernel(contour_program, "lines", NULL);
+	assert(contour_lines_kernel);
+	contour_fill_kernel = clCreateKernel(contour_program, "fill", NULL);
+	assert(contour_fill_kernel);
 }
 
 ClRender::~ClRender() {
-	// TODO: release programs
+	send_surface(NULL);
+	clReleaseKernel(contour_fill_kernel);
+	clReleaseKernel(contour_lines_kernel);
+	clReleaseProgram(contour_program);
 }
 
-void ClRender::contour(const Contour &contour, Surface &target) {
-	// TODO:
-	// split contour
-	// resterize lines
-	// fill
+void ClRender::send_surface(Surface *surface) {
+	if (this->surface == surface) return;
+
+	cl.err = clFinish(cl.queue);
+	assert(cl.err);
+
+	if (this->surface) {
+		rows.clear();
+		clReleaseMemObject(rows_buffer);
+		clReleaseMemObject(mark_buffer);
+		clReleaseMemObject(surface_buffer);
+	}
+
+	this->surface = surface;
+
+	if (this->surface) {
+		Measure t("ClRender::send_surface");
+
+		rows_count = surface->height;
+		even_rows_count = (rows_count+1)/2;
+		odd_rows_count = rows_count - even_rows_count;
+		rows.resize(rows_count);
+
+		rows_buffer = clCreateBuffer(
+			cl.context, CL_MEM_READ_ONLY,
+			rows.size()*sizeof(rows.front()), NULL,
+			NULL );
+		assert(rows_buffer);
+
+		mark_buffer = clCreateBuffer(
+			cl.context, CL_MEM_READ_WRITE,
+			surface->count()*sizeof(vec2f), NULL,
+			NULL );
+		assert(mark_buffer);
+
+		surface_buffer = clCreateBuffer(
+			cl.context, CL_MEM_READ_WRITE,
+			surface->data_size(), NULL,
+			NULL );
+		assert(surface_buffer);
+
+		cl.err |= clEnqueueWriteBuffer(
+			cl.queue, surface_buffer, CL_TRUE,
+			0, surface->data_size(), surface->data,
+			0, NULL, NULL );
+
+		cl.err |= clFinish(cl.queue);
+		assert(cl.err);
+	}
+}
+
+Surface* ClRender::receive_surface() {
+	if (surface) {
+		Measure t("ClRender::receive_surface");
+
+		cl.err |= clFinish(cl.queue);
+		cl.err |= clEnqueueReadBuffer(
+			cl.queue, surface_buffer, CL_TRUE,
+			0, sizeof(surface->data_size()), surface->data,
+			0, NULL, NULL );
+		cl.err |= clFinish(cl.queue);
+		assert(cl.err);
+	}
+	return surface;
+}
+
+
+void ClRender::contour(const Contour &contour, const Rect &rect, const Color &color) {
+	Measure t("ClRender::contour");
+
+	Contour transformed, splitted;
+	Rect to(1.0, 1.0, surface->width - 1.0, surface->height - 1.0);
+
+	{
+		Measure t("clone");
+		transformed = contour;
+	}
+
+	{
+		Measure t("transform");
+		transformed.transform(rect, to);
+	}
+
+	{
+		Measure t("split");
+		transformed.split(splitted, to, Vector(0.5, 0.5));
+	}
+
+	vector<line2f> lines;
+	vector<line2f> sorted_lines;
+	vector<int> line_rows;
+
+	{
+		Measure t("sort lines");
+
+		// reset rows
+		for(int i = 1; i < (int)rows_count; ++i)
+			rows[i].second = 0;
+
+		// count lines
+		Vector prev;
+		lines.reserve(splitted.get_chunks().size());
+		line_rows.reserve(splitted.get_chunks().size());
+		float x0 = (float)to.p0.x;
+		float x1 = (float)to.p1.x;
+		for(Contour::ChunkList::const_iterator i = splitted.get_chunks().begin(); i != splitted.get_chunks().end(); ++i) {
+			if ( i->type == Contour::LINE
+			  || i->type == Contour::CLOSE )
+			{
+				if (i->p1.y > to.p0.y && i->p1.y < to.p1.y) {
+					line2f l(vec2f(prev), vec2f(i->p1));
+					l.p0.x = min(max(l.p0.x, x0), x1);
+					l.p1.x = min(max(l.p1.x, x0), x1);
+					int row = (int)floorf(min(l.p0.y, l.p1.y));
+					row = row % 2 ? row/2 : even_rows_count + row/2;
+					line_rows.push_back(row);
+					lines.push_back(l);
+					++rows[row].second;
+				}
+			}
+			prev = i->p1;
+		}
+
+		// calc rows offsets
+		int lines_count = (int)lines.size();
+		rows[0].first = rows[0].second;
+		for(int i = 1; i < (int)rows_count; ++i)
+			rows[i].first = rows[i-1].first + rows[i].second;
+
+		// make sorted list
+		sorted_lines.resize(lines_count);
+		for(int i = 0; i < lines_count; ++i)
+			sorted_lines[ --rows[line_rows[i]].first ] = lines[i];
+	}
+
+	cl_mem lines_buffer = NULL;
+
+	{
+		Measure t("create lines buffer");
+
+		lines_buffer = clCreateBuffer(
+			cl.context, CL_MEM_READ_ONLY,
+			sorted_lines.size()*sizeof(sorted_lines.front()), NULL,
+			NULL );
+		assert(lines_buffer);
+	}
+
+	{
+		Measure t("enqueue commands");
+
+		clFinish(cl.queue);
+
+		// kernel args
+
+		cl.err |= clSetKernelArg(contour_lines_kernel, 0, sizeof(lines_buffer), &lines_buffer);
+		cl.err |= clSetKernelArg(contour_lines_kernel, 1, sizeof(rows_buffer), &rows_buffer);
+		cl.err |= clSetKernelArg(contour_lines_kernel, 2, sizeof(mark_buffer), &mark_buffer);
+		assert(!cl.err);
+
+		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(mark_buffer), &mark_buffer);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(surface_buffer), &surface_buffer);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(Color::type), &color.r);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(Color::type), &color.g);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(Color::type), &color.b);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(Color::type), &color.a);
+		assert(!cl.err);
+
+		// prepare buffers
+
+		cl_event prepare_buffers_events[3] = { };
+
+		cl.err |= clEnqueueWriteBuffer(
+			cl.queue, lines_buffer, CL_TRUE,
+			0, sorted_lines.size()*sizeof(sorted_lines.front()), &sorted_lines.front(),
+			0, NULL, &prepare_buffers_events[0] );
+
+		cl.err |= clEnqueueWriteBuffer(
+			cl.queue, rows_buffer, CL_TRUE,
+			0, rows.size()*sizeof(rows.front()), &rows.front(),
+			0, NULL, &prepare_buffers_events[1] );
+
+		vec2f pattern;
+		cl.err |= clEnqueueFillBuffer(
+			cl.queue, mark_buffer,
+			&pattern, sizeof(pattern),
+			0, surface->count()*sizeof(vec2f),
+			0, NULL, &prepare_buffers_events[2] );
+
+		// run kernels
+
+		cl_event lines_odd_event = NULL;
+		cl.err = clEnqueueNDRangeKernel(
+			cl.queue,
+			contour_lines_kernel,
+			1,
+			NULL,
+			&even_rows_count,
+			NULL,
+			3,
+			prepare_buffers_events,
+			&lines_odd_event );
+		assert(!cl.err);
+
+		cl_event lines_even_event = NULL;
+		cl.err = clEnqueueNDRangeKernel(
+			cl.queue,
+			contour_lines_kernel,
+			1,
+			&even_rows_count,
+			&odd_rows_count,
+			NULL,
+			1,
+			&lines_odd_event,
+			&lines_even_event );
+		assert(!cl.err);
+
+		cl_event fill_event = NULL;
+		cl.err = clEnqueueNDRangeKernel(
+			cl.queue,
+			contour_fill_kernel,
+			1,
+			NULL,
+			&rows_count,
+			NULL,
+			1,
+			&lines_even_event,
+			&fill_event );
+		assert(!cl.err);
+
+		clWaitForEvents(1, &fill_event);
+	}
+
+	{
+		Measure t("release lines buffer");
+		clReleaseMemObject(lines_buffer);
+	}
 }
 
 

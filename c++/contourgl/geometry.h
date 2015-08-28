@@ -58,7 +58,7 @@ public:
 
 	vec2():
 		x(), y() { }
-	vec2(type x, type y):
+	vec2(const type &x, const type &y):
 		x(x), y(y) { }
 
 	template<typename TT>
@@ -81,9 +81,9 @@ public:
 	vec2 operator/(const vec2 &a) const
 		{ return vec2(x/a.x, y/a.y); }
 
-	vec2 operator*(type a) const
+	vec2 operator*(const type &a) const
 		{ return vec2(x*a, y*a); }
-	vec2 operator/(type a) const
+	vec2 operator/(const type &a) const
 		{ return vec2(x/a, y/a); }
 
 	type dot(const vec2 &a) const
@@ -92,33 +92,52 @@ public:
 	static vec2 zero() { return vec2(); }
 };
 
-typedef vec2<Real> Vector;
-
-class Rect {
+template<typename T>
+class line2 {
 public:
-	Vector p0, p1;
+	typedef T type;
+	vec2<type> p0, p1;
+	line2() { }
+	line2(const vec2<type> &p0, const vec2<type> &p1): p0(p0), p1(p1) { }
+	line2(const type &x0, const type &y0, const type &x1, const type &y1): p0(x0, y0), p1(x1, y1) { }
+};
 
-    bool intersects(const Rect &other) const
+template<typename T>
+class rect {
+public:
+	typedef T type;
+	vec2<type> p0, p1;
+
+    bool intersects(const rect &other) const
         { return ::intersects(p0.x, p1.x, other.p0.x, other.p1.x)
               && ::intersects(p0.y, p1.y, other.p0.y, other.p1.y); }
 
-    Rect expand(const Vector &p) const {
-    	Rect r;
+    rect expand(const vec2<type> &p) const {
+    	rect r;
     	r.p0.x = std::min(std::min(p0.x, p1.x), p.x);
     	r.p0.y = std::min(std::min(p0.y, p1.y), p.y);
     	r.p1.x = std::max(std::max(p0.x, p1.x), p.x);
     	r.p1.y = std::max(std::max(p0.y, p1.y), p.y);
     	return r;
     }
+
+    rect() { }
+    rect(const vec2<type> &p0, const vec2<type> &p1): p0(p0), p1(p1) { }
+    rect(const type &x0, const type &y0, const type &x1, const type &y1): p0(x0, y0), p1(x1, y1) { }
 };
+
+typedef vec2<Real> Vector;
+typedef line2<Real> Line;
+typedef rect<Real> Rect;
+
+typedef vec2<float> vec2f;
+typedef line2<float> line2f;
+typedef rect<float> rectf;
 
 class ContextRect {
 public:
 	int minx, miny, maxx, maxy;
 	ContextRect(): minx(), miny(), maxx(), maxy() { }
 };
-
-inline bool intersects(const Rect &a, const Rect &b)
-    { return a.intersects(b); }
 
 #endif

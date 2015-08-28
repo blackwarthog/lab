@@ -17,7 +17,6 @@
 
 #include <cassert>
 
-#include <string>
 #include <iostream>
 #include <fstream>
 
@@ -27,7 +26,7 @@
 using namespace std;
 
 
-ClContext::ClContext(): err(), context() {
+ClContext::ClContext(): err(), context(), queue() {
 
 	// platform
 
@@ -59,10 +58,30 @@ ClContext::ClContext(): err(), context() {
 
     context = clCreateContext(0, 1, &devices.front(), NULL, NULL, &err);
     assert(context);
+
+	// command queue
+
+	cl_command_queue queue = clCreateCommandQueue(context, devices[0], 0, NULL);
+	assert(queue);
+
 }
 
 ClContext::~ClContext() {
+	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
+}
+
+cl_program ClContext::load_program(const std::string &filename) {
+	ifstream f(("cl/" + filename).c_str());
+	string text((istreambuf_iterator<char>(f)), istreambuf_iterator<char>());
+	const char *text_pointer = text.c_str();
+	cl_program program = clCreateProgramWithSource(context, 1, &text_pointer, NULL, NULL);
+	assert(program);
+
+	err = clBuildProgram(program, devices.size(), &devices.front(), "", NULL, NULL);
+	assert(!err);
+
+	return program;
 }
 
 void ClContext::hello() {
@@ -78,14 +97,7 @@ void ClContext::hello() {
 
 	// program
 
-	ifstream f("cl/hello.cl");
-	string text((istreambuf_iterator<char>(f)), istreambuf_iterator<char>());
-	const char *text_pointer = text.c_str();
-	cl_program program = clCreateProgramWithSource(context, 1, &text_pointer, NULL, NULL);
-	assert(program);
-
-	err = clBuildProgram(program, devices.size(), &devices.front(), "", NULL, NULL);
-	assert(!err);
+	cl_program program = load_program("hello.cl");
 
 	// kernel
 
@@ -93,11 +105,6 @@ void ClContext::hello() {
 	assert(kernel);
 	err = clSetKernelArg(kernel, 0, sizeof(buffer), &buffer);
 	assert(!err);
-
-	// command queue
-
-	cl_command_queue queue = clCreateCommandQueue(context, devices[0], 0, NULL);
-	assert(queue);
 
 	size_t work_group_size = sizeof(data);
 	cl_event event = NULL;
@@ -120,4 +127,10 @@ void ClContext::hello() {
 	clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0, sizeof(data), data, 0, NULL, &event);
 	clWaitForEvents(1, &event);
 	cout << data << endl;
+
+	// deinitialize
+
+	clReleaseKernel(kernel);
+	clReleaseProgram(program);
+	clReleaseMemObject(buffer);
 }

@@ -56,8 +56,12 @@ Measure::~Measure() {
 
 	clock_t dt = sub_tasks ? sub_tasks : clock() - t;
 	Real ms = 1000.0*(Real)(clock() - t)/(Real)(CLOCKS_PER_SEC);
+
 	cout << setw(8) << fixed << setprecision(3)
-	     << ms << " ms - " << filename << flush << endl;
+	     << string(stack.size()*2, ' ') << "|"
+		 << ms << " ms - "
+		 << filename
+		 << endl << flush;
 
 	if (tga) {
 		if (surface)

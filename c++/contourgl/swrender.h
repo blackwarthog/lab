@@ -49,6 +49,7 @@ public:
 
 	void clear() { memset(data, 0, count()*sizeof(Color)); }
 	int count() const { return width*height; }
+	int data_size() const { return count()*sizeof(Color); }
 	Color* operator[] (int row) { return data + row*width; }
 	const Color* operator[] (int row) const { return data + row*width; }
 };

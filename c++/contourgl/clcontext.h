@@ -19,6 +19,7 @@
 #define _CLCONTEXT_H_
 
 #include <vector>
+#include <string>
 
 #include <CL/opencl.h>
 
@@ -28,11 +29,13 @@ public:
 	cl_int err;
 	cl_context context;
 	std::vector<cl_device_id> devices;
+	cl_command_queue queue;
 
 	ClContext();
 	~ClContext();
 
 	void hello();
+	cl_program load_program(const std::string &filename);
 };
 
 #endif
