@@ -447,6 +447,7 @@ void Test::test4() {
 
 		// gl_triangles
 
+		/*
 		GLuint index_buffer_id = 0;
 		vector<int> triangle_starts(contours_gl.size());
 		vector<int> triangle_counts(contours_gl.size());
@@ -508,6 +509,7 @@ void Test::test4() {
 				glDrawElements(GL_TRIANGLES, triangle_counts[i], GL_UNSIGNED_INT, (char*)NULL + triangle_starts[i]*sizeof(int));
 			}
 		}
+		*/
 	}
 
 	{

@@ -35,6 +35,7 @@ ClRender::ClRender(ClContext &cl):
 	rows_buffer(),
 	mark_buffer(),
 	surface_buffer(),
+	prev_event(),
 	rows_count(),
 	even_rows_count(),
 	odd_rows_count()
@@ -57,6 +58,7 @@ void ClRender::send_surface(Surface *surface) {
 	if (this->surface == surface) return;
 
 	cl.err = clFinish(cl.queue);
+	prev_event = NULL;
 	assert(!cl.err);
 
 	if (this->surface) {
@@ -95,14 +97,11 @@ void ClRender::send_surface(Surface *surface) {
 			NULL );
 		assert(surface_buffer);
 
-		cl_event event = NULL;
 		cl.err |= clEnqueueWriteBuffer(
 			cl.queue, surface_buffer, CL_TRUE,
 			0, surface->data_size(), surface->data,
-			0, NULL, &event );
-		clWaitForEvents(1, &event);
+			0, NULL, &prev_event );
 
-		cl.err |= clFinish(cl.queue);
 		assert(!cl.err);
 	}
 }
@@ -111,13 +110,13 @@ Surface* ClRender::receive_surface() {
 	if (surface) {
 		//Measure t("ClRender::receive_surface");
 
-		cl_event event = NULL;
 		cl.err |= clEnqueueReadBuffer(
 			cl.queue, surface_buffer, CL_TRUE,
 			0, surface->data_size(), surface->data,
-			0, NULL, &event );
+			prev_event ? 1 : 0, &prev_event, NULL );
 		assert(!cl.err);
-		clWaitForEvents(1, &event);
+		clFinish(cl.queue);
+		prev_event = NULL;
 	}
 	return surface;
 }
@@ -218,8 +217,6 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 	{
 		//Measure t("enqueue commands");
 
-		clFinish(cl.queue);
-
 		// kernel args
 		int width = surface->width;
 
@@ -260,7 +257,7 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 		cl.err |= clEnqueueWriteBuffer(
 			cl.queue, mark_buffer, CL_TRUE,
 			0, marks.size()*sizeof(marks.front()), &marks.front(),
-			0, NULL, &prepare_buffers_events[2] );
+			prev_event ? 1 : 0, &prev_event, &prepare_buffers_events[2] );
 		assert(!cl.err);
 
 		// run kernels
@@ -291,7 +288,6 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 			&lines_even_event );
 		assert(!cl.err);
 
-		cl_event fill_event = NULL;
 		cl.err |= clEnqueueNDRangeKernel(
 			cl.queue,
 			contour_fill_kernel,
@@ -301,10 +297,10 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 			NULL,
 			1,
 			&lines_even_event,
-			&fill_event );
+			&prev_event );
 		assert(!cl.err);
 
-		clWaitForEvents(1, &fill_event);
+		clWaitForEvents(1, &lines_even_event);
 	}
 
 	{

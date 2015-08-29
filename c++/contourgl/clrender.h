@@ -37,6 +37,7 @@ private:
 	cl_mem rows_buffer;
 	cl_mem mark_buffer;
 	cl_mem surface_buffer;
+	cl_event prev_event;
 
 	size_t rows_count;
 	size_t even_rows_count;
