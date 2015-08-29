@@ -536,11 +536,12 @@ void Test::test4() {
 		}
 	}
 
+	Surface surface(width+2, height+2);
+
 	{
 		// cl
 
 		vector<ContourInfo> contours_cl = contours;
-		Surface surface(width+2, height+2);
 
 		Measure t("test_4_cl.tga", surface);
 

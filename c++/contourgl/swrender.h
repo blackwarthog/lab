@@ -45,7 +45,7 @@ public:
 		{ clear(); }
 
 	~Surface()
-		{ delete data; }
+		{ delete[] data; }
 
 	void clear() { memset(data, 0, count()*sizeof(Color)); }
 	int count() const { return width*height; }

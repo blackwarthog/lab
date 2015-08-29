@@ -94,7 +94,7 @@ void Contour::line_split(
 		{
 			Vector p = (p0 + p1)*0.5;
 			line_split(ref_line_bounds, bounds, min_size, p, level-1);
-			line_split(ref_line_bounds, bounds, min_size, p, level-1);
+			line_split(ref_line_bounds, bounds, min_size, p1, level-1);
 			return;
 		}
 	}
@@ -197,10 +197,8 @@ void Contour::split(Contour &c, const Rect &bounds, const Vector &min_size) cons
 			line_bounds.p1 = c.current();
 			break;
 		case LINE:
-			c.line_split(line_bounds, bounds, min_size, i->p1);
-			break;
 		case CLOSE:
-			c.close();
+			c.line_split(line_bounds, bounds, min_size, i->p1);
 			break;
 		case CONIC:
 			{

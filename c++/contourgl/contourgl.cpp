@@ -28,8 +28,8 @@ int main() {
 	Test test(e);
 
 	e.cl.hello();
-	test.test2();
-	test.test3();
+	//test.test2();
+	//test.test3();
 	test.test4();
 
 	cout << "done" << endl;

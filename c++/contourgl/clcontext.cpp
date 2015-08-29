@@ -43,6 +43,11 @@ ClContext::ClContext(): err(), context(), queue() {
 	assert(!err);
 	cout << "Use CL platform 0 by " << vendor << endl;
 
+    char platform_version[256];
+    err = clGetPlatformInfo(platform, CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, NULL);
+	assert(!err);
+    cout << "Platform 0 OpenCL version " << platform_version << endl;
+
 	// devices
 
 	cl_uint device_count = 0;
@@ -54,6 +59,14 @@ ClContext::ClContext(): err(), context(), queue() {
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, devices.size(), &devices.front(), NULL);
     assert(!err);
 
+    char device_name[256];
+    clGetDeviceInfo(devices.front(), CL_DEVICE_NAME, sizeof(device_name), device_name, NULL);
+    cout << "Device 0 name " << device_name << endl;
+
+    char device_version[256];
+    clGetDeviceInfo(devices.front(), CL_DEVICE_VERSION, sizeof(device_version), device_version, NULL);
+    cout << "Device 0 OpenCL version " << device_version << endl;
+
     // context
 
     context = clCreateContext(0, 1, &devices.front(), NULL, NULL, &err);
@@ -61,7 +74,7 @@ ClContext::ClContext(): err(), context(), queue() {
 
 	// command queue
 
-	cl_command_queue queue = clCreateCommandQueue(context, devices[0], 0, NULL);
+	queue = clCreateCommandQueue(context, devices[0], 0, NULL);
 	assert(queue);
 
 }
@@ -78,7 +91,15 @@ cl_program ClContext::load_program(const std::string &filename) {
 	cl_program program = clCreateProgramWithSource(context, 1, &text_pointer, NULL, NULL);
 	assert(program);
 
-	err = clBuildProgram(program, devices.size(), &devices.front(), "", NULL, NULL);
+	err = clBuildProgram(program, 1, &devices.front(), "", NULL, NULL);
+	if (err) {
+		size_t size;
+		clGetProgramBuildInfo(program, devices.front(), CL_PROGRAM_BUILD_LOG, 0, NULL, &size);
+		char *log = new char[size];
+		clGetProgramBuildInfo(program, devices.front(), CL_PROGRAM_BUILD_LOG, size, log, NULL);
+		cout << log << endl;
+		delete[] log;
+	}
 	assert(!err);
 
 	return program;

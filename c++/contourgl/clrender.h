@@ -44,6 +44,7 @@ private:
 
 	typedef std::pair<int, int> Row;
 	std::vector<Row> rows;
+	std::vector<vec2f> marks;
 
 public:
 	ClRender(ClContext &cl);

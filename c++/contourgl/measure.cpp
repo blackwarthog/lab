@@ -36,6 +36,7 @@ Measure::Measure(const std::string &filename):
 	sub_tasks(),
 	t()
 {
+	cout << string(stack.size()*2, ' ') << "begin             " << filename << endl << flush;
 	stack.push_back(this);
 	t = clock();
 }
@@ -47,7 +48,7 @@ Measure::Measure(const std::string &filename, Surface &surface):
 	sub_tasks(),
 	t()
 {
-	cout << string(stack.size()*2, ' ') << "begin " << filename;
+	cout << string(stack.size()*2, ' ') << "begin             " << filename << endl << flush;
 	stack.push_back(this);
 	t = clock();
 }
@@ -56,10 +57,10 @@ Measure::~Measure() {
 	if (!surface && tga) glFinish();
 
 	clock_t dt = sub_tasks ? sub_tasks : clock() - t;
-	Real ms = 1000.0*(Real)(clock() - t)/(Real)(CLOCKS_PER_SEC);
+	Real ms = 1000.0*(Real)dt/(Real)(CLOCKS_PER_SEC);
 
-	cout << setw(8) << fixed << setprecision(3)
-	     << string(stack.size()*2, ' ') << "end "
+	cout << string((stack.size()-1)*2, ' ') << "end "
+		 << setw(8) << fixed << setprecision(3)
 		 << ms << " ms - "
 		 << filename
 		 << endl << flush;
