@@ -24,21 +24,20 @@ __kernel void clear2f(
 
 __kernel void lines(
 	int width, 
-	__global float *lines,
-	__global int *rows,
+	__global float4 *lines,
+	__global int2 *rows,
 	__global float2 *mark_buffer )
 {
 	const float e = 1e-6f;
-	__global int *row = rows + 2*get_global_id(0);
+	int2 row = rows[get_global_id(0)];
 	sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE
 					  | CLK_ADDRESS_NONE
 			          | CLK_FILTER_NEAREST;
 	int w = width;
-	__global float *i = lines + 4*row[0];
-	__global float *end = i + 4*row[1];
-	for(; i < end; i += 4) {
-		float2 p0 = { i[0], i[1] };
-		float2 p1 = { i[2], i[3] };
+	for(__global float4 *i = lines + row.x, *end = i + row.y; i < end; ++i) {
+		float4 line = *i; 
+		float2 p0 = { line.x, line.y };
+		float2 p1 = { line.z, line.w };
 		
 		int iy0 = (int)floor(fmin(p0.y, p1.y) + e);
 		int iy1 = (int)floor(fmax(p0.y, p1.y) - e);
@@ -81,10 +80,7 @@ __kernel void fill(
 	__global float2 *mark_buffer,
 	__read_only image2d_t surface_read_image,
 	__write_only image2d_t surface_write_image,
-	float color_r,
-	float color_g,
-	float color_b,
-	float color_a,
+	float4 color,
 	int invert,
 	int evenodd )
 {
@@ -93,7 +89,7 @@ __kernel void fill(
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE
 							| CLK_ADDRESS_NONE
 			                | CLK_FILTER_NEAREST;
-	float4 color = { color_r, color_g, color_b, color_a };
+	float4 cl = color;
 	float cover = 0.f;
 	__global float2 *mark = mark_buffer + id*w;
 	for(int2 coord = { 0, id }; coord.x < w; ++coord.x, ++mark) {
@@ -103,14 +99,14 @@ __kernel void fill(
 		cover += m.y;
 		alpha = evenodd ? (1.f - fabs(1.f - alpha - 2.f*floor(0.5f*alpha)))
 				        : fmin(alpha, 1.f);
-		alpha *= color.w;
+		alpha *= cl.w;
 		if (invert) alpha = 1.f - alpha;
 		float alpha_inv = 1.f - alpha;
-
+		
 		float4 c = read_imagef(surface_read_image, sampler, coord);
-		c.x = c.x*alpha_inv + color.x*alpha;
-		c.y = c.y*alpha_inv + color.y*alpha;
-		c.z = c.z*alpha_inv + color.z*alpha;
+		c.x = c.x*alpha_inv + cl.x*alpha;
+		c.y = c.y*alpha_inv + cl.y*alpha;
+		c.z = c.z*alpha_inv + cl.z*alpha;
 		c.w = min(c.w + alpha, 1.f);
 		write_imagef(surface_write_image, coord, c);
 	}

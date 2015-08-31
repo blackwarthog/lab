@@ -48,7 +48,7 @@ GlContext::GlContext():
 	int framebuffer_width = 512;
 	int framebuffer_height = 512;
 	int framebuffer_samples = 16;
-	bool antialising = false;
+	bool antialising = true;
 	bool hdr = false;
 
 	// display
@@ -80,11 +80,9 @@ GlContext::GlContext():
 
 	// pbuffer
 
-	int pbuffer_width = 256;
-	int pbuffer_height = 256;
 	int pbuffer_attribs[] = {
-		GLX_PBUFFER_WIDTH, pbuffer_width,
-		GLX_PBUFFER_HEIGHT, pbuffer_height,
+		GLX_PBUFFER_WIDTH, 256,
+		GLX_PBUFFER_HEIGHT, 256,
 		None };
 	pbuffer = glXCreatePbuffer(display, config, pbuffer_attribs);
 	assert(pbuffer);
@@ -145,22 +143,23 @@ GlContext::GlContext():
 	// view port
 
 	glViewport(0, 0, framebuffer_width, framebuffer_height);
+
+	check();
 }
 
 GlContext::~GlContext() {
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-	glDeleteFramebuffers(1, &framebuffer_id);
-
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+	glDeleteFramebuffers(1, &framebuffer_id);
+	glDeleteRenderbuffers(1, &renderbuffer_id);
 	glDeleteTextures(1, &texture_id);
 
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 	glDeleteFramebuffers(1, &multisample_framebuffer_id);
-
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 	glDeleteRenderbuffers(1, &multisample_renderbuffer_id);
-
-	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 	glDeleteTextures(1, &multisample_texture_id);
 
 	glXMakeContextCurrent(display, None, None, NULL);

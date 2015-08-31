@@ -27,7 +27,7 @@ int main() {
 	Environment e;
 	Test test(e);
 
-	e.cl.hello();
+	//e.cl.hello();
 	//test.test2();
 	//test.test3();
 	test.test4();

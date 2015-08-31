@@ -1,6 +1,6 @@
 DEPLIBS = gl x11 OpenCL
 
-CXXFLAGS = -O0 -g -Wall -fmessage-length=0 `pkg-config --cflags $(DEPLIBS)` -DGL_GLEXT_PROTOTYPES
+CXXFLAGS = -O3 -Wall -fmessage-length=0 `pkg-config --cflags $(DEPLIBS)` -DGL_GLEXT_PROTOTYPES
 
 HEADERS = \
 	clcontext.h \

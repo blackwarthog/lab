@@ -150,7 +150,7 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 	}
 
 	{
-		//Measure t("split");
+		Measure t("split");
 		splitted.allow_split_lines = true;
 		transformed.split(splitted, to, Vector(0.5, 0.5));
 	}
@@ -160,7 +160,7 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 	vector<int> line_rows;
 
 	{
-		//Measure t("sort lines");
+		Measure t("sort lines");
 
 		// reset rows
 		for(int i = 0; i < (int)rows_count; ++i)
@@ -216,7 +216,7 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 	cl_mem lines_buffer = NULL;
 
 	{
-		//Measure t("create lines buffer");
+		Measure t("create lines buffer");
 
 		lines_buffer = clCreateBuffer(
 			cl.context, CL_MEM_READ_ONLY,
@@ -226,7 +226,7 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 	}
 
 	{
-		//Measure t("enqueue commands");
+		Measure t("enqueue commands");
 
 		// kernel args
 
@@ -246,12 +246,9 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(mark_buffer), &mark_buffer);
 		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(surface_image), &surface_image);
 		cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(surface_image), &surface_image);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(Color::type), &color.r);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(Color::type), &color.g);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(Color::type), &color.b);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 7, sizeof(Color::type), &color.a);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 8, sizeof(int), &iinvert);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 9, sizeof(int), &ievenodd);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(color), &color);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(int), &iinvert);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(int), &ievenodd);
 		assert(!cl.err);
 
 		// init buffers
@@ -329,7 +326,7 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 	}
 
 	{
-		//Measure t("release lines buffer");
+		Measure t("release lines buffer");
 		clReleaseMemObject(lines_buffer);
 	}
 }

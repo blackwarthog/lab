@@ -29,26 +29,15 @@ using namespace std;
 std::vector<Measure*> Measure::stack;
 
 
-Measure::Measure(const std::string &filename):
-	filename(filename),
-	surface(),
-	tga(filename.size() > 4 && filename.substr(filename.size()-4, 4) == ".tga"),
-	sub_tasks(),
-	t()
-{
-	cout << string(stack.size()*2, ' ') << "begin             " << filename << endl << flush;
-	stack.push_back(this);
-	t = clock();
-}
-
-Measure::Measure(const std::string &filename, Surface &surface):
-	filename(filename),
-	surface(&surface),
-	tga(filename.size() > 4 && filename.substr(filename.size()-4, 4) == ".tga"),
-	sub_tasks(),
-	t()
-{
-	cout << string(stack.size()*2, ' ') << "begin             " << filename << endl << flush;
+void Measure::init() {
+	hide = !stack.empty() && stack.back()->hide_subs;
+	hide_subs |= hide;
+	tga = filename.size() > 4 && filename.substr(filename.size()-4, 4) == ".tga";
+	if (!hide)
+		cout << string(stack.size()*2, ' ')
+		     << "begin             "
+			 << filename
+			 << endl << flush;
 	stack.push_back(this);
 	t = clock();
 }
@@ -56,14 +45,15 @@ Measure::Measure(const std::string &filename, Surface &surface):
 Measure::~Measure() {
 	if (!surface && tga) glFinish();
 
-	clock_t dt = sub_tasks ? sub_tasks : clock() - t;
+	clock_t dt = subs ? subs : clock() - t;
 	Real ms = 1000.0*(Real)dt/(Real)(CLOCKS_PER_SEC);
 
-	cout << string((stack.size()-1)*2, ' ') << "end "
-		 << setw(8) << fixed << setprecision(3)
-		 << ms << " ms - "
-		 << filename
-		 << endl << flush;
+	if (!hide)
+		cout << string((stack.size()-1)*2, ' ') << "end "
+			 << setw(8) << fixed << setprecision(3)
+			 << ms << " ms - "
+			 << filename
+			 << endl << flush;
 
 	if (tga) {
 		if (surface)
@@ -80,6 +70,6 @@ Measure::~Measure() {
 	}
 
 	stack.pop_back();
-	if (!stack.empty()) stack.back()->sub_tasks += dt;
+	if (!stack.empty()) stack.back()->subs += dt;
 }
 

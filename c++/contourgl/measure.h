@@ -32,14 +32,23 @@ private:
 	std::string filename;
 	Surface *surface;
 	bool tga;
-	clock_t sub_tasks;
+	bool hide;
+	bool hide_subs;
+	clock_t subs;
 	clock_t t;
 
-	Measure(const Measure&): surface(), tga(), sub_tasks(), t() { }
+	Measure(const Measure&): surface(), tga(), hide(), hide_subs(), subs(), t() { }
 	Measure& operator= (const Measure&) { return *this; }
+	void init();
 public:
-	Measure(const std::string &filename);
-	Measure(const std::string &filename, Surface &surface);
+	Measure(const std::string &filename, bool hide_subs = false):
+		filename(filename), surface(), tga(), hide(), hide_subs(hide_subs), subs(), t()
+	{ init(); }
+
+	Measure(const std::string &filename, Surface &surface, bool hide_subs = false):
+		filename(filename), surface(&surface), tga(), hide(), hide_subs(hide_subs), subs(), t()
+	{ init(); }
+
 	~Measure();
 };
 

@@ -33,9 +33,7 @@ void Test::draw_contour(int start, int count, bool even_odd, bool invert, const 
 	glEnable(GL_STENCIL_TEST);
 
 	// render mask
-	GLint draw_buffer;
-	glGetIntegerv(GL_DRAW_BUFFER, &draw_buffer);
-	glDrawBuffer(GL_NONE);
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 	glClear(GL_STENCIL_BUFFER_BIT);
 	glStencilFunc(GL_ALWAYS, 0, 0);
 	if (even_odd) {
@@ -46,7 +44,7 @@ void Test::draw_contour(int start, int count, bool even_odd, bool invert, const 
 	}
 	e.shaders.simple();
 	glDrawArrays(GL_TRIANGLE_STRIP, start, count);
-	glDrawBuffer((GLenum)draw_buffer);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	// fill mask
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
@@ -164,7 +162,7 @@ void Test::test2() {
 	GLuint buffer_id = 0;
 	GLuint array_id = 0;
 	int count = 0;
-	vector< vec2<float> > vertices;
+	vector<vec2f> vertices;
 
 	{
 		Measure t("test_2_init_buffer");
@@ -172,11 +170,9 @@ void Test::test2() {
 		glGenBuffers(1, &buffer_id);
 		glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
 		glBufferData( GL_ARRAY_BUFFER,
-				      vertices.size()*sizeof(vec2<float>),
+				      vertices.size()*sizeof(vec2f),
 					  &vertices.front(),
 					  GL_DYNAMIC_DRAW );
-		vertices.clear();
-		vertices.reserve(4+4*chunks.size());
 
 		glGenVertexArrays(1, &array_id);
 		glBindVertexArray(array_id);
@@ -189,26 +185,29 @@ void Test::test2() {
 		glFinish();
 		glClear(GL_COLOR_BUFFER_BIT);
 		glFinish();
+
+		vertices.clear();
+		vertices.reserve(4+4*chunks.size());
 	}
 
 	{
 		Measure t("test_2_prepare_data");
-		vertices.push_back(vec2<float>(bounds.p0.x, bounds.p0.y));
-		vertices.push_back(vec2<float>(bounds.p0.x, bounds.p1.y));
-		vertices.push_back(vec2<float>(bounds.p1.x, bounds.p0.y));
-		vertices.push_back(vec2<float>(bounds.p1.x, bounds.p1.y));
-		vertices.push_back(vec2<float>());
-		vertices.push_back(vec2<float>());
+		vertices.push_back(vec2f(bounds.p0.x, bounds.p0.y));
+		vertices.push_back(vec2f(bounds.p0.x, bounds.p1.y));
+		vertices.push_back(vec2f(bounds.p1.x, bounds.p0.y));
+		vertices.push_back(vec2f(bounds.p1.x, bounds.p1.y));
+		vertices.push_back(vec2f());
+		vertices.push_back(vec2f());
 		for(Contour::ChunkList::const_iterator i = chunks.begin(); i != chunks.end(); ++i) {
 			if ( i->type == Contour::LINE
 			  || i->type == Contour::CLOSE)
 			{
-				vertices.push_back(vec2<float>(i->p1));
-				vertices.push_back(vec2<float>(-1.f, (float)i->p1.y));
+				vertices.push_back(vec2f(i->p1));
+				vertices.push_back(vec2f(-1.f, (float)i->p1.y));
 			} else {
 				vertices.push_back(vertices.back());
 				vertices.push_back(vertices.back());
-				vertices.push_back(vec2<float>(i->p1));
+				vertices.push_back(vec2f(i->p1));
 				vertices.push_back(vertices.back());
 			}
 		}
@@ -360,153 +359,160 @@ void Test::test4() {
 
 		// gl_stencil
 
-		GLuint buffer_id = 0;
-		GLuint array_id = 0;
-		vector< vec2<float> > vertices;
-		vector<int> starts(contours_gl.size());
-		vector<int> counts(contours_gl.size());
-
 		{
-			Measure t("test_4_gl_init_buffer");
-			vertices.resize(4 + 4*commands_count + 2*contours_gl.size());
-			glGenBuffers(1, &buffer_id);
-			glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
-			glBufferData( GL_ARRAY_BUFFER,
-						  vertices.size()*sizeof(vec2<float>),
-						  &vertices.front(),
-						  GL_DYNAMIC_DRAW );
-			vertices.clear();
-			vertices.reserve(4 + 4*commands_count);
+			Measure t("test_4_gl_stencil", true);
 
-			glGenVertexArrays(1, &array_id);
-			glBindVertexArray(array_id);
+			GLuint buffer_id = 0;
+			GLuint array_id = 0;
+			vector<vec2f> vertices;
+			vector<int> starts(contours_gl.size());
+			vector<int> counts(contours_gl.size());
 
-			glEnableVertexAttribArray(0);
-			glVertexAttribPointer(0, 2, GL_FLOAT, GL_TRUE, 0, NULL);
+			{
+				//Measure t("test_4_gl_init_buffer");
+				vertices.resize(4 + 4*commands_count + 2*contours_gl.size());
+				glGenBuffers(1, &buffer_id);
+				glBindBuffer(GL_ARRAY_BUFFER, buffer_id);
+				glBufferData( GL_ARRAY_BUFFER,
+							  vertices.size()*sizeof(vec2f),
+							  &vertices.front(),
+							  GL_DYNAMIC_DRAW );
+				vertices.clear();
+				vertices.reserve(4 + 4*commands_count);
 
-			e.shaders.color(Color(0.f, 0.f, 1.f, 1.f));
-			glDrawArrays(GL_TRIANGLE_STRIP, 0, vertices.size());
-			glFinish();
-			glClear(GL_COLOR_BUFFER_BIT);
-			glFinish();
-		}
+				glGenVertexArrays(1, &array_id);
+				glBindVertexArray(array_id);
 
-		{
-			Measure t("test_4_gl_stencil_prepare_data");
-			vertices.push_back(vec2<float>(bounds_gl.p0.x, bounds_gl.p0.y));
-			vertices.push_back(vec2<float>(bounds_gl.p0.x, bounds_gl.p1.y));
-			vertices.push_back(vec2<float>(bounds_gl.p1.x, bounds_gl.p0.y));
-			vertices.push_back(vec2<float>(bounds_gl.p1.x, bounds_gl.p1.y));
-			for(int i = 0; i < (int)contours_gl.size(); ++i) {
-				starts[i] = (int)vertices.size();
-				const Contour::ChunkList &chunks = contours_gl[i].contour.get_chunks();
-				for(Contour::ChunkList::const_iterator j = chunks.begin(); j != chunks.end(); ++j) {
-					if (j->type == Contour::LINE) {
-						vertices.push_back(vec2<float>(j->p1));
-						vertices.push_back(vec2<float>(-1.f, (float)j->p1.y));
-					} else
-					if (j->type == Contour::CLOSE) {
-						vertices.push_back(vec2<float>(j->p1));
-						vertices.push_back(vec2<float>(-1.f, (float)j->p1.y));
-					} else {
-						vertices.push_back(vertices.back());
-						vertices.push_back(vec2<float>(j->p1));
-						vertices.push_back(vertices.back());
-						vertices.push_back(vec2<float>(-1.f, (float)j->p1.y));
+				glEnableVertexAttribArray(0);
+				glVertexAttribPointer(0, 2, GL_FLOAT, GL_TRUE, 0, NULL);
+
+				e.shaders.color(Color(0.f, 0.f, 1.f, 1.f));
+				glDrawArrays(GL_TRIANGLE_STRIP, 0, vertices.size());
+				glFinish();
+				glClear(GL_COLOR_BUFFER_BIT);
+				glFinish();
+			}
+
+			{
+				//Measure t("test_4_gl_stencil_prepare_data");
+				vertices.push_back(vec2f(bounds_gl.p0.x, bounds_gl.p0.y));
+				vertices.push_back(vec2f(bounds_gl.p0.x, bounds_gl.p1.y));
+				vertices.push_back(vec2f(bounds_gl.p1.x, bounds_gl.p0.y));
+				vertices.push_back(vec2f(bounds_gl.p1.x, bounds_gl.p1.y));
+				for(int i = 0; i < (int)contours_gl.size(); ++i) {
+					starts[i] = (int)vertices.size();
+					const Contour::ChunkList &chunks = contours_gl[i].contour.get_chunks();
+					for(Contour::ChunkList::const_iterator j = chunks.begin(); j != chunks.end(); ++j) {
+						if (j->type == Contour::LINE) {
+							vertices.push_back(vec2f(j->p1));
+							vertices.push_back(vec2f(-1.f, (float)j->p1.y));
+						} else
+						if (j->type == Contour::CLOSE) {
+							vertices.push_back(vec2f(j->p1));
+							vertices.push_back(vec2f(-1.f, (float)j->p1.y));
+						} else {
+							vertices.push_back(vertices.back());
+							vertices.push_back(vec2f(j->p1));
+							vertices.push_back(vertices.back());
+							vertices.push_back(vec2f(-1.f, (float)j->p1.y));
+						}
 					}
+					counts[i] = (int)vertices.size() - starts[i];
 				}
-				counts[i] = (int)vertices.size() - starts[i];
 			}
-		}
 
-		{
-			Measure t("test_4_gl_stencil_send_data");
-			glBufferSubData( GL_ARRAY_BUFFER,
-							 0,
-						     vertices.size()*sizeof(vertices.front()),
-						     &vertices.front() );
-		}
-
-		{
-			Measure t("test_4_gl_stencil_points.tga");
-			glDrawArrays(GL_POINTS, 0, vertices.size());
-		}
-
-		{
-			Measure t("test_4_gl_stencil_render.tga");
-			for(int i = 0; i < (int)contours_gl.size(); ++i) {
-				draw_contour(
-					starts[i],
-					counts[i],
-					contours_gl[i].invert,
-					contours_gl[i].evenodd,
-					contours_gl[i].color );
+			{
+				Measure t("test_4_gl_stencil_send_data");
+				glBufferSubData( GL_ARRAY_BUFFER,
+								 0,
+								 vertices.size()*sizeof(vertices.front()),
+								 &vertices.front() );
 			}
-			// glDrawArrays(GL_POINTS, 0, vertices.size());
+
+			{
+				//Measure t("test_4_gl_stencil_points.tga");
+				//glDrawArrays(GL_POINTS, 0, vertices.size());
+			}
+
+			{
+				Measure t("test_4_gl_stencil.tga");
+				for(int i = 0; i < (int)contours_gl.size(); ++i) {
+					draw_contour(
+						starts[i],
+						counts[i],
+						contours_gl[i].invert,
+						contours_gl[i].evenodd,
+						contours_gl[i].color );
+				}
+			}
 		}
 
 		// gl_triangles
 
 		/*
-		GLuint index_buffer_id = 0;
-		vector<int> triangle_starts(contours_gl.size());
-		vector<int> triangle_counts(contours_gl.size());
-		vector<int> triangles;
-		vertices.clear();
-		vertices.reserve(commands_count);
-
 		{
-			Measure t("test_4_gl_init_index_buffer");
-			triangles.resize(3*commands_count);
-			glGenBuffers(1, &index_buffer_id);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
-			glBufferData( GL_ELEMENT_ARRAY_BUFFER,
-						  triangles.size()*sizeof(triangles.front()),
-						  &triangles.front(),
-						  GL_DYNAMIC_DRAW );
-			triangles.clear();
-			triangles.reserve(3*commands_count);
-		}
+			Measure t("test_4_gl_triangles.tga", true);
 
-		{
-			Measure t("test_4_gl_triangulate");
-			int index_offset = 4;
-			for(int i = 0; i < (int)contours_gl.size(); ++i) {
-				triangle_starts[i] = (int)triangles.size();
-				Triangulator::triangulate(contours_gl[i].contour, triangles, index_offset);
-				triangle_counts[i] = (int)triangles.size() - triangle_starts[i];
-				index_offset += (int)contours_gl[i].contour.get_chunks().size();
+			GLuint index_buffer_id = 0;
+			vector<int> triangle_starts(contours_gl.size());
+			vector<int> triangle_counts(contours_gl.size());
+			vector<int> triangles;
+			vertices.clear();
+			vertices.reserve(commands_count);
+
+			{
+				//Measure t("test_4_gl_init_index_buffer");
+				triangles.resize(3*commands_count);
+				glGenBuffers(1, &index_buffer_id);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_id);
+				glBufferData( GL_ELEMENT_ARRAY_BUFFER,
+							  triangles.size()*sizeof(triangles.front()),
+							  &triangles.front(),
+							  GL_DYNAMIC_DRAW );
+				triangles.clear();
+				triangles.reserve(3*commands_count);
 			}
-		}
 
-		cout << triangles.size() << " triangles" << endl;
-
-		{
-			Measure t("test_4_gl_triangles_prepare_vertices");
-			for(int i = 0; i < (int)contours_gl.size(); ++i) {
-				const Contour::ChunkList &chunks = contours_gl[i].contour.get_chunks();
-				for(Contour::ChunkList::const_iterator j = chunks.begin(); j != chunks.end(); ++j)
-					vertices.push_back(vec2<float>(j->p1));
+			{
+				Measure t("test_4_gl_triangulate");
+				int index_offset = 4;
+				for(int i = 0; i < (int)contours_gl.size(); ++i) {
+					triangle_starts[i] = (int)triangles.size();
+					Triangulator::triangulate(contours_gl[i].contour, triangles, index_offset);
+					triangle_counts[i] = (int)triangles.size() - triangle_starts[i];
+					index_offset += (int)contours_gl[i].contour.get_chunks().size();
+				}
 			}
-		}
 
-		{
-			Measure t("test_4_gl_triangles_send_data");
-			glBufferSubData( GL_ARRAY_BUFFER,
-							 4*sizeof(vertices.front()),
-						     vertices.size()*sizeof(vertices.front()),
-						     &vertices.front() );
-			glBufferSubData( GL_ELEMENT_ARRAY_BUFFER,
-							 0,
-						     triangles.size()*sizeof(triangles.front()),
-						     &triangles.front() );
-		}
+			//cout << triangles.size() << " triangles" << endl;
 
-		{
-			Measure t("test_4_gl_triangles_render.tga");
-			for(int i = 0; i < (int)contours_gl.size(); ++i) {
-				e.shaders.color(contours_gl[i].color);
-				glDrawElements(GL_TRIANGLES, triangle_counts[i], GL_UNSIGNED_INT, (char*)NULL + triangle_starts[i]*sizeof(int));
+			{
+				//Measure t("test_4_gl_triangles_prepare_vertices");
+				for(int i = 0; i < (int)contours_gl.size(); ++i) {
+					const Contour::ChunkList &chunks = contours_gl[i].contour.get_chunks();
+					for(Contour::ChunkList::const_iterator j = chunks.begin(); j != chunks.end(); ++j)
+						vertices.push_back(vec2f(j->p1));
+				}
+			}
+
+			{
+				Measure t("test_4_gl_triangles_send_data");
+				glBufferSubData( GL_ARRAY_BUFFER,
+								 4*sizeof(vertices.front()),
+								 vertices.size()*sizeof(vertices.front()),
+								 &vertices.front() );
+				glBufferSubData( GL_ELEMENT_ARRAY_BUFFER,
+								 0,
+								 triangles.size()*sizeof(triangles.front()),
+								 &triangles.front() );
+			}
+
+			{
+				Measure t("test_4_gl_triangles_render");
+				for(int i = 0; i < (int)contours_gl.size(); ++i) {
+					e.shaders.color(contours_gl[i].color);
+					glDrawElements(GL_TRIANGLES, triangle_counts[i], GL_UNSIGNED_INT, (char*)NULL + triangle_starts[i]*sizeof(int));
+				}
 			}
 		}
 		*/
@@ -514,6 +520,9 @@ void Test::test4() {
 
 	{
 		// software
+
+		Surface surface(width, height);
+		Measure t("test_4_sw.tga", surface, true);
 
 		vector<ContourInfo> contours_sw = contours;
 		for(vector<ContourInfo>::iterator i = contours_sw.begin(); i != contours_sw.end(); ++i)
@@ -529,24 +538,21 @@ void Test::test4() {
 			}
 		}
 
-		Surface surface(width, height);
-
 		{
-			Measure t("test_4_sw_render_polyspans.tga", surface);
+			Measure t("test_4_sw_render_polyspans");
 			for(int i = 0; i < (int)contours_sw.size(); ++i)
 				SwRender::polyspan(surface, polyspans[i], contours_sw[i].color, contours_sw[i].evenodd, contours_sw[i].invert);
 		}
 	}
 
-	Surface surface(width, height);
-
 	{
 		// cl
 
+		Surface surface(width, height);
 		vector<ContourInfo> contours_cl = contours;
 		ClRender clr(e.cl);
 		{
-			Measure t("test_4_cl.tga", surface);
+			Measure t("test_4_cl.tga", surface, true);
 			clr.send_surface(&surface);
 			for(vector<ContourInfo>::const_iterator i = contours_cl.begin(); i != contours_cl.end(); ++i)
 				clr.contour(i->contour, bounds_file, i->color, i->invert, i->evenodd);
