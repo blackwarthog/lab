@@ -34,13 +34,15 @@ ClRender::ClRender(ClContext &cl):
 	surface(),
 	rows_buffer(),
 	mark_buffer(),
-	surface_buffer(),
+	surface_image(),
 	prev_event(),
 	rows_count(),
 	even_rows_count(),
 	odd_rows_count()
 {
 	contour_program = cl.load_program("contour.cl");
+	contour_clear2f_kernel = clCreateKernel(contour_program, "clear2f", NULL);
+	assert(contour_clear2f_kernel);
 	contour_lines_kernel = clCreateKernel(contour_program, "lines", NULL);
 	assert(contour_lines_kernel);
 	contour_fill_kernel = clCreateKernel(contour_program, "fill", NULL);
@@ -49,6 +51,7 @@ ClRender::ClRender(ClContext &cl):
 
 ClRender::~ClRender() {
 	send_surface(NULL);
+	clReleaseKernel(contour_clear2f_kernel);
 	clReleaseKernel(contour_fill_kernel);
 	clReleaseKernel(contour_lines_kernel);
 	clReleaseProgram(contour_program);
@@ -65,7 +68,7 @@ void ClRender::send_surface(Surface *surface) {
 		rows.clear();
 		clReleaseMemObject(rows_buffer);
 		clReleaseMemObject(mark_buffer);
-		clReleaseMemObject(surface_buffer);
+		clReleaseMemObject(surface_image);
 	}
 
 	this->surface = surface;
@@ -87,19 +90,25 @@ void ClRender::send_surface(Surface *surface) {
 
 		mark_buffer = clCreateBuffer(
 			cl.context, CL_MEM_READ_WRITE,
-			marks.size()*sizeof(marks.front()), NULL,
+			surface->count()*sizeof(cl_float2), NULL,
 			NULL );
 		assert(mark_buffer);
 
-		surface_buffer = clCreateBuffer(
-			cl.context, CL_MEM_READ_WRITE,
-			surface->data_size(), surface->data,
-			NULL );
-		assert(surface_buffer);
+		cl_image_format surface_format = { };
+		surface_format.image_channel_order = CL_RGBA;
+		surface_format.image_channel_data_type = CL_FLOAT;
 
-		cl.err |= clEnqueueWriteBuffer(
-			cl.queue, surface_buffer, CL_TRUE,
-			0, surface->data_size(), surface->data,
+		surface_image = clCreateImage2D(
+			cl.context, CL_MEM_READ_WRITE,
+			&surface_format, surface->width, surface->height,
+			0, NULL, NULL );
+		assert(surface_image);
+
+		size_t origin[3] = { };
+		size_t region[3] = { (size_t)surface->width, (size_t)surface->height, 1 };
+		cl.err |= clEnqueueWriteImage(
+			cl.queue, surface_image, CL_TRUE,
+			origin, region, 0, 0, surface->data,
 			0, NULL, &prev_event );
 
 		assert(!cl.err);
@@ -110,9 +119,11 @@ Surface* ClRender::receive_surface() {
 	if (surface) {
 		//Measure t("ClRender::receive_surface");
 
-		cl.err |= clEnqueueReadBuffer(
-			cl.queue, surface_buffer, CL_TRUE,
-			0, surface->data_size(), surface->data,
+		size_t origin[3] = { };
+		size_t region[3] = { (size_t)surface->width, (size_t)surface->height, 1 };
+		cl.err |= clEnqueueReadImage(
+			cl.queue, surface_image, CL_TRUE,
+			origin, region, 0, 0, surface->data,
 			prev_event ? 1 : 0, &prev_event, NULL );
 		assert(!cl.err);
 		clFinish(cl.queue);
@@ -218,7 +229,11 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 		//Measure t("enqueue commands");
 
 		// kernel args
+
 		int width = surface->width;
+
+		cl.err |= clSetKernelArg(contour_clear2f_kernel, 0, sizeof(mark_buffer), &mark_buffer);
+		assert(!cl.err);
 
 		cl.err |= clSetKernelArg(contour_lines_kernel, 0, sizeof(width), &width);
 		cl.err |= clSetKernelArg(contour_lines_kernel, 1, sizeof(lines_buffer), &lines_buffer);
@@ -229,16 +244,17 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 		int iinvert = invert, ievenodd = evenodd;
 		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(width), &width);
 		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(mark_buffer), &mark_buffer);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(surface_buffer), &surface_buffer);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(Color::type), &color.r);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(Color::type), &color.g);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(Color::type), &color.b);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(Color::type), &color.a);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 7, sizeof(int), &iinvert);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 8, sizeof(int), &ievenodd);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(surface_image), &surface_image);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(surface_image), &surface_image);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(Color::type), &color.r);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(Color::type), &color.g);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(Color::type), &color.b);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 7, sizeof(Color::type), &color.a);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 8, sizeof(int), &iinvert);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 9, sizeof(int), &ievenodd);
 		assert(!cl.err);
 
-		// prepare buffers
+		// init buffers
 
 		cl_event prepare_buffers_events[3] = { };
 
@@ -254,13 +270,20 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 			0, NULL, &prepare_buffers_events[1] );
 		assert(!cl.err);
 
-		cl.err |= clEnqueueWriteBuffer(
-			cl.queue, mark_buffer, CL_TRUE,
-			0, marks.size()*sizeof(marks.front()), &marks.front(),
-			prev_event ? 1 : 0, &prev_event, &prepare_buffers_events[2] );
+		size_t count = (size_t)surface->count();
+		cl.err |= clEnqueueNDRangeKernel(
+			cl.queue,
+			contour_clear2f_kernel,
+			1,
+			NULL,
+			&count,
+			NULL,
+			prev_event ? 1 : 0,
+			&prev_event,
+			&prepare_buffers_events[2] );
 		assert(!cl.err);
 
-		// run kernels
+		// build marks
 
 		cl_event lines_odd_event = NULL;
 		cl.err |= clEnqueueNDRangeKernel(
@@ -287,6 +310,8 @@ void ClRender::contour(const Contour &contour, const Rect &rect, const Color &co
 			&lines_odd_event,
 			&lines_even_event );
 		assert(!cl.err);
+
+		// fill
 
 		cl.err |= clEnqueueNDRangeKernel(
 			cl.queue,

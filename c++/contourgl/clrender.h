@@ -30,13 +30,14 @@ class ClRender {
 private:
 	ClContext &cl;
 	cl_program contour_program;
+	cl_kernel contour_clear2f_kernel;
 	cl_kernel contour_lines_kernel;
 	cl_kernel contour_fill_kernel;
 
 	Surface *surface;
 	cl_mem rows_buffer;
 	cl_mem mark_buffer;
-	cl_mem surface_buffer;
+	cl_mem surface_image;
 	cl_event prev_event;
 
 	size_t rows_count;

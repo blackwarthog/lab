@@ -15,19 +15,30 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+__kernel void clear2f(
+	__global float2 *buffer )
+{
+	const float2 v = { 0.f, 0.f };
+	buffer[get_global_id(0)] = v;
+}
+
 __kernel void lines(
 	int width, 
 	__global float *lines,
 	__global int *rows,
-	__global float *mark_buffer )
+	__global float2 *mark_buffer )
 {
 	const float e = 1e-6f;
-	size_t id = get_global_id(0);
-	int begin = rows[id*2];
-	int end = begin + rows[id*2 + 1];
-	for(int i = begin; i < end; ++i) {
-		float2 p0 = { lines[4*i + 0], lines[4*i + 1] };
-		float2 p1 = { lines[4*i + 2], lines[4*i + 3] };
+	__global int *row = rows + 2*get_global_id(0);
+	sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE
+					  | CLK_ADDRESS_NONE
+			          | CLK_FILTER_NEAREST;
+	int w = width;
+	__global float *i = lines + 4*row[0];
+	__global float *end = i + 4*row[1];
+	for(; i < end; i += 4) {
+		float2 p0 = { i[0], i[1] };
+		float2 p1 = { i[2], i[3] };
 		
 		int iy0 = (int)floor(fmin(p0.y, p1.y) + e);
 		int iy1 = (int)floor(fmax(p0.y, p1.y) - e);
@@ -56,11 +67,10 @@ __kernel void lines(
 				float2 ppp1 = pp1.x - x < -e      ? pxa
 				            : (pp1.x - x > 1.f + e ? pxb : pp1);
 
-				float cover = ppp1.y - ppp0.y;
-				float area = (x + 1.f - 0.5f*(ppp0.x + ppp1.x))*cover;
-				__global float *mark = mark_buffer + 2*(r*width + c);
-				mark[0] += area;
-				mark[1] += cover;
+				float2 m;
+				m.y = ppp1.y - ppp0.y;
+				m.x = (x + 1.f - 0.5f*(ppp0.x + ppp1.x))*m.y;
+				mark_buffer[r*w + c] += m;  
 			}
 		}
 	}
@@ -68,8 +78,9 @@ __kernel void lines(
 
 __kernel void fill(
 	int width,
-	__global float *mark_buffer,
-	__global float *surface_buffer,
+	__global float2 *mark_buffer,
+	__read_only image2d_t surface_read_image,
+	__write_only image2d_t surface_write_image,
 	float color_r,
 	float color_g,
 	float color_b,
@@ -79,23 +90,28 @@ __kernel void fill(
 {
 	size_t id = get_global_id(0);
 	int w = width;
-	float cr = color_r;
-	float cg = color_g;
-	float cb = color_b;
-	float ca = color_a;
-	__global float *mark = mark_buffer + 2*id*w;
-	__global float *surface = surface_buffer + 4*id*w;
+	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE
+							| CLK_ADDRESS_NONE
+			                | CLK_FILTER_NEAREST;
+	float4 color = { color_r, color_g, color_b, color_a };
 	float cover = 0.f;
-	for(int i = 0; i < width; ++i, mark += 2, surface += 4) {
-		float alpha = fabs(*mark + cover);
-		alpha = evenodd ? ca*(1.f - fabs(1.f - alpha - 2.f*floor(0.5f*alpha)))
+	__global float2 *mark = mark_buffer + id*w;
+	for(int2 coord = { 0, id }; coord.x < w; ++coord.x, ++mark) {
+		float2 m = *mark;
+
+		float alpha = fabs(m.x + cover);
+		cover += m.y;
+		alpha = evenodd ? (1.f - fabs(1.f - alpha - 2.f*floor(0.5f*alpha)))
 				        : fmin(alpha, 1.f);
+		alpha *= color.w;
 		if (invert) alpha = 1.f - alpha;
 		float alpha_inv = 1.f - alpha;
-		surface[0] = surface[0]*alpha_inv + cr*alpha;
-		surface[1] = surface[1]*alpha_inv + cg*alpha;
-		surface[2] = surface[2]*alpha_inv + cb*alpha;
-		surface[3] = fmin(surface[3] + ca*alpha, 1.f);
-		cover += mark[1];
+
+		float4 c = read_imagef(surface_read_image, sampler, coord);
+		c.x = c.x*alpha_inv + color.x*alpha;
+		c.y = c.y*alpha_inv + color.y*alpha;
+		c.z = c.z*alpha_inv + color.z*alpha;
+		c.w = min(c.w + alpha, 1.f);
+		write_imagef(surface_write_image, coord, c);
 	}
 }

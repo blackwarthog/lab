@@ -538,19 +538,19 @@ void Test::test4() {
 		}
 	}
 
-	Surface surface(width+2, height+2);
+	Surface surface(width, height);
 
 	{
 		// cl
 
 		vector<ContourInfo> contours_cl = contours;
-
-		Measure t("test_4_cl.tga", surface);
-
 		ClRender clr(e.cl);
-		clr.send_surface(&surface);
-		for(vector<ContourInfo>::const_iterator i = contours_cl.begin(); i != contours_cl.end(); ++i)
-			clr.contour(i->contour, bounds_file, i->color, i->invert, i->evenodd);
-		clr.receive_surface();
+		{
+			Measure t("test_4_cl.tga", surface);
+			clr.send_surface(&surface);
+			for(vector<ContourInfo>::const_iterator i = contours_cl.begin(); i != contours_cl.end(); ++i)
+				clr.contour(i->contour, bounds_file, i->color, i->invert, i->evenodd);
+			clr.receive_surface();
+		}
 	}
 }
