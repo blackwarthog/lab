@@ -17,6 +17,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 
 #include "test.h"
 #include "contourbuilder.h"
@@ -340,6 +341,8 @@ void Test::test4() {
 	bounds_sw.p0 = Vector();
 	bounds_sw.p1 = frame_size;
 
+	Rect bounds_cl = bounds_sw;
+
 	Rect bounds_file;
 	bounds_file.p0 = Vector(0.0, 450.0);
 	bounds_file.p1 = Vector(500.0, -50.0);
@@ -422,7 +425,7 @@ void Test::test4() {
 			}
 
 			{
-				Measure t("test_4_gl_stencil_send_data");
+				//Measure t("test_4_gl_stencil_send_data");
 				glBufferSubData( GL_ARRAY_BUFFER,
 								 0,
 								 vertices.size()*sizeof(vertices.front()),
@@ -435,7 +438,7 @@ void Test::test4() {
 			}
 
 			{
-				Measure t("test_4_gl_stencil.tga");
+				Measure t("test_4_gl_stencil_render.tga");
 				for(int i = 0; i < (int)contours_gl.size(); ++i) {
 					draw_contour(
 						starts[i],
@@ -448,16 +451,16 @@ void Test::test4() {
 		}
 
 		// gl_triangles
-
 		/*
+
 		{
-			Measure t("test_4_gl_triangles.tga", true);
+			Measure t("test_4_gl_triangles", false);
 
 			GLuint index_buffer_id = 0;
 			vector<int> triangle_starts(contours_gl.size());
 			vector<int> triangle_counts(contours_gl.size());
 			vector<int> triangles;
-			vertices.clear();
+			vector<vec2f> vertices;
 			vertices.reserve(commands_count);
 
 			{
@@ -484,7 +487,7 @@ void Test::test4() {
 				}
 			}
 
-			//cout << triangles.size() << " triangles" << endl;
+			cout << triangles.size() << " triangles" << endl;
 
 			{
 				//Measure t("test_4_gl_triangles_prepare_vertices");
@@ -508,12 +511,13 @@ void Test::test4() {
 			}
 
 			{
-				Measure t("test_4_gl_triangles_render");
+				Measure t("test_4_gl_triangles.tga");
 				for(int i = 0; i < (int)contours_gl.size(); ++i) {
 					e.shaders.color(contours_gl[i].color);
 					glDrawElements(GL_TRIANGLES, triangle_counts[i], GL_UNSIGNED_INT, (char*)NULL + triangle_starts[i]*sizeof(int));
 				}
 			}
+
 		}
 		*/
 	}
@@ -522,21 +526,25 @@ void Test::test4() {
 		// software
 
 		Surface surface(width, height);
-		Measure t("test_4_sw.tga", surface, true);
+		Measure t("test_4_sw.tga", surface, false);
 
 		vector<ContourInfo> contours_sw = contours;
 		for(vector<ContourInfo>::iterator i = contours_sw.begin(); i != contours_sw.end(); ++i)
 			i->contour.transform(bounds_file, bounds_sw);
 
+		int count = 0;
 		vector<Polyspan> polyspans(contours_sw.size());
 		{
 			Measure t("test_4_sw_build_polyspans");
 			for(int i = 0; i < (int)contours_sw.size(); ++i) {
 				polyspans[i].init(0, 0, width, height);
 				contours_sw[i].contour.to_polyspan(polyspans[i]);
+				count += polyspans[i].get_covers().size();
 				polyspans[i].sort_marks();
 			}
 		}
+
+		cout << setbase(10) << count << endl;
 
 		{
 			Measure t("test_4_sw_render_polyspans");
@@ -549,14 +557,40 @@ void Test::test4() {
 		// cl
 
 		Surface surface(width, height);
+
+		Measure t("test_4_cl.tga", surface, true);
+
 		vector<ContourInfo> contours_cl = contours;
-		ClRender clr(e.cl);
-		{
-			Measure t("test_4_cl.tga", surface, true);
-			clr.send_surface(&surface);
-			for(vector<ContourInfo>::const_iterator i = contours_cl.begin(); i != contours_cl.end(); ++i)
-				clr.contour(i->contour, bounds_file, i->color, i->invert, i->evenodd);
-			clr.receive_surface();
+		vector<vec2f> paths;
+		vector<int> starts(contours_cl.size());
+		vector<int> counts(contours_cl.size());
+		for(int i = 0; i < (int)contours_cl.size(); ++i) {
+			contours_cl[i].contour.transform(bounds_file, bounds_cl);
+			starts[i] = paths.size();
+			for(Contour::ChunkList::const_iterator j = contours_cl[i].contour.get_chunks().begin(); j != contours_cl[i].contour.get_chunks().end(); ++j)
+				paths.push_back(vec2f(j->p1));
+			paths.push_back(paths[starts[i]]);
+			counts[i] = paths.size() - starts[i];
 		}
+
+		ClRender clr(e.cl);
+		clr.send_surface(&surface);
+		clr.send_path(&paths.front(), paths.size());
+
+		{
+			Measure t("test_4_cl_render");
+			for(int i = 0; i < (int)contours_cl.size(); ++i)
+				clr.path(starts[i], counts[i], contours_cl[i].color, contours_cl[i].invert, contours_cl[i].evenodd);
+			clr.wait();
+		}
+
+		clr.receive_surface();
+	}
+}
+
+void ClRender::wait() {
+	if (prev_event) {
+		clWaitForEvents(1, &prev_event);
+		prev_event = NULL;
 	}
 }

@@ -69,12 +69,15 @@ ClContext::ClContext(): err(), context(), queue() {
 
     // context
 
-    context = clCreateContext(0, 1, &devices.front(), NULL, NULL, &err);
+    cl_context_properties context_props[] = {
+    	CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
+		CL_NONE };
+    context = clCreateContext(context_props, 1, &devices.front(), callback, NULL, &err);
     assert(context);
 
 	// command queue
 
-	queue = clCreateCommandQueue(context, devices[0], 0, NULL);
+	queue = clCreateCommandQueue(context, devices.front(), CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, NULL);
 	assert(queue);
 
 }
@@ -83,6 +86,8 @@ ClContext::~ClContext() {
 	clReleaseCommandQueue(queue);
 	clReleaseContext(context);
 }
+
+void ClContext::callback(const char *, const void *, size_t, void *) { }
 
 cl_program ClContext::load_program(const std::string &filename) {
 	ifstream f(("cl/" + filename).c_str());

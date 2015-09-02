@@ -36,6 +36,7 @@ public:
 
 	void hello();
 	cl_program load_program(const std::string &filename);
+	static void callback(const char *, const void *, size_t, void *);
 };
 
 #endif

@@ -30,23 +30,15 @@ class ClRender {
 private:
 	ClContext &cl;
 	cl_program contour_program;
-	cl_kernel contour_clear2f_kernel;
-	cl_kernel contour_lines_kernel;
+	cl_kernel contour_clear_kernel;
+	cl_kernel contour_path_kernel;
 	cl_kernel contour_fill_kernel;
 
 	Surface *surface;
-	cl_mem rows_buffer;
+	cl_mem path_buffer;
 	cl_mem mark_buffer;
 	cl_mem surface_image;
 	cl_event prev_event;
-
-	size_t rows_count;
-	size_t even_rows_count;
-	size_t odd_rows_count;
-
-	typedef std::pair<int, int> Row;
-	std::vector<Row> rows;
-	std::vector<vec2f> marks;
 
 public:
 	ClRender(ClContext &cl);
@@ -54,7 +46,9 @@ public:
 
 	void send_surface(Surface *surface);
 	Surface* receive_surface();
-	void contour(const Contour &contour, const Rect &rect, const Color &color, bool invert, bool evenodd);
+	void send_path(const vec2f *path, int count);
+	void path(int start, int count, const Color &color, bool invert, bool evenodd);
+	void wait();
 };
 
 

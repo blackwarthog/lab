@@ -15,71 +15,69 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-__kernel void clear2f(
-	__global float2 *buffer )
+kernel void clear(
+	global int2 *mark_buffer )
 {
-	const float2 v = { 0.f, 0.f };
-	buffer[get_global_id(0)] = v;
+	const int2 v = { 0, 0 };
+	mark_buffer[get_global_id(0)] = v;
 }
 
-__kernel void lines(
-	int width, 
-	__global float4 *lines,
-	__global int2 *rows,
-	__global float2 *mark_buffer )
+kernel void path(
+	int width,
+	int height,
+	global int *mark_buffer,
+	global float2 *path )
 {
 	const float e = 1e-6f;
-	int2 row = rows[get_global_id(0)];
-	sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE
-					  | CLK_ADDRESS_NONE
-			          | CLK_FILTER_NEAREST;
-	int w = width;
-	for(__global float4 *i = lines + row.x, *end = i + row.y; i < end; ++i) {
-		float4 line = *i; 
-		float2 p0 = { line.x, line.y };
-		float2 p1 = { line.z, line.w };
-		
-		int iy0 = (int)floor(fmin(p0.y, p1.y) + e);
-		int iy1 = (int)floor(fmax(p0.y, p1.y) - e);
-		
-		float2 d = p1 - p0;
-		float kx = fabs(d.y) < e ? 0.f : d.x/d.y;
-		float ky = fabs(d.x) < e ? 0.f : d.y/d.x;
-		
-		for(int r = iy0; r <= iy1; ++r) {
-			float y = (float)r;
-			float2 pya = { p0.x + kx*(y       - p0.y), y };
-			float2 pyb = { p0.x + kx*(y + 1.0 - p0.y), y + 1.f };
-			float2 pp0 = p0.y - y < -e      ? pya
-			           : (p0.y - y > 1.f + e ? pyb : p0);
-			float2 pp1 = p1.y - y < -e      ? pya
-			           : (p1.y - y > 1.f + e ? pyb : p1);
+	size_t id = get_global_id(0);
+	
+	float2 s = { (float)width, (float)height }; 
+	int w1 = width - 1;
+	int h1 = height - 1;
 
-			int ix0 = (int)floor(fmin(pp0.x, pp1.x) + e);
-			int ix1 = (int)floor(fmax(pp0.x, pp1.x) - e);
-			for(int c = ix0; c <= ix1; ++c) {
-				float x = (float)c;
-				float2 pxa = { x,       p0.y + ky*(x       - p0.x) };
-				float2 pxb = { x + 1.0, p0.y + ky*(x + 1.0 - p0.x) };
-				float2 ppp0 = pp0.x - x < -e      ? pxa
-				            : (pp0.x - x > 1.f + e ? pxb : pp0);
-				float2 ppp1 = pp1.x - x < -e      ? pxa
-				            : (pp1.x - x > 1.f + e ? pxb : pp1);
+	float2 p0 = path[id];
+	float2 p1 = path[id + 1];
+	bool flipx = p1.x < p0.x;
+	bool flipy = p1.y < p0.y;
+	if (flipx) { p0.x = s.x - p0.x; p1.x = s.x - p1.x; }
+	if (flipy) { p0.y = s.y - p0.y; p1.y = s.y - p1.y; }
+	float2 d = p1 - p0;
+	float kx = fabs(d.y) < e ? 1e10 : d.x/d.y;
+	float ky = fabs(d.x) < e ? 1e10 : d.y/d.x;
+	
+	while(p0.x != p1.x || p0.y != p1.y) {
+		int ix = (int)floor(p0.x + e);
+		int iy = (int)floor(p0.y + e);
+		if (iy > h1) break;
 
-				float2 m;
-				m.y = ppp1.y - ppp0.y;
-				m.x = (x + 1.f - 0.5f*(ppp0.x + ppp1.x))*m.y;
-				mark_buffer[r*w + c] += m;  
-			}
+		float2 px, py;
+		px.x = (float)(ix + 1);
+		px.y = p0.y + ky*(px.x - p0.x);
+		py.y = max((float)(iy + 1), 0.f);
+		py.x = p0.x + kx*(py.y - p0.y);
+		float2 pp1 = p1;
+		if (pp1.x > px.x) pp1 = px;
+		if (pp1.y > py.y) pp1 = py;
+		
+		if (iy >= 0) {
+			float cover = pp1.y - p0.y;
+			float area = px.x - 0.5f*(p0.x + pp1.x);
+			if (flipx) { ix = w1 - ix; area = 1.f - area; }
+			if (flipy) { iy = h1 - iy; cover = -cover; }
+			global int *mark = mark_buffer + 2*(iy*width + clamp(ix, 0, w1));
+			atomic_add(mark, (int)round(area*cover*65536));
+			atomic_add(mark + 1, (int)round(cover*65536));
 		}
+		
+		p0 = pp1;
 	}
 }
 
-__kernel void fill(
+kernel void fill(
 	int width,
-	__global float2 *mark_buffer,
-	__read_only image2d_t surface_read_image,
-	__write_only image2d_t surface_write_image,
+	global int2 *mark_buffer,
+	read_only image2d_t surface_read_image,
+	write_only image2d_t surface_write_image,
 	float4 color,
 	int invert,
 	int evenodd )
@@ -91,14 +89,15 @@ __kernel void fill(
 			                | CLK_FILTER_NEAREST;
 	float4 cl = color;
 	float cover = 0.f;
-	__global float2 *mark = mark_buffer + id*w;
+	global int2 *mark = mark_buffer + id*w;
+	const int2 izero = { 0, 0 };
 	for(int2 coord = { 0, id }; coord.x < w; ++coord.x, ++mark) {
-		float2 m = *mark;
-
-		float alpha = fabs(m.x + cover);
-		cover += m.y;
+		int2 im = *mark;
+		//*mark = izero;
+		float alpha = fabs((float)im.x/65536.f + cover);
+		cover += (float)im.y/65536.f;
 		alpha = evenodd ? (1.f - fabs(1.f - alpha - 2.f*floor(0.5f*alpha)))
-				        : fmin(alpha, 1.f);
+						: fmin(alpha, 1.f);
 		alpha *= cl.w;
 		if (invert) alpha = 1.f - alpha;
 		float alpha_inv = 1.f - alpha;
