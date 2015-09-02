@@ -526,7 +526,7 @@ void Test::test4() {
 		// software
 
 		Surface surface(width, height);
-		Measure t("test_4_sw.tga", surface, false);
+		Measure t("test_4_sw.tga", surface, true);
 
 		vector<ContourInfo> contours_sw = contours;
 		for(vector<ContourInfo>::iterator i = contours_sw.begin(); i != contours_sw.end(); ++i)
@@ -544,7 +544,7 @@ void Test::test4() {
 			}
 		}
 
-		cout << setbase(10) << count << endl;
+		//cout << setbase(10) << count << endl;
 
 		{
 			Measure t("test_4_sw_render_polyspans");

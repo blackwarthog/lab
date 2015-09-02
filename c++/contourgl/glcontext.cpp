@@ -47,8 +47,8 @@ GlContext::GlContext():
 
 	int framebuffer_width = 512;
 	int framebuffer_height = 512;
-	int framebuffer_samples = 16;
-	bool antialising = false;
+	int framebuffer_samples = 8;
+	bool antialising = true;
 	bool hdr = true;
 
 	// display
