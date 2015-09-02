@@ -16,10 +16,13 @@
 */
 
 kernel void clear(
-	global int2 *mark_buffer )
+	global int4 *mark_buffer,
+	int width )
 {
-	const int2 v = { 0, 0 };
-	mark_buffer[get_global_id(0)] = v;
+	size_t id = get_global_id(0);
+	int c = id % width;
+	int4 v = { 0, 0, c | (c + 1), 0 };
+	mark_buffer[id] = v;
 }
 
 kernel void path(
@@ -64,9 +67,16 @@ kernel void path(
 			float area = px.x - 0.5f*(p0.x + pp1.x);
 			if (flipx) { ix = w1 - ix; area = 1.f - area; }
 			if (flipy) { iy = h1 - iy; cover = -cover; }
-			global int *mark = mark_buffer + 2*(iy*width + clamp(ix, 0, w1));
-			atomic_add(mark, (int)round(area*cover*65536));
-			atomic_add(mark + 1, (int)round(cover*65536));
+			ix = clamp(ix, 0, w1);
+			global int *row = mark_buffer + 4*iy*width;
+			global int *mark = row + 4*ix;
+			atomic_add(mark, (int)round(area*cover*65536.f));
+			atomic_add(mark + 1, (int)round(cover*65536.f));
+			int iix = (ix & (ix + 1)) - 1;
+			while(iix > 0) {
+				atomic_min(row + 4*iix + 2, ix);
+				iix = (iix & (iix + 1)) - 1;
+			}
 		}
 		
 		p0 = pp1;
@@ -75,38 +85,66 @@ kernel void path(
 
 kernel void fill(
 	int width,
-	global int2 *mark_buffer,
+	global int4 *mark_buffer,
 	read_only image2d_t surface_read_image,
 	write_only image2d_t surface_write_image,
 	float4 color,
 	int invert,
 	int evenodd )
 {
+	const int scale = 65536;
+	const int scale2 = 2*scale;
+	const int scale05 = scale/2;
+
 	size_t id = get_global_id(0);
-	int w = width;
-	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE
-							| CLK_ADDRESS_NONE
-			                | CLK_FILTER_NEAREST;
-	float4 cl = color;
-	float cover = 0.f;
-	global int2 *mark = mark_buffer + id*w;
-	const int2 izero = { 0, 0 };
-	for(int2 coord = { 0, id }; coord.x < w; ++coord.x, ++mark) {
-		int2 im = *mark;
-		//*mark = izero;
-		float alpha = fabs((float)im.x/65536.f + cover);
-		cover += (float)im.y/65536.f;
-		alpha = evenodd ? (1.f - fabs(1.f - alpha - 2.f*floor(0.5f*alpha)))
-						: fmin(alpha, 1.f);
-		alpha *= cl.w;
-		if (invert) alpha = 1.f - alpha;
-		float alpha_inv = 1.f - alpha;
+	int w1 = width - 1;
+	global int4 *row = mark_buffer + id*width;
+
+	int cover = 0;
+	int ialpha;
+	int2 c0 = { 0, id };
+	int2 c1 = c0;
+	int4 empty_mark = { 0, 0, 0, 0 };
+	while(c0.x < w1) {
+		int4 mark;
+		while(c1.x < width) {
+			mark = row[c1.x];
+			empty_mark.z = c1.x | (c1.x + 1);
+			row[c1.x] = empty_mark; 
+			if (mark.x || mark.y) break;
+			c1.x = min(mark.z, width);
+		}
 		
-		float4 c = read_imagef(surface_read_image, sampler, coord);
-		c.x = c.x*alpha_inv + cl.x*alpha;
-		c.y = c.y*alpha_inv + cl.y*alpha;
-		c.z = c.z*alpha_inv + cl.z*alpha;
-		c.w = min(c.w + alpha, 1.f);
-		write_imagef(surface_write_image, coord, c);
+		ialpha = abs(cover);
+		ialpha = evenodd ? scale - abs((ialpha % scale2) - scale)
+						 : min(ialpha, scale);
+		//if (invert) ialpha = scale - ialpha;  
+		if (ialpha > scale05) {
+			while(c0.x < c1.x) {
+				write_imagef(surface_write_image, c0, color);
+				++c0.x;
+			}
+		}
+	
+		if (c1.x < width) {
+			ialpha = abs(mark.x + cover);
+			ialpha = evenodd ? scale - abs((ialpha % scale2) - scale)
+			                 : min(ialpha, scale);
+			//if (invert) ialpha = scale - ialpha;  
+			if (ialpha > 4) {
+				float alpha = (float)ialpha/(float)scale;
+				float alpha_inv = 1.f - alpha;
+				float4 cl = read_imagef(surface_read_image, c1);
+				cl.x = cl.x*alpha_inv + color.x*alpha;
+				cl.y = cl.y*alpha_inv + color.y*alpha;
+				cl.z = cl.z*alpha_inv + color.z*alpha;
+				cl.w = min(cl.w + alpha, 1.f);
+				write_imagef(surface_write_image, c1, cl);
+			}
+		}
+		
+		c0.x = c1.x + 1;
+		c1.x = min(mark.z, width);
+		cover += mark.y;
 	}
 }

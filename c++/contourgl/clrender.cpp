@@ -72,13 +72,17 @@ void ClRender::send_surface(Surface *surface) {
 	if (this->surface) {
 		//Measure t("ClRender::send_surface");
 
+		int width = surface->width;
+		int height = surface->height;
+
 		mark_buffer = clCreateBuffer(
 			cl.context, CL_MEM_READ_WRITE,
-			surface->count()*sizeof(cl_int2), NULL,
+			surface->count()*sizeof(cl_int4), NULL,
 			NULL );
 		assert(mark_buffer);
 
 		cl.err |= clSetKernelArg(contour_clear_kernel, 0, sizeof(mark_buffer), &mark_buffer);
+		cl.err |= clSetKernelArg(contour_clear_kernel, 1, sizeof(width), &width);
 		assert(!cl.err);
 
 		size_t pixels_count = (size_t)surface->count();
@@ -112,8 +116,6 @@ void ClRender::send_surface(Surface *surface) {
 			0, NULL, NULL );
 		assert(!cl.err);
 
-		int width = surface->width;
-		int height = surface->height;
 		cl.err |= clSetKernelArg(contour_path_kernel, 0, sizeof(width), &width);
 		cl.err |= clSetKernelArg(contour_path_kernel, 1, sizeof(height), &height);
 		cl.err |= clSetKernelArg(contour_path_kernel, 2, sizeof(mark_buffer), &mark_buffer);
@@ -176,7 +178,6 @@ void ClRender::send_path(const vec2f *path, int count) {
 			0, NULL, NULL );
 		assert(!cl.err);
 
-		int path_size = count;
 		cl.err |= clSetKernelArg(contour_path_kernel, 3, sizeof(path_buffer), &path_buffer);
 		assert(!cl.err);
 
@@ -191,25 +192,11 @@ void ClRender::path(int start, int count, const Color &color, bool invert, bool 
 	if (count <= 1) return;
 
 	// kernel args
+
 	int iinvert = invert, ievenodd = evenodd;
 	cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(color), &color);
 	cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(int), &iinvert);
 	cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(int), &ievenodd);
-	assert(!cl.err);
-
-	// clear
-
-	size_t pixels_count = (size_t)surface->count();
-	cl.err |= clEnqueueNDRangeKernel(
-		cl.queue,
-		contour_clear_kernel,
-		1,
-		NULL,
-		&pixels_count,
-		NULL,
-		0,
-		NULL,
-		NULL );
 	assert(!cl.err);
 
 	// build marks
