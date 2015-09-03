@@ -39,8 +39,11 @@ public:
 	GLuint multisample_renderbuffer_id;
 	GLuint multisample_framebuffer_id;
 
-	GlContext();
+	GlContext(int width, int height, bool hdr, bool multisample, int samples);
 	~GlContext();
+
+	void use();
+	void unuse();
 
 	void check(const std::string &s = std::string());
 };

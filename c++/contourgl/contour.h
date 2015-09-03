@@ -67,9 +67,8 @@ public:
 		{ return chunks.empty() ? blank : chunks.back().p1; }
 
 	void split(Contour &c, const Rect &bounds, const Vector &min_size) const;
-
+	void downgrade(Contour &c, const Vector &min_size) const;
 	void transform(const Rect &from, const Rect &to);
-
 	void to_polyspan(Polyspan &polyspan) const;
 
 private:

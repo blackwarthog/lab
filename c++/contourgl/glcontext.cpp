@@ -31,7 +31,7 @@ using namespace std;
 typedef GLXContext (*GLXCREATECONTEXTATTRIBSARBPROC)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
 
 
-GlContext::GlContext():
+GlContext::GlContext(int width, int height, bool hdr, bool multisample, int samples):
 	display(),
 	pbuffer(),
 	context(),
@@ -45,11 +45,9 @@ GlContext::GlContext():
 
 	// options
 
-	int framebuffer_width = 512;
-	int framebuffer_height = 512;
-	int framebuffer_samples = 8;
-	bool antialising = true;
-	bool hdr = true;
+	int framebuffer_width = width;
+	int framebuffer_height = height;
+	int framebuffer_samples = samples;
 
 	// display
 
@@ -97,7 +95,7 @@ GlContext::GlContext():
 	context = glXCreateContextAttribsARB(display, config, NULL, True, context_attribs);
 	assert(context);
 
-	glXMakeContextCurrent(display, pbuffer, pbuffer, context);
+	use();
 
 	// frame buffer
 
@@ -130,12 +128,12 @@ GlContext::GlContext():
 	glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, multisample_renderbuffer_id);
 	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisample_texture_id, 0);
 
-	cout << "Framebuffer status:" << setbase(16)
-		 << " 0x" << glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER)
-		 << " 0x" << glCheckFramebufferStatus(GL_READ_FRAMEBUFFER)
-		 << setbase(10) << endl;
+	//cout << "Framebuffer status:" << setbase(16)
+	//	 << " 0x" << glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER)
+	//	 << " 0x" << glCheckFramebufferStatus(GL_READ_FRAMEBUFFER)
+	//	 << setbase(10) << endl;
 
-	if (antialising)
+	if (multisample)
 		glEnable(GL_MULTISAMPLE);
 	else
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer_id);
@@ -162,11 +160,16 @@ GlContext::~GlContext() {
 	glDeleteRenderbuffers(1, &multisample_renderbuffer_id);
 	glDeleteTextures(1, &multisample_texture_id);
 
-	glXMakeContextCurrent(display, None, None, NULL);
+	unuse();
 	glXDestroyContext(display, context);
 	glXDestroyPbuffer(display, pbuffer);
 	XCloseDisplay(display);
 }
+
+void GlContext::use()
+	{ glXMakeContextCurrent(display, pbuffer, pbuffer, context); }
+void GlContext::unuse()
+	{ glXMakeContextCurrent(display, None, None, NULL); }
 
 void GlContext::check(const std::string &s) {
 	if (GLenum error = glGetError())

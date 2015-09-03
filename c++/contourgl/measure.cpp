@@ -64,7 +64,8 @@ Measure::~Measure() {
 
 	if (surface) {
 		surface->clear();
-	} else {
+	} else
+	if (tga) {
 		glClear(GL_COLOR_BUFFER_BIT);
 		glFinish();
 	}

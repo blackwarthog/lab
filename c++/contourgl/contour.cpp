@@ -185,6 +185,8 @@ void Contour::cubic_split(
 }
 
 void Contour::split(Contour &c, const Rect &bounds, const Vector &min_size) const {
+	c.clear();
+
 	Rect line_bounds;
 	line_bounds.p0 = c.current();
 	line_bounds.p1 = c.current();
@@ -322,6 +324,34 @@ void Contour::transform(const Rect &from, const Rect &to) {
 		i->p1 = i->p1*s + o;
 		i->t0 = i->t0*s;
 		i->t1 = i->t1*s;
+	}
+}
+
+void Contour::downgrade(Contour &c, const Vector &min_size) const {
+	c.clear();
+	Rect r;
+	for(Contour::ChunkList::const_iterator i = chunks.begin(); i != chunks.end(); ++i) {
+		switch(i->type) {
+			case Contour::CLOSE:
+				c.close();
+				r.p0 = r.p1 = c.current();
+				break;
+			case Contour::MOVE:
+				c.move_to(i->p1);
+				r.p0 = r.p1 = c.current();
+				break;
+			case Contour::CONIC:
+			case Contour::CUBIC:
+			case Contour::LINE:
+				r = r.expand(i->p1);
+				if ( fabs(r.p1.x - r.p0.x) > min_size.x
+				  && fabs(r.p1.y - r.p0.y) > min_size.y )
+				{
+					c.line_to(i->p1);
+					r.p0 = r.p1 = c.current();
+				}
+				break;
+		}
 	}
 }
 

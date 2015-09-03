@@ -33,7 +33,7 @@ ClContext::ClContext(): err(), context(), queue() {
 	cl_uint platform_count = 0;
 	clGetPlatformIDs(0, NULL, &platform_count);
 	assert(platform_count);
-	cout << platform_count << " platforms" << endl;
+	//cout << platform_count << " platforms" << endl;
 	vector<cl_platform_id> platforms(platform_count);
 	clGetPlatformIDs(platforms.size(), &platforms.front(), NULL);
 	cl_platform_id platform = platforms[0];
@@ -41,19 +41,19 @@ ClContext::ClContext(): err(), context(), queue() {
 	char vendor[256] = { };
 	err = clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, sizeof(vendor), vendor, NULL);
 	assert(!err);
-	cout << "Use CL platform 0 by " << vendor << endl;
+	//cout << "Use CL platform 0 by " << vendor << endl;
 
     char platform_version[256];
     err = clGetPlatformInfo(platform, CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, NULL);
 	assert(!err);
-    cout << "Platform 0 OpenCL version " << platform_version << endl;
+    //cout << "Platform 0 OpenCL version " << platform_version << endl;
 
 	// devices
 
 	cl_uint device_count = 0;
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &device_count);
     assert(!err);
-    cout << device_count << " devices" << endl;
+    //cout << device_count << " devices" << endl;
 
     devices.resize(device_count);
     err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, devices.size(), &devices.front(), NULL);
@@ -61,11 +61,11 @@ ClContext::ClContext(): err(), context(), queue() {
 
     char device_name[256];
     clGetDeviceInfo(devices.front(), CL_DEVICE_NAME, sizeof(device_name), device_name, NULL);
-    cout << "Device 0 name " << device_name << endl;
+    //cout << "Device 0 name " << device_name << endl;
 
     char device_version[256];
     clGetDeviceInfo(devices.front(), CL_DEVICE_VERSION, sizeof(device_version), device_version, NULL);
-    cout << "Device 0 OpenCL version " << device_version << endl;
+    //cout << "Device 0 OpenCL version " << device_version << endl;
 
     // context
 

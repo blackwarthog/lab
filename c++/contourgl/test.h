@@ -35,18 +35,18 @@ public:
 		ContourInfo(): invert(), antialias(), evenodd() { }
 	};
 
-	Environment &e;
+	typedef std::vector<ContourInfo> Data;
 
-	Test(Environment &e): e(e) { }
-	~Test() { }
+	static void draw_contour(Environment &e, int start, int count, bool even_odd, bool invert, const Color &color);
 
-	void draw_contour(int start, int count, bool even_odd, bool invert, const Color &color);
-	void load(std::vector<ContourInfo> &contours, const std::string &filename);
+	static void load(Data &data, const std::string &filename);
+	static void transform(Data &data, const Rect &from, const Rect &to);
+	static void downgrade(Data &from, Data &to);
+	static void split(Data &from, Data &to);
 
-	void test1();
-	void test2();
-	void test3();
-	void test4();
+	static void test_gl_stencil(Environment &e, Data &data);
+	static void test_sw(Environment &e, Data &data, Surface &surface);
+	static void test_cl(Environment &e, Data &data, Surface &surface);
 };
 
 #endif

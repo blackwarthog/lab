@@ -27,6 +27,11 @@ public:
 	GlContext gl;
 	ClContext cl;
 	Shaders shaders;
+
+	Environment(int width, int height, bool hdr, bool multisample, int samples):
+		gl(width, height, hdr, multisample, samples) { }
+	void use() { gl.use(); }
+	void unuse() { gl.unuse(); }
 };
 
 #endif

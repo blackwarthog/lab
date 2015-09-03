@@ -231,6 +231,12 @@ void ClRender::path(int start, int count, const Color &color, bool invert, bool 
 	assert(!cl.err);
 }
 
+void ClRender::wait() {
+	if (prev_event) {
+		clWaitForEvents(1, &prev_event);
+		prev_event = NULL;
+	}
+}
 
 
 void SwRenderAlt::line(const Vector &p0, const Vector &p1) {
