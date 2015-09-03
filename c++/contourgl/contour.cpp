@@ -345,7 +345,7 @@ void Contour::downgrade(Contour &c, const Vector &min_size) const {
 			case Contour::LINE:
 				r = r.expand(i->p1);
 				if ( fabs(r.p1.x - r.p0.x) > min_size.x
-				  && fabs(r.p1.y - r.p0.y) > min_size.y )
+				  || fabs(r.p1.y - r.p0.y) > min_size.y )
 				{
 					c.line_to(i->p1);
 					r.p0 = r.p1 = c.current();

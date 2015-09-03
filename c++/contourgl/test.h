@@ -37,7 +37,14 @@ public:
 
 	typedef std::vector<ContourInfo> Data;
 
-	static void draw_contour(Environment &e, int start, int count, bool even_odd, bool invert, const Color &color);
+	static void draw_contour(
+		Environment &e,
+		int start,
+		int count,
+		const rect<int> bounds,
+		bool even_odd,
+		bool invert,
+		const Color &color );
 
 	static void load(Data &data, const std::string &filename);
 	static void transform(Data &data, const Rect &from, const Rect &to);

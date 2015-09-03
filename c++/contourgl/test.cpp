@@ -30,7 +30,17 @@
 using namespace std;
 
 
-void Test::draw_contour(Environment &e, int start, int count, bool even_odd, bool invert, const Color &color) {
+void Test::draw_contour(
+	Environment &e,
+	int start,
+	int count,
+	const rect<int> bounds,
+	bool even_odd,
+	bool invert,
+	const Color &color
+) {
+	glScissor(bounds.p0.x, bounds.p0.y, bounds.p1.x-bounds.p0.x, bounds.p1.y-bounds.p0.y);
+	glEnable(GL_SCISSOR_TEST);
 	glEnable(GL_STENCIL_TEST);
 
 	// render mask
@@ -44,7 +54,7 @@ void Test::draw_contour(Environment &e, int start, int count, bool even_odd, boo
 		glStencilOpSeparate(GL_BACK, GL_DECR_WRAP, GL_DECR_WRAP, GL_DECR_WRAP);
 	}
 	e.shaders.simple();
-	glDrawArrays(GL_TRIANGLE_STRIP, start, count);
+	glDrawArrays(GL_TRIANGLE_FAN, start, count);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	// fill mask
@@ -62,6 +72,7 @@ void Test::draw_contour(Environment &e, int start, int count, bool even_odd, boo
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	glDisable(GL_STENCIL_TEST);
+	glDisable(GL_SCISSOR_TEST);
 }
 
 void Test::load(Data &contours, const std::string &filename) {
@@ -148,7 +159,7 @@ void Test::downgrade(Data &from, Data &to) {
 	to = from;
 	Measure t("downgrade");
 	for(Data::iterator i = from.begin(); i != from.end(); ++i)
-		i->contour.downgrade(to[i - from.begin()].contour, Vector(0.5f, 0.5f));
+		i->contour.downgrade(to[i - from.begin()].contour, Vector(1.f, 1.f));
 }
 
 void Test::split(Data &from, Data &to) {
@@ -159,11 +170,13 @@ void Test::split(Data &from, Data &to) {
 }
 
 void Test::test_gl_stencil(Environment &e, Data &data) {
+	Vector size = Utils::get_frame_size();
 	GLuint buffer_id = 0;
 	GLuint array_id = 0;
 	vector<vec2f> vertices;
 	vector<int> starts(data.size());
 	vector<int> counts(data.size());
+	vector< rect<int> > bounds(data.size());
 
 	vertices.push_back(vec2f(-1.f, -1.f));
 	vertices.push_back(vec2f( 1.f, -1.f));
@@ -172,22 +185,16 @@ void Test::test_gl_stencil(Environment &e, Data &data) {
 	for(int i = 0; i < (int)data.size(); ++i) {
 		starts[i] = (int)vertices.size();
 		const Contour::ChunkList &chunks = data[i].contour.get_chunks();
+		Rect r(chunks.front().p1, chunks.front().p1);
 		for(Contour::ChunkList::const_iterator j = chunks.begin(); j != chunks.end(); ++j) {
-			if (j->type == Contour::LINE) {
-				vertices.push_back(vec2f(j->p1));
-				vertices.push_back(vec2f(-1.f, (float)j->p1.y));
-			} else
-			if (j->type == Contour::CLOSE) {
-				vertices.push_back(vec2f(j->p1));
-				vertices.push_back(vec2f(-1.f, (float)j->p1.y));
-			} else {
-				vertices.push_back(vertices.back());
-				vertices.push_back(vec2f(j->p1));
-				vertices.push_back(vertices.back());
-				vertices.push_back(vec2f(-1.f, (float)j->p1.y));
-			}
+			vertices.push_back(vec2f(j->p1));
+			r = r.expand(j->p1);
 		}
 		counts[i] = (int)vertices.size() - starts[i];
+		bounds[i].p0.x = (int)floor((r.p0.x + 1.0)*0.5*size.x);
+		bounds[i].p0.y = (int)floor((r.p0.y + 1.0)*0.5*size.y);
+		bounds[i].p1.x = (int)ceil ((r.p1.x + 1.0)*0.5*size.x) + 1;
+		bounds[i].p1.y = (int)ceil ((r.p1.y + 1.0)*0.5*size.y) + 1;
 	}
 
 	glGenBuffers(1, &buffer_id);
@@ -216,10 +223,12 @@ void Test::test_gl_stencil(Environment &e, Data &data) {
 				e,
 				starts[i],
 				counts[i],
+				bounds[i],
 				data[i].invert,
 				data[i].evenodd,
 				data[i].color );
 		}
+		glFinish();
 	}
 }
 
