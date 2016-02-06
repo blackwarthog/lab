@@ -1,3 +1,20 @@
+/*
+    ......... 2016 Ivan Mahonin
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -68,14 +85,13 @@ private:
 	vector<double> tmp;
 
 public:
-	int maxi;
-	double maxv;
+	int offset;
 	bool valid;
 	double radius;
 
-	Checker(double radius): maxi(), maxv(), valid(), radius(radius) {
+	Checker(double radius): offset(3), valid(), radius(radius) {
 		blank.resize((int)ceil(radius*10));
-		tmp.resize(blank.size());
+		tmp.resize(blank.size() + 2*offset);
 		for(int i = 0; i < (int)blank.size(); ++i)
 			blank[i] = gauss(i, radius);
 	}
@@ -86,82 +102,76 @@ public:
 		double c = 1.0/params.k2;
 
 		Params p;
-		p.k0 = -(a*a + 2.0*c*b)/(c*a*a);
-		p.k1 = (c + 2.0*b)/(c*a*a);
-		p.k2 = -1.0/(c*a*a);
+		p.k0 = (a*a + 2.0*c*b)/(c*a*a);
+		p.k1 = -(c + 2.0*b)/(c*a*a);
+		p.k2 = 1.0/(c*a*a);
 
 		return p;
 	}
 
 	double check2(const Params &params) {
 		if ( abs(params.k0) > 0.99999999
-		  || abs(params.k1) > 0.99999999
+		  //|| abs(params.k1) > 0.99999999
 		  || abs(params.k2) > 0.99999999
 		  || params.k0 < 1e-6
 		  || abs(params.k2) < 1e-6 ) return INFINITY;
-		return check(convert_params(params), true);
+		return check(convert_params(params));
+		//return check(params);
 	}
 
-	double check(const Params &params, bool mode3a = true) {
+	double check(const Params &params) {
 		valid = false;
 
 		//if (mode3a && fabs(params.k0 + (params.k1 + params.k2)/(params.k0 + params.k1 + params.k2)) >= 0.999999999)
 		//	return INFINITY;
-		if (!mode3a && fabs(params.k1 + params.k2/(params.k1 + params.k2)) >= 0.999999999)
-			return INFINITY;
 		if (fabs(params.k0) < 1e-10 && fabs(params.k1) < 1e-10 && fabs(params.k2) < 1e-10)
 			return INFINITY;
 
-		maxv = 1.0 - params.k0 - params.k1 - params.k2;
-		int offset = 3;
-		maxi = offset;
-		tmp[offset] = 1.0;
-		for(int i = offset; i < (int)tmp.size(); ++i) {
-			if (mode3a)
-				tmp[i] = (i == offset ? maxv : 0.0)
-					   + params.k0*tmp[i-1]
-					   + params.k1*tmp[i-2]
-					   + params.k2*tmp[i-3];
-			else
-				tmp[i] = (i == offset ? 1.0 : 0.0)
-					   + (i-1 == offset ? params.k0 : 0.0)
-					   + params.k1*tmp[i-1]
-					   + params.k2*tmp[i-2];
-			if (i < (int)tmp.size()/2 && maxv < tmp[i]) { maxv = tmp[i]; maxi = i; }
-		}
+		double k = 1.0 - params.k0 - params.k1 - params.k2;
+		tmp[offset] = k;
+		for(int i = offset+1, end = (int)tmp.size()-offset; i < end; ++i)
+			tmp[i] = params.k0*tmp[i-1]
+				   + params.k1*tmp[i-2]
+				   + params.k2*tmp[i-3];
+		for(int i = (int)tmp.size()-offset-1, end = offset-1; i > end; --i)
+			tmp[i] = k*tmp[i]
+				   + params.k0*tmp[i+1]
+				   + params.k1*tmp[i+2]
+				   + params.k2*tmp[i+3];
 
-		//if (maxv < 1e-20 || isnan(maxv)) return INFINITY;
-		//maxi = (int)round(radius) + offset;
-
-		//double k = blank[0]/maxv;
 		double delta = 0.0;
-		for(int i = maxi; i < (int)tmp.size(); ++i) {
-			double t = tmp[i];
-			//double d = blank[i - maxi] - t;
-			//delta += d*d;
-			//if (t < 0) delta += 5*d*d;
-			delta += fabs(blank[i - maxi] - t);
-			if (t < 0) delta += fabs(t);
+		//double minv = tmp[offset];
+		//double kblank = 1.0/blank[0];
+		for(int i = 0; i < (int)blank.size(); ++i) {
+			double t = tmp[i + offset];
+			double d = blank[i] - t;
+			delta += fabs(d*d);
+			//if (t < minv) minv = t;
+			//if (minv < 0) minv = 0;
+			//delta += 2*fabs(t - minv);
+			//delta += 0.1*fabs(d/(kblank*blank[i] + 0.1));
 		}
 
 		if (isinf(delta) || isnan(delta)) return INFINITY;
 
 		valid = true;
-		return delta;
+		return sqrt(delta/blank.size())*blank.size();
 	}
 
 
 	void graph(const string &filename) {
+		int base_size = 768;
 		int count = blank.size();
-		int scale = 256/count + 1;
+		int scale = base_size/count + 1;
+		int div   = count/768 + 1;
 
-		int pad = max(16, count/8);
-		int gw = count*scale;
+		int pad = max(16, count*scale/div/8);
+		int gw = count*scale/div;
 		int gh = gw;
 
-		Surface::Color axis = Surface::convert_color(0, 0, 0, 1);
-		Surface::Color ca = Surface::convert_color(0, 0, 1, 0.75);
-		Surface::Color cb = Surface::convert_color(1, 0, 0, 0.75);
+		Surface::Color axis = Surface::convert_color(0, 0, 1, 1);
+		Surface::Color ca = Surface::convert_color(1, 0, 0, 0.25);
+		Surface::Color cb = Surface::convert_color(0, 0, 0, 0.75);
 
 		Surface s(gw + 2*pad, gh + 2*pad);
 		s.clear(1.0, 1.0, 1.0, 1.0);
@@ -174,13 +184,13 @@ public:
 		s.set_color(ca);
 		s.move_to(pad, pad);
 		for(int i = 0; i < count; ++i)
-			s.line_to(pad + i*scale, pad + (int)round((1.0 - blank[i]/blank[0])*gh));
+			s.line_to(pad + i*scale/div, pad + (int)round((1.0 - blank[i]/blank[0])*gh));
 
 		if (valid) {
 			s.set_color(cb);
 			s.move_to(pad, pad);
-			for(int i = 0; i < count - maxi; ++i)
-				s.line_to(pad + i*scale, pad + (int)round((1.0 - tmp[i + maxi]/maxv)*gh));
+			for(int i = 0; i < count; ++i)
+				s.line_to(pad + i*scale/div, pad + (int)round((1.0 - tmp[i + offset]/blank[0])*gh));
 		}
 
 		s.save(filename);
@@ -231,11 +241,16 @@ public:
 			if (level < finder->max_report_level) {
 				cout << "level " << level << " ";
 				report_index();
-				cout << (open ? " begin" : " end")
+				for(int i = level; i < finder->max_report_level; ++i)
+					cout << "   ";
+				cout << (open ? " begin" : " end  ")
+					 << fixed
+					 << setprecision(8)
 					 << " " << current.k0
 					 << " " << current.k1
 					 << " " << current.k2
 					 << " " << value
+					 << " (" << finder->best << ")"
 					 << endl;
 			}
 		}
@@ -243,25 +258,48 @@ public:
 		double find() {
 			if (max_variants <= 0) return value;
 
+			if (value < finder->best) finder->best = value;
 			report(true);
 
 			int i[3];
 			for(i[0] = 0; i[0] < finder->sub_division; ++i[0])
 			for(i[1] = 0; i[1] < finder->sub_division; ++i[1])
 			for(i[2] = 0; i[2] < finder->sub_division; ++i[2]) {
-				Entry sub;
-				sub.finder = finder;
-				sub.parent = this;
-				sub.level = level + 1;
-				sub.max_variants = max_variants/4;
-				if (sub.max_variants < 1) sub.max_variants = 1;
-				for(int j = 0; j < 3; ++j) {
-					sub.min.k[j]     = (max.k[j] - min.k[j])/finder->sub_division*(i[j] + 0.5 - 4.0) + min.k[j];
-					sub.current.k[j] = (max.k[j] - min.k[j])/finder->sub_division*(i[j] + 0.5 + 0.0) + min.k[j];
-					sub.max.k[j]     = (max.k[j] - min.k[j])/finder->sub_division*(i[j] + 0.5 + 4.0) + min.k[j];
+				Params p;
+				for(int j = 0; j < 3; ++j)
+					p.k[j] = (max.k[j] - min.k[j])/finder->sub_division*(i[j] + 0.5) + min.k[j];
+				finder->value(i[0], i[1], i[2]) = finder->checker.check2(p);
+			}
+
+			finder->clear_zones();
+			for(i[0] = 1; i[0] < finder->sub_division-1; ++i[0])
+			for(i[1] = 1; i[1] < finder->sub_division-1; ++i[1])
+			for(i[2] = 1; i[2] < finder->sub_division-1; ++i[2])
+				if (finder->is_local_minimum(i[0], i[1], i[2])) {
+					Zone &z = finder->zone_for_value(i[0], i[1], i[2]);
+					double &v = finder->value(i[0], i[1], i[2]);
+					if (v < z.value) z.set(v, i);
 				}
-				sub.value = finder->checker.check2(sub.current);
-				add_variant(sub);
+
+			for(i[0] = 0; i[0] < finder->zone_count; ++i[0])
+			for(i[1] = 0; i[1] < finder->zone_count; ++i[1])
+			for(i[2] = 0; i[2] < finder->zone_count; ++i[2]) {
+				Zone &z = finder->zone(i[0], i[1], i[2]);
+				if (!isinf(z.value)) {
+					Entry sub;
+					sub.finder = finder;
+					sub.parent = this;
+					sub.level = level + 1;
+					sub.max_variants = max_variants/2;
+					if (sub.max_variants < 1) sub.max_variants = 1;
+					for(int j = 0; j < 3; ++j) {
+						sub.min.k[j]     = (max.k[j] - min.k[j])/finder->sub_division*(z.index[j] + 0.5 - finder->zone_size) + min.k[j];
+						sub.current.k[j] = (max.k[j] - min.k[j])/finder->sub_division*(z.index[j] + 0.5) + min.k[j];
+						sub.max.k[j]     = (max.k[j] - min.k[j])/finder->sub_division*(z.index[j] + 0.5 + finder->zone_size) + min.k[j];
+					}
+					sub.value = z.value;
+					add_variant(sub);
+				}
 			}
 
 			if (level < finder->max_level) {
@@ -279,32 +317,59 @@ public:
 				current = variants.begin()->current;
 			}
 
+			if (value < finder->best) finder->best = value;
 			report(false);
 			return value;
 		}
 	};
 
+	struct Zone {
+		double value;
+		int index[3];
+
+		Zone() { clear(); }
+		void clear() { value = INFINITY; memset(index, 0, sizeof(index)); }
+		void set(double value, int *i) { this->value = value; memcpy(index, i, sizeof(index)); }
+	};
+
 	Checker checker;
 
 	int sub_division;
+	int zone_count;
+	int zone_size;
+	int s0;
+	int s1;
+	int s2;
 	int max_level;
 	int max_report_level;
+	vector<double> values;
+	vector<Zone> zones;
 
+	double best;
 	Entry root;
 
 	Finder(
 		double radius,
 		Params min,
 		Params max,
-		int sub_division,
+		int zone_count,
+		int zone_size,
 		int max_variants,
 		int max_level,
 		int max_report_level
 	):
 		checker(radius),
-		sub_division(sub_division),
+		sub_division(zone_count*zone_size),
+		zone_count(zone_count),
+		zone_size(zone_size),
+		s0(1),
+		s1(sub_division),
+		s2(sub_division*sub_division),
 		max_level(max_level),
-		max_report_level(max_report_level)
+		max_report_level(max_report_level),
+		values(sub_division*sub_division*sub_division),
+		zones(zone_count*zone_count*zone_count),
+		best(INFINITY)
 	{
 		root.finder = this;
 		root.min = min;
@@ -316,7 +381,29 @@ public:
 		for(int j = 0; j < 3; ++j)
 			root.current.k[j] = 0.5*(root.max.k[j] - root.min.k[j]) + root.min.k[j];
 		root.value = checker.check2(root.current);
+		best = root.value;
 		return root.find();
+	}
+
+	double& value(int i0, int i1, int i2)
+		{ return values[i0*s0 + i1*s1 + i2*s2]; }
+
+	bool is_local_minimum(int i0, int i1, int i2) {
+		double *vp = &value(i0, i1, i2);
+		double v = *vp;
+		return v < *(vp-s0) && v <= *(vp+s0)
+			&& v < *(vp-s1) && v <= *(vp+s1)
+			&& v < *(vp-s2) && v <= *(vp+s2);
+	}
+
+	Zone& zone_for_value(int i0, int i1, int i2)
+		{ return zones[(i2/zone_size*zone_count + i1/zone_size)*zone_count + i0/zone_size]; }
+	Zone& zone(int i0, int i1, int i2)
+		{ return zones[(i2*zone_count + i1)*zone_count + i0]; }
+
+	void clear_zones() {
+		for(vector<Zone>::iterator i = zones.begin(); i != zones.end(); ++i)
+			i->clear();
 	}
 };
 
@@ -338,17 +425,31 @@ double find_near(Checker &checker, double step, Params &params) {
 	return best_value;
 }
 
+double find_near2(Checker &checker, double step, Params &params) {
+	Finder finder(
+		checker.radius,
+		Params(params.k0-step, params.k1-step, params.k2-step),
+		Params(params.k0+step, params.k1+step, params.k2+step),
+		4,
+		4,
+		4,
+		16,
+		1
+	);
+	finder.find();
+	params = finder.root.current;
+	return finder.root.value;
+}
+
 void log_begin() {
 	ofstream f(logfile, ios_base::app);
 	f << endl << "double coefs[][7] = {" << endl;
 }
 
-void log_params(double radius, int maxi, double maxv, const Params &params, double value) {
+void log_params(double radius, const Params &params, double value) {
 	ofstream f(logfile, ios_base::app);
 	f << "    { " << radius
-	  << ", "     << maxi
 	  << setprecision(13)
-	  << ", "     << maxv
 	  << ", "     << params.k0
 	  << ", "     << params.k1
 	  << ", "     << params.k2
@@ -358,7 +459,7 @@ void log_params(double radius, int maxi, double maxv, const Params &params, doub
 }
 
 void log_params(const Checker &checker, const Params &params, double value) {
-	log_params(checker.radius, checker.maxi, checker.maxv, params, value);
+	log_params(checker.radius, params, value);
 }
 
 void log_params(const Finder &finder) {
@@ -385,40 +486,51 @@ void graph(Checker &checker, const Params &params) {
 	checker.graph(strprintf("iir_%04d.tga", ri));
 }
 
+void test() {
+	Checker checker(16);
+	Params p(0.9304775714874, -0.02728819847107, 0.9257968425751);
+	cout << fixed << setprecision(8) << checker.check2(p) << endl;
+	checker.graph("test.tga");
+}
+
 void process() {
-	const double initial_radius = 8.0;
-	//const double min_radius = 1.0;
-	//const double max_radius = 2048;
-	//const double step = 0.1;
-	//const double params_step = 1e-7;
+	const double initial_radius = 16.0;
+	const double min_radius = 1.0;
+	const double max_radius = 2048;
+	const double step = 0.1;
+	const double params_step = 0.05;
 
 	cout << "find initial params" << endl;
 	Finder finder(
 		initial_radius,
-		Params( 0.25, -1, -1),
-		Params( 1,  1,  1),
-		256,
+		Params(0, -1, -1),
+		Params(1,  1,  1),
+		16,
+		16,
 		1,
-		3,
-		5
+		4,
+		8
 	);
 
 	finder.find();
-	finder.checker.check2(finder.root.current);
+	cout << finder.checker.check2(finder.root.current) << endl;
+	cout << find_near(finder.checker, params_step, finder.root.current) << endl;
 	graph(finder.checker, finder.root.current);
 
 	log_begin();
 	log_params(finder);
 
-	/*
 	cout << "walk back" << endl;
 	Params params = finder.root.current;
 	for(double r = finder.checker.radius; r > min_radius - 0.5*step; r -= step) {
 		Checker checker(r);
-		cout << "   " << r << flush;
+		cout << "   " << r << endl;
 
-		double value = find_near(checker, params_step, params);
+		double value = find_near2(checker, params_step, params);
+		checker.check2(params);
 		graph(checker, params);
+		if (abs(round(r*10) - r*10) < 1e-10)
+			log_params(checker, params, value);
 
 		cout << " " << params.k0
 			 << " " << params.k1
@@ -431,10 +543,13 @@ void process() {
 	params = finder.root.current;
 	for(double r = finder.checker.radius; r < max_radius + 0.5*step; r += step) {
 		Checker checker(r);
-		cout << "   " << r << flush;
+		cout << "   " << r << endl;
 
-		double value = find_near(checker, params_step, params);
+		double value = find_near2(checker, params_step, params);
 		graph(checker, params);
+		checker.check2(params);
+		if (abs(round(r*10) - r*10) < 1e-10)
+			log_params(checker, params, value);
 
 		cout << " " << params.k0
 			 << " " << params.k1
@@ -442,7 +557,6 @@ void process() {
 			 << " " << value
 			 << endl;
 	}
-	*/
 
 	log_end();
 }
@@ -450,49 +564,6 @@ void process() {
 
 
 int main() {
+	test();
 	process();
-
-	/*
-	string logfile = "results/coef.log";
-
-	{ ofstream f(logfile.c_str(), ios_base::app); f << endl << "double coefs[][7] = {" << endl; }
-
-	Params prev(0.914, 0.129, -0.216);
-	for(double r = 4.0; r < 2048.1; r *= pow(2.0, 0.125)) {
-		cout << endl;
-		cout << "find coefficients for radius " << r << endl;
-
-		double x = 0.1*log2(r)/2;
-
-		Finder finder(
-			r,
-			Params(prev.k0 - x, prev.k1 - x, prev.k2 - x),
-			Params(prev.k0 + x, prev.k1 + x, prev.k2 + x),
-			128,
-			1,
-			3,
-			5
-		);
-
-		finder.find();
-		finder.checker.check(finder.root.current);
-		finder.checker.graph(strprintf("iir_%08.3f.tga", finder.checker.radius));
-
-		ofstream f(logfile.c_str(), ios_base::app);
-		f << "    { " << finder.checker.radius
-		  << ", "     << finder.checker.maxi
-		  << setprecision(20)
-		  << ", "     << finder.checker.maxv
-		  << ", "     <<  finder.root.current.k0
-		  << ", "     << finder.root.current.k1
-		  << ", "     << finder.root.current.k2
-		  << ", "     << finder.root.value
-		  << " },"    << endl;
-		cout << endl;
-
-		prev = finder.root.current;
-	}
-
-	{ ofstream f(logfile.c_str(), ios_base::app); f << "};" << endl << endl; }
-	*/
 }
