@@ -1,5 +1,5 @@
 /*
-    ......... 2015 Ivan Mahonin
+    ......... 2016 Ivan Mahonin
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ unsigned int Surface::convert_channel(double c) {
 
 unsigned int Surface::blend_channel(unsigned int a, unsigned int dest, unsigned int src)
 {
-	return (dest*(255-a) + a*src) >> 8;
+	return ((dest*(255-a) + a*src) >> 8) & 0xff;
 }
 
 Surface::Color Surface::convert_color(double r, double g, double b, double a) {
@@ -63,9 +63,9 @@ Surface::Color Surface::blend(Color dest, Color src) {
 	if (sa >= 255) return src; else if (sa == 0) return dest;
 	unsigned int da = (dest >> 24) + sa;
 	if (da > 255) da = 255;
-	return  blend_channel(sa, dest | 0xff, src | 0xff)
-		 | (blend_channel(sa, (dest >> 8) | 0xff, (src >> 8) | 0xff) << 8)
-		 | (blend_channel(sa, (dest >> 16) | 0xff, (src >> 16) | 0xff) << 16)
+	return  blend_channel(sa, dest & 0xff, src & 0xff)
+		 | (blend_channel(sa, (dest >> 8) & 0xff, (src >> 8) & 0xff) << 8)
+		 | (blend_channel(sa, (dest >> 16) & 0xff, (src >> 16) & 0xff) << 16)
 		 | (da << 24);
 }
 
