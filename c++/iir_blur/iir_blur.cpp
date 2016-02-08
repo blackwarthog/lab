@@ -23,13 +23,31 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include <set>
+#include <map>
 
 #include "surface.h"
 
 
 using namespace std;
+
+
+// options
+const double initial_radius = 16.0;
+const double min_radius = 1.0;
+const double max_radius = 2048;
+const double step = 0.1;
+const double large_params_step = 0.05;
+const double params_step = 0.025;
+const double threshold = 0.012;
+
+const char logfile[] = "results/coef.log";
+const char final_coefs_file[] = "results/coef.hpp";
+const char final_coefs_file2[] = "results/coef2.hpp";
+
+
 
 
 #define COMPARE_HELPER(a) a < other.a ? true : other.a < a ? false :
@@ -39,9 +57,7 @@ using namespace std;
 #define COMPARE3(a, b, c) COMPARE_HELPER(a) COMPARE2(b, c)
 #define COMPARE4(a, b, c, d) COMPARE_HELPER(a) COMPARE3(b, c, d)
 
-
 const double pi = 3.14159265358979323846;
-const char logfile[] = "results/coef.log";
 
 string strprintf(const char *format, ...)
 {
@@ -432,7 +448,7 @@ double find_near2(Checker &checker, double step, Params &params) {
 		Params(params.k0+step, params.k1+step, params.k2+step),
 		4,
 		4,
-		4,
+		1,
 		16,
 		1
 	);
@@ -441,21 +457,60 @@ double find_near2(Checker &checker, double step, Params &params) {
 	return finder.root.value;
 }
 
+double find_near3(Checker &checker, double step, Params &params) {
+	Finder finder(
+		checker.radius,
+		Params(params.k0-step, params.k1-step, params.k2-step),
+		Params(params.k0+step, params.k1+step, params.k2+step),
+		8,
+		8,
+		1,
+		10,
+		4
+	);
+	finder.find();
+	params = finder.root.current;
+	return finder.root.value;
+}
+
+double initial_find(Checker &checker, Params &params) {
+	Finder finder(
+		checker.radius,
+		Params(0, 0, -1),
+		Params(1, 1, 1),
+		16,
+		16,
+		1,
+		4,
+		8
+	);
+	finder.find();
+	params = finder.root.current;
+	return finder.root.value;
+}
+
+map< double, pair<Params, double> > coefs;
+
+double fix_radius(double r)
+	{ return round(r/step)*step; }
+
 void log_begin() {
 	ofstream f(logfile, ios_base::app);
-	f << endl << "double coefs[][7] = {" << endl;
+	f << endl << "double coefs[][5] = {" << endl;
 }
 
 void log_params(double radius, const Params &params, double value) {
 	ofstream f(logfile, ios_base::app);
 	f << "    { " << radius
-	  << setprecision(13)
+	  << setprecision(20)
 	  << ", "     << params.k0
-	  << ", "     << params.k1
+	  << ", "     << fabs(params.k1)
 	  << ", "     << params.k2
 	  << ", "     << value
 	  << " },"    << endl;
 	cout << endl;
+	coefs[fix_radius(radius)].first = params;
+	coefs[fix_radius(radius)].second = value;
 }
 
 void log_params(const Checker &checker, const Params &params, double value) {
@@ -470,6 +525,7 @@ void log_end() {
 	ofstream f(logfile, ios_base::app);
 	f << "};" << endl << endl;
 }
+
 
 void graph(Checker &checker, const Params &params) {
 	int ri = roundf(checker.radius);
@@ -493,18 +549,54 @@ void test() {
 	checker.graph("test.tga");
 }
 
-void process() {
-	const double initial_radius = 16.0;
-	const double min_radius = 1.0;
-	const double max_radius = 2048;
-	const double step = 0.1;
-	const double params_step = 0.05;
+void walk(
+	double current_radius,
+	double target_radius,
+	double step,
+	double large_params_step,
+	double params_step,
+	Params params
+) {
+	cout << "walk from " << current_radius << " to "<< target_radius << endl;
+	step = fabs(step);
+	if (target_radius < current_radius) step = -step;
 
+	Params p = params;
+	{ Checker checker(current_radius); find_near3(checker, large_params_step, p); }
+	for(double r = current_radius; (target_radius - r)/step > -0.5; r += step) {
+		Checker checker(r);
+		cout << "   " << r << endl;
+
+		double value = find_near2(checker, params_step, p);
+		if (value > threshold) {
+			value = find_near3(checker, large_params_step, p);
+			value = find_near2(checker, params_step, p);
+		}
+		if (value > threshold) {
+			value = initial_find(checker, p);
+			value = find_near3(checker, large_params_step, p);
+			value = find_near2(checker, params_step, p);
+		}
+
+		value = checker.check2(p);
+		graph(checker, p);
+		log_params(checker, p, value);
+
+		cout << "  " << r
+			 << " " << p.k0
+			 << " " << p.k1
+			 << " " << p.k2
+			 << " " << value
+			 << endl;
+	}
+}
+
+void find_initial_params() {
 	cout << "find initial params" << endl;
 	Finder finder(
 		initial_radius,
-		Params(0, -1, -1),
-		Params(1,  1,  1),
+		Params(0, 0, -1),
+		Params(1, 1,  1),
 		16,
 		16,
 		1,
@@ -514,54 +606,166 @@ void process() {
 
 	finder.find();
 	cout << finder.checker.check2(finder.root.current) << endl;
-	cout << find_near(finder.checker, params_step, finder.root.current) << endl;
+	cout << find_near3(finder.checker, large_params_step, finder.root.current) << endl;
 	graph(finder.checker, finder.root.current);
-
-	log_begin();
 	log_params(finder);
-
-	cout << "walk back" << endl;
-	Params params = finder.root.current;
-	for(double r = finder.checker.radius; r > min_radius - 0.5*step; r -= step) {
-		Checker checker(r);
-		cout << "   " << r << endl;
-
-		double value = find_near2(checker, params_step, params);
-		checker.check2(params);
-		graph(checker, params);
-		if (abs(round(r*10) - r*10) < 1e-10)
-			log_params(checker, params, value);
-
-		cout << " " << params.k0
-			 << " " << params.k1
-			 << " " << params.k2
-			 << " " << value
-			 << endl;
-	}
-
-	cout << "walk forward" << endl;
-	params = finder.root.current;
-	for(double r = finder.checker.radius; r < max_radius + 0.5*step; r += step) {
-		Checker checker(r);
-		cout << "   " << r << endl;
-
-		double value = find_near2(checker, params_step, params);
-		graph(checker, params);
-		checker.check2(params);
-		if (abs(round(r*10) - r*10) < 1e-10)
-			log_params(checker, params, value);
-
-		cout << " " << params.k0
-			 << " " << params.k1
-			 << " " << params.k2
-			 << " " << value
-			 << endl;
-	}
-
-	log_end();
 }
 
+void save_coefs(const string &filename, const map< double, pair<Params, double> > &coefs) {
+	ofstream f(filename.c_str(), ios_base::out | ios_base::trunc);
+	f << endl << "double coefs[][5] = {" << endl;
+	for(map< double, pair<Params, double> >::const_iterator i = coefs.begin(); i != coefs.end(); ++i)
+		f << "    { " << i->first
+		  << setprecision(20)
+		  << ", "     << i->second.first.k0
+		  << ", "     << fabs(i->second.first.k1)
+		  << ", "     << i->second.first.k2
+		  << ", "     << i->second.second
+		  << " },"    << endl;
+	f << "};" << endl << endl;
+}
 
+void save_coefs2(const string &filename, const map< double, pair<Params, double> > &coefs) {
+	ofstream f(filename.c_str(), ios_base::out | ios_base::trunc);
+	f << endl;
+	f << "double min_radius = " << min_radius << endl;
+	f << "double max_radius = " << max_radius << endl;
+	f << "double step = " << step << endl;
+	f << "double coefs[][3] = {" << endl;
+	for(double r = min_radius; r < max_radius + 0.5*step; r += step) {
+		Params p = coefs.count(fix_radius(r)) ? coefs.find(fix_radius(r))->second.first : Params(0.5, 0.0, 0.5);
+		f << "    " << setprecision(20)
+		  << "{ "   << p.k0
+		  << ", "   << fabs(p.k1)
+		  << ", "   << p.k2
+		  << " },"  << endl;
+	}
+	f << "};" << endl << endl;
+}
+
+void check_coefs() {
+	if (coefs.size() < 3) return;
+
+	cout << "check coefs:" << endl;
+	map< double, pair<Params, double> >::const_iterator i = coefs.begin();
+	Params p2 = i->second.first; ++i; p2.k1 = fabs(p2.k1);
+	Params p1 = i->second.first; ++i; p1.k1 = fabs(p1.k1);
+	while(i != coefs.end()) {
+		double r = i->first;
+		Params p0 = i->second.first; ++i; p0.k1 = fabs(p0.k1);
+
+		for(int i = 0; i < 3; ++i)
+			if (fabs(p0.k[i] - p1.k[i]) > 2.0*fabs(p1.k[i] - p2.k[i]) && fabs(p0.k[i] - p1.k[i]) > 0.0000005)
+				cout << "  big step for k" << i << " for radius " << r << ": " << fabs(p0.k[i] - p1.k[i]) << endl;
+
+		p2 = p1;
+		p1 = p0;
+	}
+	cout << "check coefs complete" << endl;
+}
+
+void load_coefs(const string &filename, map< double, pair<Params, double> > &coefs) {
+	cout << "loading..."<< endl;
+	ifstream f(filename.c_str());
+	while(f) {
+		string line;
+		getline(f, line);
+		stringstream s(line);
+
+		string w[6];
+		double radius = 0, value = 0;
+		Params p;
+		s >> w[0] >> radius
+		  >> w[1] >> p.k0
+		  >> w[2] >> p.k1
+		  >> w[3] >> p.k2
+		  >> w[4] >> value
+		  >> w[5];
+
+		if ( w[0] == "{"
+		  && w[1] == ","
+		  && w[2] == ","
+		  && w[3] == ","
+		  && w[4] == ","
+	  	  && w[5] == "},"
+	  	  && radius + 0.5*step > min_radius
+		  && radius - 0.5*step < max_radius
+		  && fabs(radius - fix_radius(radius)) < 1e-5 )
+		{
+			radius = fix_radius(radius);
+			Checker checker(radius);
+			double v = checker.check2(p);
+			if (fabs(value - v) > 1e-5)
+				cout << "  loading: wrong value for radius " << radius << " (" << value << " vs " << v << ")"<< endl;
+
+			if (!coefs.count(radius) || v < coefs[radius].second) {
+				coefs[radius].first = p;
+				coefs[radius].second = v;
+			}
+		}
+	}
+	cout << "done"<< endl;
+}
+
+bool is_valid_coefs(double radius) {
+	return coefs.count(fix_radius(radius)) && coefs[fix_radius(radius)].second < threshold;
+}
+
+void build_diapasones_down(map<double, double> &diapasones) {
+	bool valid = true;
+	double begin = initial_radius;
+	double end = begin;
+	for(double r = initial_radius; r > min_radius - 0.5*step; r -= step) {
+		bool v = is_valid_coefs(r);
+		if (!valid && v)
+			diapasones[begin] = end;
+		if (v) begin = r; else end = r;
+		valid = v;
+	}
+	if (!valid) diapasones[begin] = end;
+}
+
+void build_diapasones_up(map<double, double> &diapasones) {
+	bool valid = true;
+	double begin = initial_radius;
+	double end = begin;
+	for(double r = initial_radius; r < max_radius + 0.5*step; r += step) {
+		bool v = is_valid_coefs(r);
+		if (!valid && v)
+			diapasones[begin] = end;
+		if (v) begin = r; else end = r;
+		valid = v;
+	}
+	if (!valid) diapasones[begin] = end;
+}
+
+void process() {
+	log_begin();
+
+	load_coefs(logfile, coefs);
+	save_coefs(final_coefs_file, coefs);
+	save_coefs2(final_coefs_file2, coefs);
+	check_coefs();
+
+	if (!is_valid_coefs(initial_radius))
+		find_initial_params();
+
+	cout << "diapasones to find:" << endl;
+	map<double, double> diapasones;
+	build_diapasones_down(diapasones);
+	build_diapasones_up(diapasones);
+	for(map<double, double>::const_iterator i = diapasones.begin(); i != diapasones.end(); ++i)
+		cout << "  " << i->first << " " << i->second << endl;
+
+	cout << "process diapasones:" << endl;
+	for(map<double, double>::const_iterator i = diapasones.begin(); i != diapasones.end(); ++i)
+		walk(i->first, i->second, step, large_params_step, params_step, coefs[fix_radius(i->first)].first);
+
+	log_end();
+	save_coefs(final_coefs_file, coefs);
+	save_coefs2(final_coefs_file2, coefs);
+	check_coefs();
+}
 
 int main() {
 	test();
