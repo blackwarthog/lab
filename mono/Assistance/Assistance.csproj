@@ -36,13 +36,16 @@
     <Compile Include="MainWindow.cs" />
     <Compile Include="Assistant.cs" />
     <Compile Include="ActivePoint.cs" />
-    <Compile Include="VanishingPoint.cs" />
     <Compile Include="Point.cs" />
-    <Compile Include="Grid.cs" />
     <Compile Include="Workarea.cs" />
     <Compile Include="Canvas.cs" />
     <Compile Include="Track.cs" />
     <Compile Include="Rectangle.cs" />
+    <Compile Include="Guideline.cs" />
+    <Compile Include="GuidelineLine.cs" />
+    <Compile Include="AssistantVanishingPoint.cs" />
+    <Compile Include="AssistantGrid.cs" />
+    <Compile Include="Geometry.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Drawing" />

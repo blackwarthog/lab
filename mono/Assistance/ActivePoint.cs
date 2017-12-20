@@ -5,11 +5,6 @@ using System.Collections.Generic;
 
 namespace Assistance {
 	public class ActivePoint {
-		public enum Mode {
-			Common = 0,
-			Active = 1
-		}
-
 		public enum Type {
 			Circle,
 			CircleFill,
@@ -18,8 +13,10 @@ namespace Assistance {
 
 		public static readonly double radius = 10.0;
 		public static readonly double crossSize = 1.2*radius;
-		public static readonly Pen[] pens = new Pen[] { Pens.Gray, Pens.Blue };
-		public static readonly Brush[] brushes = new Brush[] { Brushes.LightGray, Brushes.LightBlue };
+		public static readonly Pen pen = Pens.Gray;
+		public static readonly Brush brush = Brushes.LightGray;
+		public static readonly Pen penActive = Pens.Blue;
+		public static readonly Brush brushActive = Brushes.LightBlue;
 
 		public readonly Workarea canvas;
 		public readonly Assistant assistant;
@@ -47,31 +44,39 @@ namespace Assistance {
 			canvas.points.Add(this);
 		}
 
-		private void drawCircle(Graphics g, Mode mode) {
-			g.DrawEllipse(pens[(int)mode], (float)(position.x - radius), (float)(position.y - radius), (float)(2.0*radius), (float)(2.0*radius));
+		private Pen getPen(bool active) {
+			return active ? penActive : pen;
 		}
 
-		private void fillCircle(Graphics g, Mode mode) {
-			g.FillEllipse(brushes[(int)mode], (float)(position.x - radius), (float)(position.y - radius), (float)(2.0*radius), (float)(2.0*radius));
+		private Brush getBrush(bool active) {
+			return active ? brushActive : brush;
 		}
 
-		private void drawCross(Graphics g, Mode mode) {
-			g.DrawLine(pens[(int)mode], (float)(position.x - crossSize), (float)position.y, (float)(position.x + crossSize), (float)position.y);
-			g.DrawLine(pens[(int)mode], (float)position.x, (float)(position.y - crossSize), (float)position.x, (float)(position.y + crossSize));
+		private void drawCircle(Graphics g, bool active) {
+			g.DrawEllipse(getPen(active), (float)(position.x - radius), (float)(position.y - radius), (float)(2.0*radius), (float)(2.0*radius));
 		}
 
-		public void draw(Graphics g, Mode mode) {
+		private void fillCircle(Graphics g, bool active) {
+			g.FillEllipse(getBrush(active), (float)(position.x - radius), (float)(position.y - radius), (float)(2.0*radius), (float)(2.0*radius));
+		}
+
+		private void drawCross(Graphics g, bool active) {
+			g.DrawLine(getPen(active), (float)(position.x - crossSize), (float)position.y, (float)(position.x + crossSize), (float)position.y);
+			g.DrawLine(getPen(active), (float)position.x, (float)(position.y - crossSize), (float)position.x, (float)(position.y + crossSize));
+		}
+
+		public void draw(Graphics g, bool active = false) {
 			switch(type) {
 			case Type.Circle:
-				drawCircle(g, mode);
+				drawCircle(g, active);
 				break;
 			case Type.CircleFill:
-				fillCircle(g, mode);
-				drawCircle(g, mode);
+				fillCircle(g, active);
+				drawCircle(g, active);
 				break;
 			case Type.CircleCross:
-				drawCircle(g, mode);
-				drawCross(g, mode);
+				drawCircle(g, active);
+				drawCross(g, active);
 				break;
 			}
 		}

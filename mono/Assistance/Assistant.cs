@@ -8,7 +8,6 @@ namespace Assistance {
 		public static readonly double maxLen = 1000.0;
 		public static readonly int gridPointsCount = 100;
 		public static readonly Pen pen = Pens.Gray;
-		public static readonly Pen guidePen = Pens.LightGray;
 
 		public readonly Workarea canvas;
 		public readonly List<ActivePoint> points = new List<ActivePoint>();
@@ -40,24 +39,8 @@ namespace Assistance {
 			point.position = position;
 		}
 
-		public virtual Point[] getGridPoints(Point target, bool truncate) { return new Point[0]; }
-
-		public Point[] getGridPoints(Point target) { return getGridPoints(target, false); }
-
 		public virtual void draw(Graphics g) { }
 
-		public virtual void drawGuidlines(Graphics g, Point target, bool truncate) { }
-
-		public void drawGuidlines(Graphics g, Point target) {
-			drawGuidlines(g, target, false);
-		}
-
-		public virtual double calcTrackWeight(Track track) {
-			return double.PositiveInfinity;
-		}
-
-		public virtual Track modifyTrack(Track track) {
-			return new Track();
-		}
+		public virtual void getGuidelines(List<Guideline> outGuidelines, Point target) { }
 	}
 }

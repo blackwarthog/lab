@@ -2,8 +2,6 @@ using System;
 
 namespace Assistance {
 	public struct Point {
-		public static readonly double precision = 0.01;
-
 		public double x;
 		public double y;
 
@@ -11,6 +9,10 @@ namespace Assistance {
 			this.x = x;
 			this.y = y;
 		}
+		public Point(System.Drawing.Point point):
+			this(point.X, point.Y) { }
+		public Point(System.Drawing.PointF point):
+			this(point.X, point.Y) { }
 
 		public static Point operator+ (Point a, Point b) {
 			return new Point(a.x + b.x, a.y + b.y);
@@ -37,7 +39,7 @@ namespace Assistance {
 		}
 
 		public bool isEqual(Point other) {
-			return (this - other).lenSqr() <= precision*precision;
+			return (this - other).lenSqr() <= Geometry.precision*Geometry.precision;
 		}
 
 		public double lenSqr() {
@@ -50,7 +52,7 @@ namespace Assistance {
 
 		public Point normalize() {
 			double l = len();
-			return l > precision*precision*precision ? this/l : this;
+			return l > Geometry.precision*Geometry.precision ? this/l : this;
 		}
 
 		public System.Drawing.PointF toFloat() {
