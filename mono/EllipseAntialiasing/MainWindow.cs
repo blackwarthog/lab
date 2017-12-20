@@ -108,23 +108,30 @@ namespace Faraday {
 
 				double dot = normalX*targetNormX + normalY*targetNormY;
 				double aa = aaRadius/dot;
+				//double aaX = aa*targetNormX;
+				//double aaY = aa*targetNormY;
+
+				double dotInv =
+					tangentL/(targetX*targetX*radiusY*radiusY + targetY*targetY*radiusX*radiusX);
+				double aaX = aaRadius*targetX*dotInv;
+				double aaY = aaRadius*targetY*dotInv;
 
 				g.DrawLine(
 					Pens.Red,
-					(float)(centerX + targetX - targetNormX*aa),
-					(float)(centerY + targetY - targetNormY*aa),
-					(float)(centerX + targetX + targetNormX*aa),
-					(float)(centerY + targetY + targetNormY*aa));
+					(float)(centerX + targetX - aaX),
+					(float)(centerY + targetY - aaY),
+					(float)(centerX + targetX + aaX),
+					(float)(centerY + targetY + aaY));
 				g.FillEllipse(
 					Brushes.Red,
-					(float)(centerX + targetX - targetNormX*aa - pointRadius),
-					(float)(centerY + targetY - targetNormY*aa - pointRadius),
+					(float)(centerX + targetX - aaX - pointRadius),
+					(float)(centerY + targetY - aaY - pointRadius),
 					(float)(2.0*pointRadius),
 					(float)(2.0*pointRadius));
 				g.FillEllipse(
 					Brushes.Red,
-					(float)(centerX + targetX + targetNormX*aa - pointRadius),
-					(float)(centerY + targetY + targetNormY*aa - pointRadius),
+					(float)(centerX + targetX + aaX - pointRadius),
+					(float)(centerY + targetY + aaY - pointRadius),
 					(float)(2.0*pointRadius),
 					(float)(2.0*pointRadius));
 			}

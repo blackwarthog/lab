@@ -9,7 +9,7 @@ namespace Assistance {
 		public ActivePoint b1;
 		public ActivePoint step;
 
-		public VanishingPoint(Canvas canvas, Point center): base(canvas) {
+		public VanishingPoint(Workarea canvas, Point center): base(canvas) {
 			this.center = new ActivePoint(this, ActivePoint.Type.CircleCross, center);
 			a0 = new ActivePoint(this, ActivePoint.Type.CircleFill, center + new Point(-100.0, 0.0));
 			a1 = new ActivePoint(this, ActivePoint.Type.Circle, center + new Point(-200.0, 0.0));
@@ -86,6 +86,8 @@ namespace Assistance {
 				return new Point[0];
 			k = (step.position - center.position).len()/k;
 
+			//if (Math.Abs(k - 1.0) < 0.1) return new Point[0];
+
 			Point[] points = new Point[truncate ? gridPointsCount + 1 : gridPointsCount*2 + 1];
 			Point a = target - center.position;
 			Point b = a;
@@ -114,6 +116,35 @@ namespace Assistance {
 				Point p = (target - center.position).normalize()*getMaxLen() + center.position;
 				g.DrawLine(guidePen, center.position.toFloat(), p.toFloat());
 			}
+		}
+		
+		public override double calcTrackWeight(Track track) {
+			if (track.points.Count < 2)
+				return 0.0;
+			
+			Point point = track.points[0];
+			Point d = (point - center.position).normalize();
+			d = new Point(-d.y, d.x);
+			double weight = 0.0;
+			foreach(Point p in track.points)
+				weight += Math.Abs((p.x - point.x)*d.x + (p.y - point.y)*d.y);
+			weight /= track.points.Count;
+			
+			return weight;
+		}
+		
+		public override Track modifyTrack(Track track) {
+			Track t = new Track();
+			if (track.points.Count < 1)
+				return t;
+
+			Point point = track.points[0];
+			Point d = (point - center.position).normalize();
+			foreach(Point p in track.points) {
+				double l = (p.x - point.x)*d.x + (p.y - point.y)*d.y;
+				t.points.Add(l*d + point);
+			}
+			return t;
 		}
 	}
 }

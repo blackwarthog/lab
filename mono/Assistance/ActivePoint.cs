@@ -21,7 +21,7 @@ namespace Assistance {
 		public static readonly Pen[] pens = new Pen[] { Pens.Gray, Pens.Blue };
 		public static readonly Brush[] brushes = new Brush[] { Brushes.LightGray, Brushes.LightBlue };
 
-		public readonly Canvas canvas;
+		public readonly Workarea canvas;
 		public readonly Assistant assistant;
 		public readonly Type type;
 		public Point position;

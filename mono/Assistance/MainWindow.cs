@@ -9,11 +9,13 @@ namespace Assistance {
         static public void Main() { Application.Run(new MainWindow()); }
 
 		Bitmap bitmap = new Bitmap(1, 1);
-		Canvas canvas = new Canvas();
+		Workarea workarea = new Workarea();
 		bool dragging = false;
 		ActivePoint activePoint;
 		Point offset;
 		Point cursor;
+		
+		Track track = null;
 
 		public MainWindow() {
 			Paint += onPaint;
@@ -33,80 +35,96 @@ namespace Assistance {
 			g.Clear(Color.White);
             draw(g);
 			g.Flush();
-			e.Graphics.DrawImageUnscaled(bitmap, new Rectangle(0, 0, ClientSize.Width, ClientSize.Height));
+			e.Graphics.DrawImageUnscaled(bitmap, 0, 0);
         }
 
-		public Point windowToCanvas(Point p) {
+		public Point windowToWorkarea(Point p) {
 			return new Point(p.x - ClientSize.Width/2.0, p.y - ClientSize.Height/2.0);
 		}
 
-		public Point canvasToWindow(Point p) {
+		public Point workareaToWindow(Point p) {
 			return new Point(p.x + ClientSize.Width/2.0, p.y + ClientSize.Height/2.0);
 		}
 
 		private void beginDrag() {
+			endDragAndTrack();
 			dragging = true;
 			offset = activePoint.position - cursor;
 			activePoint.bringToFront();
 		}
 
-		private void endDrag() {
+		private void beginTrack() {
+			endDragAndTrack();
+			track = new Track();
+		}
+
+		private void endDragAndTrack() {
 			dragging = false;
 			offset = new Point();
+			
+			if (track != null)
+				workarea.paintTrack(track);
+			track = null;
 		}
 
 		public void onKeyDown(Object sender, KeyEventArgs e) {
 			switch(e.KeyCode) {
 			case Keys.D1:
-				new VanishingPoint(canvas, cursor);
+				new VanishingPoint(workarea, cursor);
 				break;
 			case Keys.D2:
-				new Grid(canvas, cursor);
+				new Grid(workarea, cursor);
 				break;
 			case Keys.Delete:
 				if (activePoint != null)
 					activePoint.assistant.remove();
-				endDrag();
+				endDragAndTrack();
 				break;
 			}
-			endDrag();
+			endDragAndTrack();
 			Invalidate();
 		}
 
 		public void onMouseDown(Object sender, MouseEventArgs e) {
-			cursor = windowToCanvas(new Point(e.Location.X, e.Location.Y));
+			cursor = windowToWorkarea(new Point(e.Location.X, e.Location.Y));
 			if (e.Button == MouseButtons.Left) {
-				activePoint = canvas.findPoint(cursor);
-				if (activePoint != null)
+				activePoint = workarea.findPoint(cursor);
+				if (activePoint != null) {
 					beginDrag();
+				} else {
+					beginTrack();
+					track.points.Add(cursor);
+				}
 			}
 			Invalidate();
 		}
 
 		public void onMouseUp(Object sender, MouseEventArgs e) {
-			cursor = windowToCanvas(new Point(e.X, e.Y));
+			cursor = windowToWorkarea(new Point(e.X, e.Y));
 			if (e.Button == MouseButtons.Left)
-				endDrag();
-			if (!dragging)
-				activePoint = canvas.findPoint(cursor);
+				endDragAndTrack();
+			if (!dragging && track == null)
+				activePoint = workarea.findPoint(cursor);
 			Invalidate();
 		}
 
 		public void onMouseMove(Object sender, MouseEventArgs e) {
-			cursor = windowToCanvas(new Point(e.Location.X, e.Location.Y));
+			cursor = windowToWorkarea(new Point(e.Location.X, e.Location.Y));
 			if (dragging) {
 				activePoint.assistant.onMovePoint(activePoint, cursor + offset);
+			} else
+			if (track != null) {
+				track.points.Add(cursor);
 			} else {
-				activePoint = canvas.findPoint(cursor);
+				activePoint = workarea.findPoint(cursor);
 			}
 			Invalidate();
         }
 
         public void draw(Graphics g) {
 			g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-			g.TranslateTransform(0.5f*ClientSize.Width, 0.5f*ClientSize.Height);
-			canvas.draw(g, activePoint, cursor + offset);
+			g.TranslateTransform(ClientSize.Width/2, ClientSize.Height/2);
+			workarea.draw(g, activePoint, cursor + offset, track);
         }
     }
 }
-

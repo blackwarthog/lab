@@ -10,10 +10,10 @@ namespace Assistance {
 		public static readonly Pen pen = Pens.Gray;
 		public static readonly Pen guidePen = Pens.LightGray;
 
-		public readonly Canvas canvas;
+		public readonly Workarea canvas;
 		public readonly List<ActivePoint> points = new List<ActivePoint>();
 
-		public Assistant(Canvas canvas) {
+		public Assistant(Workarea canvas) {
 			this.canvas = canvas;
 			canvas.assistants.Add(this);
 		}
@@ -51,6 +51,13 @@ namespace Assistance {
 		public void drawGuidlines(Graphics g, Point target) {
 			drawGuidlines(g, target, false);
 		}
+
+		public virtual double calcTrackWeight(Track track) {
+			return double.PositiveInfinity;
+		}
+
+		public virtual Track modifyTrack(Track track) {
+			return new Track();
+		}
 	}
 }
-

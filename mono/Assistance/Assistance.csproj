@@ -38,8 +38,11 @@
     <Compile Include="ActivePoint.cs" />
     <Compile Include="VanishingPoint.cs" />
     <Compile Include="Point.cs" />
-    <Compile Include="Canvas.cs" />
     <Compile Include="Grid.cs" />
+    <Compile Include="Workarea.cs" />
+    <Compile Include="Canvas.cs" />
+    <Compile Include="Track.cs" />
+    <Compile Include="Rectangle.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Drawing" />
