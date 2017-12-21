@@ -21,24 +21,29 @@ namespace Assistance {
 		}
 		
 		public double calcTrackWeight(Track track) {
-			if (track.points.Count < 2)
+			if (track.points.Count < 1)
 				return double.PositiveInfinity;
 			double sumWeight = 0.0;
 			double sumLength = 0.0;
 			double sumDeviation = 0.0;
 			
-			for(int i = 1; i < track.points.Count; ++i) {
-				Point point = track.points[i];
-			
-				double length = (point - track.points[i - 1]).len();
+			Point prev = track.points[0];
+			foreach(Point p in track.points) {
+				double length = (p - prev).len();
 				sumLength += length;
 				
-				double weight = Geometry.logNormalDistribuitionUnscaled(sumLength, snapLenght, snapScale);
-				sumWeight += weight;
+				double midStepLength = sumLength - 0.5*length;
+				if (midStepLength > Geometry.precision) {
+					double weight = length*Geometry.logNormalDistribuitionUnscaled(midStepLength, snapLenght, snapScale);
+					sumWeight += weight;
 				
-				double deviation = (transformPoint(point) - point).len();
-				sumDeviation += weight*deviation;
+					double deviation = (transformPoint(p) - p).len();
+					sumDeviation += weight*deviation;
+				}
+				prev = p;
 			}
+			if (sumWeight < Geometry.precision)
+				return double.PositiveInfinity;
 			return sumDeviation/sumWeight;
 		}
 

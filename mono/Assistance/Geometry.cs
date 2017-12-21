@@ -2,7 +2,7 @@ using System;
 
 namespace Assistance {
 	public static class Geometry {
-		public static readonly double precision = 0.01;
+		public static readonly double precision = 1e-8;
 		public static readonly double sqrt2Pi = Math.Sqrt(2.0*Math.PI);
 		
 		public static double logNormalDistribuitionUnscaled(double x, double x0, double w) {
