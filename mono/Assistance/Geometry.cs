@@ -1,7 +1,12 @@
 using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Collections.Generic;
 
 namespace Assistance {
 	public static class Geometry {
+		public delegate Point TransformFunc(Point p);
+
 		public static readonly double precision = 1e-8;
 		public static readonly double sqrt2Pi = Math.Sqrt(2.0*Math.PI);
 		
@@ -28,5 +33,23 @@ namespace Assistance {
 				p0 = new Point(p0.x + k*(bounds.y0 - p0.y), bounds.y0);
 			}
 		}
+		
+		public static Point noTransform(Point point) {
+			return point;
+		}
+		
+		public static Point transform(List<TransformFunc> funcs, Point point) {
+			Point p = point;
+			foreach(TransformFunc func in funcs)
+				p = func(p);
+			return p;
+		}
+
+		public static Point splinePoint(Point p0, Point p1, Point t0, Point t1, double l) {
+			return p0*(( 2.0*l - 3.0)*l*l + 1.0)
+			     + p1*((-2.0*l + 3.0)*l*l      )
+			     + t0*((     l - 2.0)*l*l + l  )
+			     + t1*((     l - 1.0)*l*l      );
+        }
 	}
 }

@@ -37,10 +37,10 @@ namespace Assistance {
 				Guideline guideline = Guideline.findBest(guidelines, track);
 				if (guideline != null) {
 					track.draw(g, true);
-					guideline.modifyTrack(track).draw(g);
+					track.createChildAndBuild(guideline.transformPoint).draw(g);
 					guideline.draw(g, true);
 				} else {
-					track.draw(g);
+					track.createChildAndBuild(Geometry.noTransform).draw(g);
 				}
 			} else {
 				getGuidelines(guidelines, target);
@@ -65,9 +65,9 @@ namespace Assistance {
 			getGuidelines(guidelines, track.points[0]);
 			Guideline guideline = Guideline.findBest(guidelines, track);
 			if (guideline == null)
-				return track;
+				return track.createChildAndBuild(Geometry.noTransform);
 				
-			return guideline.modifyTrack(track);
+			return track.createChildAndBuild(guideline.transformPoint);
 		}
 		
 		public void paintTrack(Track track) {

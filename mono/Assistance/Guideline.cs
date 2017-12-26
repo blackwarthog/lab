@@ -47,13 +47,6 @@ namespace Assistance {
 			return sumDeviation/sumWeight;
 		}
 
-		public Track modifyTrack(Track track) {
-			Track t = new Track();
-			foreach(Point p in track.points)
-				t.points.Add( transformPoint(p) );
-			return t;
-		}
-		
 		public static Guideline findBest(List<Guideline> guidelines, Track track) {
 			double bestWeight = double.PositiveInfinity;
 			Guideline best = null;
