@@ -32,16 +32,23 @@ namespace Assistance {
 			List<Guideline> guidelines = new List<Guideline>();
 			if (track != null && track.points.Count > 0) {
 				getGuidelines(guidelines, track.points[0]);
+				Guideline guideline = Guideline.findBest(guidelines, track);
+				Track modifiedTrack = guideline == null
+				                    ? track.createChildAndBuild(Geometry.noTransform)
+				                    : track.createChildAndBuild(guideline.transformPoint);
+
+				if (modifiedTrack.points.Count > 0) {
+					guidelines.Clear();	
+					getGuidelines(guidelines, modifiedTrack.points.Last());
+				}
 				foreach(Guideline gl in guidelines)
 					gl.draw(g);
-				Guideline guideline = Guideline.findBest(guidelines, track);
+
 				if (guideline != null) {
 					track.draw(g, true);
-					track.createChildAndBuild(guideline.transformPoint).draw(g);
 					guideline.draw(g, true);
-				} else {
-					track.createChildAndBuild(Geometry.noTransform).draw(g);
 				}
+				modifiedTrack.draw(g);
 			} else {
 				getGuidelines(guidelines, target);
 				foreach(Guideline guideline in guidelines)
