@@ -55,6 +55,12 @@ namespace Assistance {
 			return l > Geometry.precision*Geometry.precision ? this/l : this;
 		}
 
+		public Point rotate(double angle) {
+			double s = Math.Sin(angle);
+			double c = Math.Cos(angle);
+			return new Point(c*x - s*y, s*x + c*y);
+		}
+
 		public System.Drawing.PointF toFloat() {
 			return new System.Drawing.PointF((float)x, (float)y);
 		}

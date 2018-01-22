@@ -75,9 +75,12 @@ namespace Assistance {
 			case Keys.D2:
 				new AssistantGrid(workarea, cursor);
 				break;
+			case Keys.Q:
+				new ModifierSnowflake(workarea, cursor);
+				break;
 			case Keys.Delete:
 				if (activePoint != null)
-					activePoint.assistant.remove();
+					activePoint.owner.remove();
 				endDragAndTrack();
 				break;
 			}
@@ -111,7 +114,7 @@ namespace Assistance {
 		public void onMouseMove(Object sender, MouseEventArgs e) {
 			cursor = windowToWorkarea(new Point(e.Location.X, e.Location.Y));
 			if (dragging) {
-				activePoint.assistant.onMovePoint(activePoint, cursor + offset);
+				activePoint.owner.onMovePoint(activePoint, cursor + offset);
 			} else
 			if (track != null) {
 				track.points.Add(cursor);

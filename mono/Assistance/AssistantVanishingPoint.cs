@@ -12,7 +12,7 @@ namespace Assistance {
 		public ActivePoint b1;
 		public ActivePoint step;
 
-		public AssistantVanishingPoint(Workarea canvas, Point center): base(canvas) {
+		public AssistantVanishingPoint(Workarea workarea, Point center): base(workarea) {
 			this.center = new ActivePoint(this, ActivePoint.Type.CircleCross, center);
 			a0 = new ActivePoint(this, ActivePoint.Type.CircleFill, center + new Point(-100.0, 0.0));
 			a1 = new ActivePoint(this, ActivePoint.Type.Circle, center + new Point(-200.0, 0.0));

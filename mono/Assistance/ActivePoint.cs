@@ -11,6 +11,16 @@ namespace Assistance {
 			CircleCross,
 		};
 
+		public class Owner {
+			public readonly Workarea workarea;
+			public readonly List<ActivePoint> points = new List<ActivePoint>();
+			
+			public Owner(Workarea workarea) { this.workarea = workarea; }
+			public virtual void onMovePoint(ActivePoint point, Point position) { point.position = position; }
+			public virtual void bringToFront() { }
+			public virtual void remove() { foreach(ActivePoint point in points) workarea.points.Remove(point); }
+		}
+
 		public static readonly double radius = 10.0;
 		public static readonly double crossSize = 1.2*radius;
 		public static readonly Pen pen = Pens.Gray;
@@ -18,18 +28,18 @@ namespace Assistance {
 		public static readonly Pen penActive = Pens.Blue;
 		public static readonly Brush brushActive = Brushes.LightBlue;
 
-		public readonly Workarea canvas;
-		public readonly Assistant assistant;
+		public readonly Workarea workarea;
+		public readonly Owner owner;
 		public readonly Type type;
 		public Point position;
 
-		public ActivePoint(Assistant assistant, Type type, Point position = new Point()) {
-			this.canvas = assistant.canvas;
-			this.assistant = assistant;
+		public ActivePoint(Owner owner, Type type, Point position = new Point()) {
+			this.workarea = owner.workarea;
+			this.owner = owner;
 			this.type = type;
 			this.position = position;
-			canvas.points.Add(this);
-			assistant.points.Add(this);
+			workarea.points.Add(this);
+			owner.points.Add(this);
 		}
 
 		public bool isInside(Point p) {
@@ -37,11 +47,11 @@ namespace Assistance {
 		}
 
 		public void bringToFront() {
-			assistant.bringToFront();
-			assistant.points.Remove(this);
-			assistant.points.Add(this);
-			canvas.points.Remove(this);
-			canvas.points.Add(this);
+			owner.bringToFront();
+			owner.points.Remove(this);
+			owner.points.Add(this);
+			workarea.points.Remove(this);
+			workarea.points.Add(this);
 		}
 
 		private Pen getPen(bool active) {

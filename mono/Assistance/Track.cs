@@ -30,7 +30,7 @@ namespace Assistance {
 			rebuild(precision);
 		}
 
-		public Track createChild(Geometry.TransformFunc transformFunc, double precision){
+		public Track createChild(Geometry.TransformFunc transformFunc){
 			return new Track(this, transformFunc);
 		}
 
@@ -46,14 +46,18 @@ namespace Assistance {
 				bounds = bounds.expand(p);
 			return bounds.inflate(Math.Max(pen.Width, penPreview.Width) + 2.0);
 		}
-		
+
+		public Point transform(Point p) {
+			return Geometry.transform(transformFuncs, p);
+		}
+				
 		private void addSpline(Point p0, Point p1, Point t0, Point t1, Point tp0, Point tp1, double l0, double l1, double precisionSqr) {
 			if ((tp1 - tp0).lenSqr() < precisionSqr) {
 				points.Add(tp1);
 			} else {
 				double l = 0.5*(l0 + l1);
 				Point p = Geometry.splinePoint(p0, p1, t0, t1, l);
-				Point tp = Geometry.transform(transformFuncs, p);
+				Point tp = transform(p);
 				addSpline(p0, p1, t0, t1, tp0, tp, l0, l, precisionSqr);
 				addSpline(p0, p1, t0, t1, tp, tp1, l, l1, precisionSqr);
 			}
