@@ -12,13 +12,13 @@ namespace Assistance {
 		};
 
 		public class Owner {
-			public readonly Workarea workarea;
+			public readonly Document document;
 			public readonly List<ActivePoint> points = new List<ActivePoint>();
 			
-			public Owner(Workarea workarea) { this.workarea = workarea; }
+			public Owner(Document document) { this.document = document; }
 			public virtual void onMovePoint(ActivePoint point, Point position) { point.position = position; }
 			public virtual void bringToFront() { }
-			public virtual void remove() { foreach(ActivePoint point in points) workarea.points.Remove(point); }
+			public virtual void remove() { foreach(ActivePoint point in points) document.points.Remove(point); }
 		}
 
 		public static readonly double radius = 10.0;
@@ -28,17 +28,17 @@ namespace Assistance {
 		public static readonly Pen penActive = Pens.Blue;
 		public static readonly Brush brushActive = Brushes.LightBlue;
 
-		public readonly Workarea workarea;
+		public readonly Document document;
 		public readonly Owner owner;
 		public readonly Type type;
 		public Point position;
 
 		public ActivePoint(Owner owner, Type type, Point position = new Point()) {
-			this.workarea = owner.workarea;
+			this.document = owner.document;
 			this.owner = owner;
 			this.type = type;
 			this.position = position;
-			workarea.points.Add(this);
+			document.points.Add(this);
 			owner.points.Add(this);
 		}
 
@@ -50,8 +50,8 @@ namespace Assistance {
 			owner.bringToFront();
 			owner.points.Remove(this);
 			owner.points.Add(this);
-			workarea.points.Remove(this);
-			workarea.points.Add(this);
+			document.points.Remove(this);
+			document.points.Add(this);
 		}
 
 		private Pen getPen(bool active) {

@@ -9,20 +9,21 @@ namespace Assistance {
 		//public static readonly int gridPointsCount = 100;
 		public static readonly Pen pen = Pens.Gray;
 
-		public Assistant(Workarea workarea): base(workarea) {
-			workarea.assistants.Add(this);
+		public Assistant(Document document): base(document) {
+			document.assistants.Add(this);
 		}
 
 		public override void remove() {
 			base.remove();
-			workarea.assistants.Remove(this);
+			document.assistants.Remove(this);
 		}
 
 		public override void bringToFront() {
-			workarea.assistants.Remove(this);
-			workarea.assistants.Add(this);
+			document.assistants.Remove(this);
+			document.assistants.Add(this);
 		}
 
+		// TODO: ?
 		//public double getMaxLen() {
 		//	double l = 0.0;
 		//	foreach(ActivePoint point in points)

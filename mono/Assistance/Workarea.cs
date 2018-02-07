@@ -6,28 +6,30 @@ using System.Linq;
 
 namespace Assistance {
 	public class Workarea {
-		public readonly List<Assistant> assistants = new List<Assistant>();
-		public readonly List<Modifier> modifiers = new List<Modifier>();
-		public readonly List<ActivePoint> points = new List<ActivePoint>();
-		public readonly Canvas canvas = new Canvas();
+		public readonly Document document;
 		
+		// TODO: remove this?				
 		public ActivePoint ActivePoint = null;
 
+		public Workarea() {
+			document = new Document(this);
+		}
+
 		public ActivePoint findPoint(Point position) {
-			foreach(ActivePoint point in points.Reverse<ActivePoint>())
+			foreach(ActivePoint point in document.points.Reverse<ActivePoint>())
 				if (point.isInside(position))
 					return point;
 			return null;
 		}
 
 		public void getGuidelines(List<Guideline> outGuidelines, Point target) {
-			foreach(Assistant assistant in assistants)
+			foreach(Assistant assistant in document.assistants)
 				assistant.getGuidelines(outGuidelines, target);
 		}
 
 		public void draw(Graphics g, ActivePoint activePoint, Point target, Track track) {
 			// canvas
-			canvas.draw(g);
+			document.canvas.draw(g);
 
 			// guidelines and track
 			List<Guideline> guidelines = new List<Guideline>();
@@ -52,15 +54,15 @@ namespace Assistance {
 			}
 			
 			// modifiers
-			foreach(Modifier modifier in modifiers)
+			foreach(Modifier modifier in document.modifiers)
 				modifier.draw(g);
 
 			// assistants
-			foreach(Assistant assistant in assistants)
+			foreach(Assistant assistant in document.assistants)
 				assistant.draw(g);
 
 			// active points
-			foreach(ActivePoint point in points)
+			foreach(ActivePoint point in document.points)
 				point.draw(g, activePoint == point);
 		}
 	
@@ -79,7 +81,7 @@ namespace Assistance {
 		
 		public List<Track> modifyTrackByModifiers(Track track) {
 			List<Track> tracks = new List<Track>() { track };
-			foreach(Modifier modifier in modifiers)
+			foreach(Modifier modifier in document.modifiers)
 				tracks = modifier.modify(tracks);
 			return tracks;
 		}
@@ -100,7 +102,7 @@ namespace Assistance {
 		public void paintTrack(Track track) {
 			List<Track> tracks = modifyTrack(track);
 			foreach(Track t in tracks)
-				canvas.paintTrack(t);
+				document.canvas.paintTrack(t);
 		}
 	}
 }

@@ -9,7 +9,7 @@ namespace Assistance {
 	
 		public ActivePoint center;
 
-		public ModifierSnowflake(Workarea workarea, Point center): base(workarea) {
+		public ModifierSnowflake(Document document, Point center): base(document) {
 			this.center = new ActivePoint(this, ActivePoint.Type.CircleCross, center);
 		}
 

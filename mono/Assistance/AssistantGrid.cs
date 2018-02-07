@@ -4,7 +4,7 @@ namespace Assistance {
 	public class AssistantGrid: Assistant {
 		public ActivePoint center;
 
-		public AssistantGrid(Workarea canvas, Point center): base(canvas) {
+		public AssistantGrid(Document document, Point center): base(document) {
 			this.center = new ActivePoint(this, ActivePoint.Type.CircleCross, center);
 		}
 

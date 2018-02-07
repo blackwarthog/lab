@@ -7,18 +7,18 @@ namespace Assistance {
 	public class Modifier: ActivePoint.Owner {
 		public static readonly Pen pen = Pens.LightGray;
 
-		public Modifier(Workarea workarea): base(workarea) {
-			workarea.modifiers.Add(this);
+		public Modifier(Document document): base(document) {
+			document.modifiers.Add(this);
 		}
 
 		public override void remove() {
 			base.remove();
-			workarea.modifiers.Remove(this);
+			document.modifiers.Remove(this);
 		}
 
 		public override void bringToFront() {
-			workarea.modifiers.Remove(this);
-			workarea.modifiers.Add(this);
+			document.modifiers.Remove(this);
+			document.modifiers.Add(this);
 		}
 
 		public virtual void draw(Graphics g) { }

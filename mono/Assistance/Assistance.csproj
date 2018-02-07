@@ -52,6 +52,8 @@
       <DependentUpon>Point.cs</DependentUpon>
     </Compile>
     <Compile Include="ModifierSnowflake.cs" />
+    <Compile Include="Document.cs" />
+    <Compile Include="Tool.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Drawing" />

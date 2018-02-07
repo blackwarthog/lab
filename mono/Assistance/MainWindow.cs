@@ -70,13 +70,13 @@ namespace Assistance {
 		public void onKeyDown(Object sender, KeyEventArgs e) {
 			switch(e.KeyCode) {
 			case Keys.D1:
-				new AssistantVanishingPoint(workarea, cursor);
+				new AssistantVanishingPoint(workarea.document, cursor);
 				break;
 			case Keys.D2:
-				new AssistantGrid(workarea, cursor);
+				new AssistantGrid(workarea.document, cursor);
 				break;
 			case Keys.Q:
-				new ModifierSnowflake(workarea, cursor);
+				new ModifierSnowflake(workarea.document, cursor);
 				break;
 			case Keys.Delete:
 				if (activePoint != null)
