@@ -6,7 +6,8 @@ namespace Assistance {
         static public void Main() {
         	Gtk.Application.Init();
         	MainWindow win = new MainWindow();
-        	win.Show();
+			win.Show();
+			win.Maximize();
         	Gtk.Application.Run();
         }
 
@@ -23,13 +24,20 @@ namespace Assistance {
 		Track track = null;
 
 		public MainWindow(): base(Gtk.WindowType.Toplevel) {
-			this.Events = Gdk.EventMask.KeyPressMask
-						| Gdk.EventMask.KeyReleaseMask
-			            | Gdk.EventMask.ButtonPressMask
-			            | Gdk.EventMask.ButtonReleaseMask
-			            | Gdk.EventMask.ButtonMotionMask
-			            | Gdk.EventMask.PointerMotionMask;
-			Maximize();
+			foreach(Gdk.Device device in Display.ListDevices()) {
+				if (device.Name.Contains("tylus")) {
+					device.SetMode(Gdk.InputMode.Screen);
+					break;
+				}
+			}
+		
+			Events = Gdk.EventMask.KeyPressMask
+				   | Gdk.EventMask.KeyReleaseMask
+			       | Gdk.EventMask.ButtonPressMask
+			       | Gdk.EventMask.ButtonReleaseMask
+			       | Gdk.EventMask.ButtonMotionMask
+			       | Gdk.EventMask.PointerMotionMask;
+			ExtensionEvents = Gdk.ExtensionMode.All;
         }
         
         protected override bool OnDeleteEvent(Gdk.Event e) {
@@ -109,6 +117,12 @@ namespace Assistance {
 			case Gdk.Key.q:
 				new ModifierSnowflake(workarea.document, cursor);
 				break;
+			case Gdk.Key.I:
+			case Gdk.Key.i:
+				Gtk.InputDialog dialog = new Gtk.InputDialog();
+				dialog.CloseButton.Clicked += (object sender, EventArgs args) => { dialog.Destroy(); };
+				dialog.Show();
+				break;
 			case Gdk.Key.Delete:
 				if (activePoint != null)
 					activePoint.owner.remove();
@@ -179,6 +193,7 @@ namespace Assistance {
 				activePoint.owner.onMovePoint(activePoint, cursor + offset);
 			} else
 			if (track != null) {
+				if (e.IsHint) Gdk.Display.Default.Beep();
 				track.points.Add(makeTrackPoint(e));
 			} else {
 				activePoint = workarea.findPoint(cursor);

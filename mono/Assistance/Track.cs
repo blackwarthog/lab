@@ -108,15 +108,25 @@ namespace Assistance {
 		}
 
 		public void draw(Cairo.Context context, bool preview = false) {
-			if (points.Count < 2)
-				return;
-			context.Save();
-			(preview ? penPreview : pen).apply(context);
-			context.MoveTo(points[0].point.x, points[0].point.y);
-			for(int i = 1; i < points.Count; ++i)
-				context.LineTo(points[i].point.x, points[i].point.y);
-			context.Stroke();
-			context.Restore();
+			if (preview) {
+				if (points.Count < 2)
+					return;
+				context.Save();
+				penPreview.apply(context);
+				context.MoveTo(points[0].point.x, points[0].point.y);
+				for(int i = 1; i < points.Count; ++i)
+					context.LineTo(points[i].point.x, points[i].point.y);
+				context.Stroke();
+				context.Restore();
+			} else {
+				context.Save();
+				pen.apply(context);
+				foreach(TrackPoint p in points) {
+					context.Arc(p.point.x, p.point.y, 2.0*p.pressure*pen.width, 0.0, 2.0*Math.PI);
+					context.Fill();
+				}
+				context.Restore();
+			}
 		}
 	}
 }
