@@ -1,6 +1,4 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
 
 namespace Assistance {
@@ -107,11 +105,19 @@ namespace Assistance {
 		}
 		*/
 		
-		public override void draw(System.Drawing.Graphics g) {
-			g.DrawLine(pen, center.position.toFloat(), a0.position.toFloat());
-			g.DrawLine(pen, center.position.toFloat(), a1.position.toFloat());
-			g.DrawLine(pen, center.position.toFloat(), b0.position.toFloat());
-			g.DrawLine(pen, center.position.toFloat(), b1.position.toFloat());
+		public override void draw(Cairo.Context context) {
+			context.Save();
+			pen.apply(context);
+			context.MoveTo(center.position.x, center.position.y);
+			context.LineTo(a0.position.x, a0.position.y);
+			context.MoveTo(center.position.x, center.position.y);
+			context.LineTo(a1.position.x, a1.position.y);
+			context.MoveTo(center.position.x, center.position.y);
+			context.LineTo(b0.position.x, b0.position.y);
+			context.MoveTo(center.position.x, center.position.y);
+			context.LineTo(b1.position.x, b1.position.y);
+			context.Stroke();
+			context.Restore();
 		}
 
 		public override void getGuidelines(List<Guideline> outGuidelines, Point target) {

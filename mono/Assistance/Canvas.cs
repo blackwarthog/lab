@@ -1,6 +1,4 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
 
 namespace Assistance {
@@ -8,50 +6,68 @@ namespace Assistance {
 		public static readonly int initialSize = 100;
 		public static readonly double incrementScale = 1.2;
 	
-		private System.Drawing.Point offset = new System.Drawing.Point(-initialSize/2, -initialSize/2);
-		private Bitmap bitmap = new Bitmap(initialSize, initialSize);
+		private int offsetX = -initialSize/2;
+		private int offsetY = -initialSize/2;
+		private Cairo.ImageSurface surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, initialSize, initialSize);
 
-		public void draw(Graphics g) {
-			g.DrawImageUnscaled(bitmap, offset);
+		public void draw(Cairo.Context context) {
+			context.Save();
+			context.Translate(offsetX, offsetY);
+			context.SetSource(surface);
+			context.Paint();
+			context.Restore();
 		}
 
 		public void expand(Rectangle rect) {
-			System.Drawing.Point lt = offset;
-			System.Drawing.Point rb = lt + bitmap.Size;
-		    System.Drawing.Rectangle recti = rect.toInt();
+			int l = offsetX;
+			int t = offsetY;
+			int r = l + surface.Width;
+			int b = t + surface.Height;
+			
+			int rl = (int)Math.Floor(rect.x0);
+			int rt = (int)Math.Floor(rect.y0);
+			int rr = Math.Max(rl, (int)Math.Ceiling(rect.x1));
+			int rb = Math.Max(rt, (int)Math.Ceiling(rect.y1));
 		    
-		    int incX = (int)Math.Ceiling(bitmap.Width*incrementScale);
-		    int incY = (int)Math.Ceiling(bitmap.Height*incrementScale);
+		    int incX = (int)Math.Ceiling(surface.Width*incrementScale);
+		    int incY = (int)Math.Ceiling(surface.Height*incrementScale);
 
-		    if (recti.Left   < lt.X) lt.X = recti.Left   - incX;
-		    if (recti.Top    < lt.Y) lt.Y = recti.Top    - incY;
-		    if (recti.Right  > rb.X) rb.X = recti.Right  + incX;
-		    if (recti.Bottom > rb.Y) rb.Y = recti.Bottom + incY;
+		    if (rl < l) l = rl - incX;
+		    if (rt < t) t = rt - incY;
+		    if (rr > r) r = rr + incX;
+		    if (rb > b) b = rb + incY;
 		    
-		    Size size = new Size(rb.X - lt.X, rb.Y - lt.Y);
-		    if (lt != offset || size != bitmap.Size) {
-				Bitmap newBitmap = new Bitmap(size.Width, size.Height);
-				Graphics g = Graphics.FromImage(newBitmap);
-				g.DrawImageUnscaled(bitmap, new System.Drawing.Point(offset.X - lt.X, offset.Y - lt.Y));
-				g.Flush();
+		    int w = r - l;
+		    int h = b - t;
+		    if (l != offsetX || t != offsetY || w != surface.Width || h != surface.Height) {
+				Cairo.ImageSurface newSurface = new Cairo.ImageSurface(Cairo.Format.ARGB32, w, h);
+		    	Cairo.Context context = new Cairo.Context(newSurface);
+		    	context.Translate(offsetX - l, offsetY - t);
+		    	context.SetSource(surface);
+		    	context.Paint();
+				context.GetTarget().Flush();
+				context.Dispose();
+				surface.Dispose();
 				
-				offset = lt;
-				bitmap = newBitmap;
+				offsetX = l;
+				offsetY = t;
+				surface = newSurface;
 			}
 		}
 
-		private Graphics getGraphics() {
-			Graphics g = Graphics.FromImage(bitmap);
-			g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-			g.TranslateTransform(-offset.X, -offset.Y);
-			return g;
+		private Cairo.Context getContext() {
+			Cairo.Context context = new Cairo.Context(surface);
+			context.Antialias = Cairo.Antialias.Gray;
+			context.Translate(-offsetX, -offsetY);
+			return context;
 		}
 
 		public void paintTrack(Track track) {
 			expand(track.getBounds());
-			Graphics g = getGraphics();
-			track.draw(g);
-			g.Flush();
+			Cairo.Context context = getContext();
+			track.draw(context);
+			context.GetTarget().Flush();
+			context.Dispose();
 		}
 	}
 }

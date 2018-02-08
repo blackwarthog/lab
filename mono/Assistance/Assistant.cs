@@ -1,13 +1,11 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
 
 namespace Assistance {
 	public class Assistant: ActivePoint.Owner {
 		public static readonly double maxLen = 1000.0;
 		//public static readonly int gridPointsCount = 100;
-		public static readonly Pen pen = Pens.Gray;
+		public static readonly Drawing.Pen pen = new Drawing.Pen("gray");
 
 		public Assistant(Document document): base(document) {
 			document.assistants.Add(this);
@@ -31,7 +29,7 @@ namespace Assistance {
 		//	return maxLen + l;
 		//}
 
-		public virtual void draw(Graphics g) { }
+		public virtual void draw(Cairo.Context context) { }
 
 		public virtual void getGuidelines(List<Guideline> outGuidelines, Point target) { }
 	}

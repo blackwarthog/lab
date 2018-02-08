@@ -1,6 +1,4 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
 
 namespace Assistance {
@@ -44,6 +42,13 @@ namespace Assistance {
 				p = func(p);
 			return p;
 		}
+
+		public static double splinePoint(double p0, double p1, double t0, double t1, double l) {
+			return p0*(( 2.0*l - 3.0)*l*l + 1.0)
+			     + p1*((-2.0*l + 3.0)*l*l      )
+			     + t0*((     l - 2.0)*l*l + l  )
+			     + t1*((     l - 1.0)*l*l      );
+        }
 
 		public static Point splinePoint(Point p0, Point p1, Point t0, Point t1, double l) {
 			return p0*(( 2.0*l - 3.0)*l*l + 1.0)

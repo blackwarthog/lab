@@ -1,12 +1,11 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
+using Assistance.Drawing;
 
 namespace Assistance {
 	public class Guideline {
-		public static readonly Pen pen = Pens.LightGray;
-		public static readonly Pen penActive = Pens.DeepSkyBlue;
+		public static readonly Pen pen = new Pen("Light Gray");
+		public static readonly Pen penActive = new Pen("Deep Sky Blue");
 		public static readonly double snapLenght = 20.0;
 		public static readonly double snapScale = 1.0;
 	
@@ -14,10 +13,10 @@ namespace Assistance {
 			return p;
 		}
 		
-		public virtual void draw(Graphics g, bool active) { }
+		public virtual void draw(Cairo.Context context, bool active) { }
 
-		public void draw(Graphics g) {
-			draw(g, false);
+		public void draw(Cairo.Context context) {
+			draw(context, false);
 		}
 		
 		public double calcTrackWeight(Track track) {
@@ -27,8 +26,9 @@ namespace Assistance {
 			double sumLength = 0.0;
 			double sumDeviation = 0.0;
 			
-			Point prev = track.points[0];
-			foreach(Point p in track.points) {
+			Point prev = track.points[0].point;
+			foreach(TrackPoint tp in track.points) {
+				Point p = tp.point;
 				double length = (p - prev).len();
 				sumLength += length;
 				

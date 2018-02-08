@@ -1,6 +1,4 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
 
 namespace Assistance {
@@ -14,11 +12,18 @@ namespace Assistance {
 			direction = (p1 - p0).normalize();
 		}
 		
-		public override void draw(Graphics g, bool active) {
+		public override void draw(Cairo.Context context, bool active) {
 			Point pp0 = p0;
 			Point pp1 = p1;
-			Geometry.truncateInfiniteLine(new Rectangle(g.VisibleClipBounds), ref pp0, ref pp1);
-			g.DrawLine(active ? penActive : pen , pp0.toFloat(), pp1.toFloat());
+			Rectangle bounds = Drawing.Helper.getBounds(context);
+			Geometry.truncateInfiniteLine(bounds, ref pp0, ref pp1);
+			
+			context.Save();
+			(active ? penActive : pen).apply(context);
+			context.MoveTo(pp0.x, pp0.y);
+			context.LineTo(pp1.x, pp1.y);
+			context.Stroke();
+			context.Restore();
 		}
 		
 		public override Point transformPoint(Point p) {

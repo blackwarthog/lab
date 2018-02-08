@@ -1,11 +1,10 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
+using Assistance.Drawing;
 
 namespace Assistance {
 	public class Modifier: ActivePoint.Owner {
-		public static readonly Pen pen = Pens.LightGray;
+		public static readonly Pen pen = new Pen("Light Gray");
 
 		public Modifier(Document document): base(document) {
 			document.modifiers.Add(this);
@@ -21,7 +20,7 @@ namespace Assistance {
 			document.modifiers.Add(this);
 		}
 
-		public virtual void draw(Graphics g) { }
+		public virtual void draw(Cairo.Context context) { }
 
 		public virtual void getTransformFuncs(List<Geometry.TransformFunc> transformFuncs) { }
 		

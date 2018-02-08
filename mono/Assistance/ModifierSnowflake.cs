@@ -1,6 +1,4 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
 
 namespace Assistance {
@@ -13,12 +11,19 @@ namespace Assistance {
 			this.center = new ActivePoint(this, ActivePoint.Type.CircleCross, center);
 		}
 
-		public override void draw(System.Drawing.Graphics g) {
+		public override void draw(Cairo.Context context) {
 			for(int i = 0; i < rays/2; ++i) {
 				Point pp0 = center.position;
 				Point pp1 = center.position + new Point(100.0, 0.0).rotate( i*2.0*Math.PI/(double)rays );
-				Geometry.truncateInfiniteLine(new Rectangle(g.VisibleClipBounds), ref pp0, ref pp1);
-				g.DrawLine(pen, pp0.toFloat(), pp1.toFloat());
+				Rectangle bounds = Drawing.Helper.getBounds(context);
+				Geometry.truncateInfiniteLine(bounds, ref pp0, ref pp1);
+				
+				context.Save();
+				pen.apply(context);
+				context.MoveTo(pp0.x, pp0.y);
+				context.LineTo(pp1.x, pp1.y);
+				context.Stroke();
+				context.Restore();
 			}
 		}
 

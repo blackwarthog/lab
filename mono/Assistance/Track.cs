@@ -1,14 +1,13 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
+using Assistance.Drawing;
 
 namespace Assistance {
 	public class Track {
-		public static readonly Pen pen = new Pen(Brushes.DarkGreen, 3f);
-		public static readonly Pen penPreview = new Pen(new SolidBrush(Color.FromArgb(64, Color.DarkGreen)), 1f);
+		public static readonly Pen pen = new Pen("Dark Green", 3.0);
+		public static readonly Pen penPreview = new Pen("Dark Green", 1.0, 0.25);
 	
-		public readonly List<Point> points = new List<Point>();
+		public readonly List<TrackPoint> points = new List<TrackPoint>();
 
 		private readonly List<Track> parents = new List<Track>();
 		private readonly List<Geometry.TransformFunc> transformFuncs = new List<Geometry.TransformFunc>();
@@ -41,23 +40,34 @@ namespace Assistance {
 		public Rectangle getBounds() {
 			if (points.Count == 0)
 				return new Rectangle();
-			Rectangle bounds = new Rectangle(points[0]);
-			foreach(Point p in points)
-				bounds = bounds.expand(p);
-			return bounds.inflate(Math.Max(pen.Width, penPreview.Width) + 2.0);
+			Rectangle bounds = new Rectangle(points[0].point);
+			foreach(TrackPoint p in points)
+				bounds = bounds.expand(p.point);
+			return bounds.inflate(Math.Max(pen.width, penPreview.width) + 2.0);
 		}
 
-		public Point transform(Point p) {
-			return Geometry.transform(transformFuncs, p);
+		public TrackPoint transform(TrackPoint p) {
+			p.point = Geometry.transform(transformFuncs, p.point);
+			return p;
 		}
 				
-		private void addSpline(Point p0, Point p1, Point t0, Point t1, Point tp0, Point tp1, double l0, double l1, double precisionSqr) {
-			if ((tp1 - tp0).lenSqr() < precisionSqr) {
+		private void addSpline(
+			TrackPoint p0, TrackPoint p1,
+			TrackPoint t0, TrackPoint t1,
+			TrackPoint tp0, TrackPoint tp1,
+			double l0, double l1,
+			double precisionSqr
+		) {
+			if ((tp1.point - tp0.point).lenSqr() < precisionSqr) {
 				points.Add(tp1);
 			} else {
 				double l = 0.5*(l0 + l1);
-				Point p = Geometry.splinePoint(p0, p1, t0, t1, l);
-				Point tp = transform(p);
+				TrackPoint p = new TrackPoint(
+					Geometry.splinePoint(p0.point, p1.point, t0.point, t1.point, l),
+					p0.time + l*(p1.time - p0.time),
+					Geometry.splinePoint(p0.pressure, p1.pressure, t0.pressure, t1.pressure, l),
+					Geometry.splinePoint(p0.tilt, p1.tilt, t0.tilt, t1.tilt, l) );
+				TrackPoint tp = transform(p);
 				addSpline(p0, p1, t0, t1, tp0, tp, l0, l, precisionSqr);
 				addSpline(p0, p1, t0, t1, tp, tp1, l, l1, precisionSqr);
 			}
@@ -70,21 +80,24 @@ namespace Assistance {
 			
 			Track root = parents[0];
 			if (root.points.Count < 2) {
-				foreach(Point p in root.points)
-					points.Add( Geometry.transform(transformFuncs, p) );
+				foreach(TrackPoint p in root.points)
+					points.Add( transform(p) );
 				return;
 			}
 			
 			double precisionSqr = precision * precision;
-			Point p0 = root.points[0];
-			Point p1 = root.points[1];
-			Point t0 = 0.5*(p1 - p0);
-			Point tp0 = Geometry.transform(transformFuncs, p0);
+			TrackPoint p0 = root.points[0];
+			TrackPoint p1 = root.points[1];
+			TrackPoint t0 = new TrackPoint();
+			TrackPoint tp0 = transform(p0);
 			points.Add(tp0);
 			for(int i = 1; i < root.points.Count; ++i) {
-				Point p2 = root.points[i+1 < root.points.Count ? i+1 : i];
-				Point tp1 = Geometry.transform(transformFuncs, p1);
-				Point t1 = 0.5*(p2 - p0);
+				TrackPoint p2 = root.points[i+1 < root.points.Count ? i+1 : i];
+				TrackPoint tp1 = transform(p1);
+				double dt = p2.time - p0.time;
+				TrackPoint t1 = dt > Geometry.precision
+				              ? (p2 - p0)*(p1.time - p0.time)/dt
+				              : new TrackPoint();
 				addSpline(p0, p1, t0, t1, tp0, tp1, 0.0, 1.0, precisionSqr);
 
 				p0 = p1;
@@ -94,13 +107,16 @@ namespace Assistance {
 			}
 		}
 
-		public void draw(Graphics g, bool preview = false) {
+		public void draw(Cairo.Context context, bool preview = false) {
 			if (points.Count < 2)
 				return;
-			PointF[] ps = new PointF[points.Count];
-			for(int i = 0; i < ps.Length; ++i)
-				ps[i] = points[i].toFloat();
-			g.DrawLines(preview ? penPreview : pen, ps);
+			context.Save();
+			(preview ? penPreview : pen).apply(context);
+			context.MoveTo(points[0].point.x, points[0].point.y);
+			for(int i = 1; i < points.Count; ++i)
+				context.LineTo(points[i].point.x, points[i].point.y);
+			context.Stroke();
+			context.Restore();
 		}
 	}
 }

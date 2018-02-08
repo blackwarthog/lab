@@ -40,10 +40,6 @@ namespace Assistance {
 			this(p.x, p.y) { }
 		public Rectangle(Point p0, Point p1):
 			this(p0.x, p0.y, p1.x, p1.y) { }
-		public Rectangle(System.Drawing.Rectangle rect):
-			this(rect.Left, rect.Top, rect.Right, rect.Bottom) { }
-		public Rectangle(System.Drawing.RectangleF rect):
-			this(rect.Left, rect.Top, rect.Right, rect.Bottom) { }
 
 		public Rectangle expand(Point p, double radius = 0.0) {
 			return new Rectangle(
@@ -83,23 +79,6 @@ namespace Assistance {
 					                    Math.Min(a.x1, b.x1),
 					                    Math.Min(a.y1, b.y1) );
 			return rect.empty ? new Rectangle() : rect;
-		}
-		
-		public System.Drawing.Rectangle toInt() {
-			System.Drawing.Rectangle rect = new System.Drawing.Rectangle(
-				(int)Math.Floor(x0),
-				(int)Math.Floor(y0),
-				(int)Math.Ceiling(x1) - (int)Math.Floor(x0),
-				(int)Math.Ceiling(y1) - (int)Math.Floor(y0) );
-			if (empty) {
-				rect.Width = Math.Min(0, rect.Width);
-				rect.Height = Math.Min(0, rect.Height);
-			}
-			return rect;
-		}
-
-		public System.Drawing.RectangleF toFloat() {
-			return new System.Drawing.RectangleF((float)x0, (float)y0, (float)(x1 - x0), (float)(y1 - y0));
 		}
 	}
 }

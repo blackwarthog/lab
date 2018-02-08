@@ -1,7 +1,6 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.Collections.Generic;
+using Assistance.Drawing;
 
 namespace Assistance {
 	public class ActivePoint {
@@ -23,10 +22,10 @@ namespace Assistance {
 
 		public static readonly double radius = 10.0;
 		public static readonly double crossSize = 1.2*radius;
-		public static readonly Pen pen = Pens.Gray;
-		public static readonly Brush brush = Brushes.LightGray;
-		public static readonly Pen penActive = Pens.Blue;
-		public static readonly Brush brushActive = Brushes.LightBlue;
+		public static readonly Pen pen = new Pen("Gray");
+		public static readonly Brush brush = new Brush("Light Gray");
+		public static readonly Pen penActive = new Pen("Blue");
+		public static readonly Brush brushActive = new Brush("Light Blue");
 
 		public readonly Document document;
 		public readonly Owner owner;
@@ -62,31 +61,46 @@ namespace Assistance {
 			return active ? brushActive : brush;
 		}
 
-		private void drawCircle(Graphics g, bool active) {
-			g.DrawEllipse(getPen(active), (float)(position.x - radius), (float)(position.y - radius), (float)(2.0*radius), (float)(2.0*radius));
+		private void drawCircle(Cairo.Context context, bool active) {
+			context.Save();
+			getPen(active).apply(context);
+			context.Arc(position.x, position.y, radius, 0.0, 2.0*Math.PI);
+			context.Stroke();
+			context.Restore();
 		}
 
-		private void fillCircle(Graphics g, bool active) {
-			g.FillEllipse(getBrush(active), (float)(position.x - radius), (float)(position.y - radius), (float)(2.0*radius), (float)(2.0*radius));
+		private void fillCircle(Cairo.Context context, bool active) {
+			context.Save();
+			getBrush(active).apply(context);
+			context.Arc(position.x, position.y, radius, 0.0, 2.0*Math.PI);
+			context.Fill();
+			context.Restore();
 		}
 
-		private void drawCross(Graphics g, bool active) {
-			g.DrawLine(getPen(active), (float)(position.x - crossSize), (float)position.y, (float)(position.x + crossSize), (float)position.y);
-			g.DrawLine(getPen(active), (float)position.x, (float)(position.y - crossSize), (float)position.x, (float)(position.y + crossSize));
+		private void drawCross(Cairo.Context context, bool active) {
+			context.Save();
+			getPen(active).apply(context);
+			context.MoveTo(position.x - crossSize, position.y);
+			context.LineTo(position.x + crossSize, position.y);
+			context.Stroke();
+			context.MoveTo(position.x, position.y - crossSize);
+			context.LineTo(position.x, position.y + crossSize);
+			context.Stroke();
+			context.Restore();
 		}
 
-		public void draw(Graphics g, bool active = false) {
+		public void draw(Cairo.Context context, bool active = false) {
 			switch(type) {
 			case Type.Circle:
-				drawCircle(g, active);
+				drawCircle(context, active);
 				break;
 			case Type.CircleFill:
-				fillCircle(g, active);
-				drawCircle(g, active);
+				fillCircle(context, active);
+				drawCircle(context, active);
 				break;
 			case Type.CircleCross:
-				drawCircle(g, active);
-				drawCross(g, active);
+				drawCircle(context, active);
+				drawCross(context, active);
 				break;
 			}
 		}
