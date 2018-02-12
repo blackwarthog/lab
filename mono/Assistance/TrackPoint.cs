@@ -6,24 +6,31 @@ namespace Assistance {
 		public double time;
 		public double pressure;
 		public Point tilt;
-
-		public TrackPoint(Point point, double time, double pressure = 0.5, Point tilt = new Point()) {
-			this.point = point;
-			this.time = time;
-			this.pressure = pressure;
-			this.tilt = tilt;
+		
+		public KeyState<Gdk.Key>.Holder keyState;
+		public KeyState<uint>.Holder buttonState;
+		
+		public TrackPoint spawn(Point point, double time, double pressure, Point tilt) {
+			TrackPoint p = this;
+			p.point = point;
+			p.time = time;
+			p.pressure = pressure;
+			p.tilt = tilt;
+			p.keyState.timeOffset += time - this.time;
+			p.buttonState.timeOffset += time - this.time;
+			return p;
 		}
 
 		public static TrackPoint operator+ (TrackPoint a, TrackPoint b)
-			{ return new TrackPoint(a.point + b.point, a.time + b.time, a.pressure + b.pressure, a.tilt + b.tilt); }
+			{ return a.spawn(a.point + b.point, a.time + b.time, a.pressure + b.pressure, a.tilt + b.tilt); }
 		public static TrackPoint operator- (TrackPoint a, TrackPoint b)
-			{ return new TrackPoint(a.point - b.point, a.time - b.time, a.pressure - b.pressure, a.tilt - b.tilt); }
+			{ return a.spawn(a.point - b.point, a.time - b.time, a.pressure - b.pressure, a.tilt - b.tilt); }
 		public static TrackPoint operator* (TrackPoint a, double b)
-			{ return new TrackPoint(a.point*b, a.time*b, a.pressure*b, a.tilt*b); }
+			{ return a.spawn(a.point*b, a.time*b, a.pressure*b, a.tilt*b); }
 		public static TrackPoint operator* (double b, TrackPoint a)
 			{ return a*b; }
 		public static TrackPoint operator/ (TrackPoint a, double b)
-			{ return new TrackPoint(a.point/b, a.time/b, a.pressure/b, a.tilt/b); }
+			{ return a.spawn(a.point/b, a.time/b, a.pressure/b, a.tilt/b); }
 	}
 }
 

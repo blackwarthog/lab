@@ -18,8 +18,13 @@ namespace Assistance {
 		ActivePoint activePoint;
 
 		uint timeStart = 0;
+		long ticksStart = 0;
+		long lastTicks = 0;
 		Point offset;
 		Point cursor;
+		
+		KeyState<Gdk.Key> keyState = new KeyState<Gdk.Key>();
+		KeyState<uint> buttonState = new KeyState<uint>();
 		
 		Track track = null;
 
@@ -91,9 +96,10 @@ namespace Assistance {
 			activePoint.bringToFront();
 		}
 
-		private void beginTrack() {
+		private void beginTrack(Gdk.Device device) {
 			endDragAndTrack();
-			track = new Track();
+			track = new Track(device);
+			ticksStart = Timer.ticks();
 		}
 
 		private void endDragAndTrack() {
@@ -109,13 +115,16 @@ namespace Assistance {
 			switch(e.Key) {
 			case Gdk.Key.Key_1:
 				new AssistantVanishingPoint(workarea.document, cursor);
+				endDragAndTrack();
 				break;
 			case Gdk.Key.Key_2:
 				new AssistantGrid(workarea.document, cursor);
+				endDragAndTrack();
 				break;
 			case Gdk.Key.Q:
 			case Gdk.Key.q:
 				new ModifierSnowflake(workarea.document, cursor);
+				endDragAndTrack();
 				break;
 			case Gdk.Key.I:
 			case Gdk.Key.i:
@@ -128,46 +137,104 @@ namespace Assistance {
 					activePoint.owner.remove();
 				endDragAndTrack();
 				break;
+			default:
+				keyState = keyState.press(e.Key, Timer.ticks());
+				retryTrackPoint();
+				break;
 			}
-			endDragAndTrack();
 			QueueDraw();
 			return base.OnKeyPressEvent(e);
 		}
 		
-		TrackPoint makeTrackPoint(double x, double y, uint time, Gdk.Device device, double[] axes) {
-			TrackPoint point = new TrackPoint(
-				windowToWorkarea(new Point(x, y)),
-				(double)(time - timeStart)*0.001 );
+		protected override bool OnKeyReleaseEvent(Gdk.EventKey e) {
+			keyState = keyState.release(e.Key, Timer.ticks());
+			retryTrackPoint();
+			return base.OnKeyReleaseEvent(e);
+		}
+		
+		void addTrackPoint(Point p, double time, double pressure, Point tilt) {
+			if (track == null)
+				return;
+
+			TrackPoint point = new TrackPoint();
+			point.point = p;
+			point.time = time;
+			point.pressure = pressure;
+			point.tilt = tilt;
+			
+			long ticks = Timer.ticks();
+			if (track.points.Count > 0) {
+				double t = track.points[ track.points.Count-1 ].time;
+				if (point.time - t < Geometry.precision)
+					point.time = t + (ticks - lastTicks)*Timer.step;
+			}
+			lastTicks = ticks;
+
+			point.keyState.state = keyState;
+			point.keyState.ticks = ticksStart;
+			point.keyState.timeOffset = point.time;
+			
+			point.buttonState.state = buttonState;
+			point.buttonState.ticks = ticksStart;
+			point.buttonState.timeOffset = point.time;
+			
+			track.points.Add(point);
+		}
+
+		void addTrackPoint(double x, double y, uint t, Gdk.Device device, double[] axes) {
+			Point point = windowToWorkarea(new Point(x, y));
+			double time = (double)(t - timeStart)*0.001;
+			double pressure = 0.5;
+			Point tilt = new Point(0.0, 0.0);
+			
 			if (device != null && axes != null) {
 				double v;
 				if (device.GetAxis(axes, Gdk.AxisUse.Pressure, out v))
-					point.pressure = v;
+					pressure = v;
 				if (device.GetAxis(axes, Gdk.AxisUse.Xtilt, out v))
-					point.tilt.x = v;
+					tilt.x = v;
 				if (device.GetAxis(axes, Gdk.AxisUse.Ytilt, out v))
-					point.tilt.y = v;
+					tilt.y = v;
 			}
-			return point;
+			
+			long ticks = Timer.ticks();
+			long dticks = Math.Max(1, ticks - lastTicks);
+			lastTicks = ticks;
+			if (track.points.Count > 0) {
+				double prevTime = track.points[ track.points.Count-1 ].time;
+				if (time - prevTime < Geometry.precision)
+					time = prevTime + dticks*Timer.step;
+			}
+
+			addTrackPoint(point, time, pressure, tilt);
+		}
+		
+		void addTrackPoint(Gdk.EventButton e) {
+			addTrackPoint(e.X, e.Y, e.Time, e.Device, e.Axes);
 		}
 
-		TrackPoint makeTrackPoint(Gdk.EventButton e) {
-			return makeTrackPoint(e.X, e.Y, e.Time, e.Device, e.Axes);
+		void addTrackPoint(Gdk.EventMotion e) {
+			addTrackPoint(e.X, e.Y, e.Time, e.Device, e.Axes);
 		}
 
-		TrackPoint makeTrackPoint(Gdk.EventMotion e) {
-			return makeTrackPoint(e.X, e.Y, e.Time, e.Device, e.Axes);
+		void retryTrackPoint() {
+			if (track == null || track.points.Count < 1) return;
+			TrackPoint last = track.points[track.points.Count-1];
+			addTrackPoint(last.point, last.time, last.pressure, last.tilt);
 		}
 
 		protected override bool OnButtonPressEvent(Gdk.EventButton e) {
 			cursor = windowToWorkarea(new Point(e.X, e.Y));
+			buttonState = buttonState.press(e.Button, Timer.ticks());
+			retryTrackPoint();
 			if (e.Button == 1) {
 				timeStart = e.Time;
 				activePoint = workarea.findPoint(cursor);
 				if (activePoint != null) {
 					beginDrag();
 				} else {
-					beginTrack();
-					track.points.Add(makeTrackPoint(e));
+					beginTrack(e.Device);
+					addTrackPoint(e);
 				}
 			}
 			QueueDraw();
@@ -176,9 +243,11 @@ namespace Assistance {
 
 		protected override bool OnButtonReleaseEvent(Gdk.EventButton e) {
 			cursor = windowToWorkarea(new Point(e.X, e.Y));
+			buttonState = buttonState.release(e.Button, Timer.ticks());
+			retryTrackPoint();
 			if (e.Button == 1) {
 				if (!dragging && track != null)
-					track.points.Add(makeTrackPoint(e));
+					addTrackPoint(e);
 				endDragAndTrack();
 				if (!dragging && track == null)
 					activePoint = workarea.findPoint(cursor);
@@ -194,7 +263,7 @@ namespace Assistance {
 			} else
 			if (track != null) {
 				if (e.IsHint) Gdk.Display.Default.Beep();
-				track.points.Add(makeTrackPoint(e));
+				addTrackPoint(e);
 			} else {
 				activePoint = workarea.findPoint(cursor);
 			}

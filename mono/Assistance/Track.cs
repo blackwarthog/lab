@@ -5,17 +5,22 @@ using Assistance.Drawing;
 namespace Assistance {
 	public class Track {
 		public static readonly Pen pen = new Pen("Dark Green", 3.0);
+		public static readonly Pen penSpecial = new Pen("Blue", 3.0);
 		public static readonly Pen penPreview = new Pen("Dark Green", 1.0, 0.25);
 	
+		public readonly Gdk.Device device;
 		public readonly List<TrackPoint> points = new List<TrackPoint>();
 
 		private readonly List<Track> parents = new List<Track>();
 		private readonly List<Geometry.TransformFunc> transformFuncs = new List<Geometry.TransformFunc>();
 
-		public Track() { }
+		public Track(Gdk.Device device)
+		{
+			this.device = device;
+		}
 
 		public Track(Track parent, Geometry.TransformFunc transformFunc):
-			this()
+			this(parent.device)
 		{
 			parents.AddRange(parent.parents);
 			parents.Add(parent);
@@ -36,7 +41,7 @@ namespace Assistance {
 		public Track createChildAndBuild(Geometry.TransformFunc transformFunc, double precision = 1.0) {
 			return new Track(this, transformFunc, precision);
 		}
-
+		
 		public Rectangle getBounds() {
 			if (points.Count == 0)
 				return new Rectangle();
@@ -62,7 +67,7 @@ namespace Assistance {
 				points.Add(tp1);
 			} else {
 				double l = 0.5*(l0 + l1);
-				TrackPoint p = new TrackPoint(
+				TrackPoint p = p0.spawn(
 					Geometry.splinePoint(p0.point, p1.point, t0.point, t1.point, l),
 					p0.time + l*(p1.time - p0.time),
 					Geometry.splinePoint(p0.pressure, p1.pressure, t0.pressure, t1.pressure, l),
@@ -122,7 +127,10 @@ namespace Assistance {
 				context.Save();
 				pen.apply(context);
 				foreach(TrackPoint p in points) {
-					context.Arc(p.point.x, p.point.y, 2.0*p.pressure*pen.width, 0.0, 2.0*Math.PI);
+					double t = p.keyState.howLongPressed(Gdk.Key.m)
+					         + p.buttonState.howLongPressed(3);
+					double w = p.pressure*pen.width + 5.0*t;
+					context.Arc(p.point.x, p.point.y, 2.0*w, 0.0, 2.0*Math.PI);
 					context.Fill();
 				}
 				context.Restore();
