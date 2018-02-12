@@ -7,20 +7,26 @@ namespace Assistance {
 		public static readonly Pen pen = new Pen("Dark Green", 3.0);
 		public static readonly Pen penSpecial = new Pen("Blue", 3.0);
 		public static readonly Pen penPreview = new Pen("Dark Green", 1.0, 0.25);
-	
+
+		private static long lastTouchId;
+		
+		public long touchId;
 		public readonly Gdk.Device device;
 		public readonly List<TrackPoint> points = new List<TrackPoint>();
 
 		private readonly List<Track> parents = new List<Track>();
 		private readonly List<Geometry.TransformFunc> transformFuncs = new List<Geometry.TransformFunc>();
 
-		public Track(Gdk.Device device)
+		public static long getTouchId() { return ++lastTouchId; }
+
+		public Track(long touchId, Gdk.Device device)
 		{
+			this.touchId = touchId;
 			this.device = device;
 		}
 
 		public Track(Track parent, Geometry.TransformFunc transformFunc):
-			this(parent.device)
+			this(parent.touchId, parent.device)
 		{
 			parents.AddRange(parent.parents);
 			parents.Add(parent);

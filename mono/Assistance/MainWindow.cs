@@ -98,7 +98,7 @@ namespace Assistance {
 
 		private void beginTrack(Gdk.Device device) {
 			endDragAndTrack();
-			track = new Track(device);
+			track = new Track(Track.getTouchId(), device);
 			ticksStart = Timer.ticks();
 		}
 

@@ -9,20 +9,20 @@ namespace Assistance {
 		Multiline = 4
 	};
 
-	public class Tool {
-		public void activate() { }
-		
-		public int getAvailableStackSize()
-			{ return 1; }
-		public bool getIsCancellable()
-			{ return false; }
-		public Modifiers getAvailableModifiers()
-			{ return Modifiers.None; }
-		
-		public bool paint_begin(Track track) { return false; }
-		public void paint_point(TrackPoint point, Track track) { }
+	public class MotionHandler {
+		public bool paint_begin() { return false; }
+		public void paint_track_begin(Track track) { }
+		public void paint_track_point(Track track) { }
+		public void paint_track_end(Track track) { }
 		public bool paint_apply() { return false; }
 		public void paint_cancel() { }
+	}
+
+	public class Tool: MotionHandler {
+		public void activate() { }
+		
+		public Modifiers getAvailableModifiers()
+			{ return Modifiers.None; }
 		
 		public void disactivate() { }
 	}
