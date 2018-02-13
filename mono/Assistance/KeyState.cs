@@ -19,8 +19,10 @@ namespace Assistance {
 				{ get { return state == null || state.isEmpty; } }
 			public bool isPressed(T value)
 				{ return find(value) != null; }
-			public double howLongPressed(T value) {
-				KeyState<T> state = find(value);
+			public double howLongPressed(T value)
+				{ return howLongPressed(find(value), ticks, timeOffset); }
+
+			public static double howLongPressed(KeyState<T> state, long ticks, double timeOffset) {
 				return state == null ? 0.0
 				     : Math.Max(Timer.step, (ticks - state.ticks)*Timer.step + timeOffset);
 			}

@@ -58,6 +58,7 @@
     <Compile Include="Drawing.cs" />
     <Compile Include="KeyState.cs" />
     <Compile Include="Timer.cs" />
+    <Compile Include="InputState.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

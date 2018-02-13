@@ -9,22 +9,62 @@ namespace Assistance {
 		Multiline = 4
 	};
 
-	public class MotionHandler {
-		public bool paint_begin() { return false; }
-		public void paint_track_begin(Track track) { }
-		public void paint_track_point(Track track) { }
-		public void paint_track_end(Track track) { }
-		public bool paint_apply() { return false; }
-		public void paint_cancel() { }
+	
+	public class InputHandler {
+		public void activate() { }
+
+		public void keyPress(Gdk.Key key, InputState state) { }
+		public void keyRelease(Gdk.Key key, InputState state) { }
+		public void buttonPress(Gdk.Device device, uint button, InputState state) { }
+		public void buttonRelease(Gdk.Device device, uint button, InputState state) { }
+	
+		public bool paintBegin() { return false; }
+		public void paintTrackBegin(Track track) { }
+		public void paintTrackPoint(Track track) { }
+		public void paintTrackEnd(Track track) { }
+		public bool paintApply() { return false; }
+		public void paintCancel() { }
+
+		public void disactivate() { }
 	}
 
-	public class Tool: MotionHandler {
-		public void activate() { }
-		
+	
+	public class InputModifier {
+		public InputHandler getNext() { return null; }
+	
+		public void activate()
+			{ if (getNext() != null) getNext().activate(); }
+
+		public void keyPress(Gdk.Key key, InputState state)
+			{ if (getNext() != null) getNext().keyPress(key, state); }
+		public void keyRelease(Gdk.Key key, InputState state)
+			{ if (getNext() != null) getNext().keyRelease(key, state); }
+		public void buttonPress(Gdk.Device device, uint button, InputState state)
+			{ if (getNext() != null) getNext().buttonPress(device, button, state); }
+		public void buttonRelease(Gdk.Device device, uint button, InputState state)
+			{ if (getNext() != null) getNext().buttonRelease(device, button, state); }
+	
+		public bool paintBegin()
+			{ return getNext() == null ? false : getNext().paintBegin(); }
+		public void paintTrackBegin(Track track)
+			{ if (getNext() != null) getNext().paintTrackBegin(track); }
+		public void paintTrackPoint(Track track)
+			{ if (getNext() != null) getNext().paintTrackPoint(track); }
+		public void paintTrackEnd(Track track)
+			{ if (getNext() != null) getNext().paintTrackEnd(track); }
+		public bool paintApply()
+			{ return getNext() == null ? false : getNext().paintApply(); }
+		public void paintCancel()
+			{ if (getNext() != null) getNext().paintCancel(); }
+
+		public void disactivate()
+			{ if (getNext() != null) getNext().disactivate(); }
+	}
+	
+
+	public class Tool: InputHandler {
 		public Modifiers getAvailableModifiers()
 			{ return Modifiers.None; }
-		
-		public void disactivate() { }
 	}
 }
 

@@ -23,8 +23,7 @@ namespace Assistance {
 		Point offset;
 		Point cursor;
 		
-		KeyState<Gdk.Key> keyState = new KeyState<Gdk.Key>();
-		KeyState<uint> buttonState = new KeyState<uint>();
+		InputState inputState = new InputState();
 		
 		Track track = null;
 
@@ -138,7 +137,7 @@ namespace Assistance {
 				endDragAndTrack();
 				break;
 			default:
-				keyState = keyState.press(e.Key, Timer.ticks());
+				inputState.keyPress(e.Key, Timer.ticks());
 				retryTrackPoint();
 				break;
 			}
@@ -147,7 +146,7 @@ namespace Assistance {
 		}
 		
 		protected override bool OnKeyReleaseEvent(Gdk.EventKey e) {
-			keyState = keyState.release(e.Key, Timer.ticks());
+			inputState.keyRelease(e.Key, Timer.ticks());
 			retryTrackPoint();
 			return base.OnKeyReleaseEvent(e);
 		}
@@ -170,11 +169,11 @@ namespace Assistance {
 			}
 			lastTicks = ticks;
 
-			point.keyState.state = keyState;
+			point.keyState.state = inputState.keyState;
 			point.keyState.ticks = ticksStart;
 			point.keyState.timeOffset = point.time;
 			
-			point.buttonState.state = buttonState;
+			point.buttonState.state = inputState.buttonState(track.device);
 			point.buttonState.ticks = ticksStart;
 			point.buttonState.timeOffset = point.time;
 			
@@ -225,7 +224,8 @@ namespace Assistance {
 
 		protected override bool OnButtonPressEvent(Gdk.EventButton e) {
 			cursor = windowToWorkarea(new Point(e.X, e.Y));
-			buttonState = buttonState.press(e.Button, Timer.ticks());
+			Console.WriteLine(e.Button.ToString());
+			inputState.buttonPress(e.Device, e.Button, Timer.ticks());
 			retryTrackPoint();
 			if (e.Button == 1) {
 				timeStart = e.Time;
@@ -243,7 +243,7 @@ namespace Assistance {
 
 		protected override bool OnButtonReleaseEvent(Gdk.EventButton e) {
 			cursor = windowToWorkarea(new Point(e.X, e.Y));
-			buttonState = buttonState.release(e.Button, Timer.ticks());
+			inputState.buttonRelease(e.Device, e.Button, Timer.ticks());
 			retryTrackPoint();
 			if (e.Button == 1) {
 				if (!dragging && track != null)
