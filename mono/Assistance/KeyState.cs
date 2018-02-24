@@ -27,7 +27,7 @@ namespace Assistance {
 				     : Math.Max(Timer.step, (ticks - state.ticks)*Timer.step + timeOffset);
 			}
 		}
-	
+		
 		public static readonly T none = new T();
 		public static readonly KeyState<T> empty = new KeyState<T>();
 		
