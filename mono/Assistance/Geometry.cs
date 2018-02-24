@@ -1,12 +1,23 @@
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 
 namespace Assistance {
 	public static class Geometry {
-		public delegate Point TransformFunc(Point p);
-
 		public static readonly double precision = 1e-8;
+		public static readonly double precisionSqr = precision*precision;
 		public static readonly double sqrt2Pi = Math.Sqrt(2.0*Math.PI);
+		
+		public static bool isEqual(double a, double b)
+			{ return Math.Abs(b - a) <= precision; }
+		public static bool isGreaterOrEqual(double a, double b)
+			{ return b - a <= precision; }
+		public static bool isLessOrEqual(double a, double b)
+			{ return isGreaterOrEqual(b, a); }
+		public static bool isLess(double a, double b)
+			{ return !isGreaterOrEqual(a, b); }
+		public static bool isGreater(double a, double b)
+			{ return !isGreaterOrEqual(b, a); }
 		
 		public static double logNormalDistribuitionUnscaled(double x, double x0, double w) {
 			return Math.Exp(-0.5*Math.Pow(Math.Log(x/x0)/w, 2.0))/x;
@@ -32,29 +43,75 @@ namespace Assistance {
 			}
 		}
 		
-		public static Point noTransform(Point point) {
-			return point;
+		public static class Interpolation<T> {
+			public delegate T HalfFunc(T a, double b);
+			public delegate T FullFunc(T a, T b);
+			
+			public static FullFunc add;
+			public static FullFunc sub;
+			public static HalfFunc mul;
+			public static HalfFunc div;
+		
+   			static Interpolation() {
+   				{ // add
+   					ParameterExpression a = Expression.Parameter(typeof(T));
+				    ParameterExpression b = Expression.Parameter(typeof(T));
+				    add = Expression.Lambda<FullFunc>(Expression.Add(a, b), a, b).Compile();
+				}
+   				{ // sub
+   					ParameterExpression a = Expression.Parameter(typeof(T));
+				    ParameterExpression b = Expression.Parameter(typeof(T));
+				    sub = Expression.Lambda<FullFunc>(Expression.Subtract(a, b), a, b).Compile();
+				}
+   				{ // mul
+   					ParameterExpression a = Expression.Parameter(typeof(T));
+				    ParameterExpression b = Expression.Parameter(typeof(double));
+				    mul = Expression.Lambda<FullFunc>(Expression.Multiply(a, b), a, b).Compile();
+				}
+   				{ // div
+   					ParameterExpression a = Expression.Parameter(typeof(T));
+				    ParameterExpression b = Expression.Parameter(typeof(double));
+				    div = Expression.Lambda<FullFunc>(Expression.Divide(a, b), a, b).Compile();
+				}
+   			}
+   			
+			public static T linear(T p0, T p1, double l)
+				{ return add(mul(sub(p1, p0), l), p0); }
+	
+			public static double spline(T p0, T p1, T t0, T t1, double l) {
+				double ll = l*l;
+				double lll = ll*l;
+				return add( add( mul(p0, ( 2.0*lll - 3.0*ll + 1.0)),
+				                 mul(p1, (-2.0*lll + 3.0*ll      )) ),
+				            add( mul(t0, (     lll - 2.0*ll + l  )),
+				                 mul(t1, (     lll - 1.0*ll      )) ));
+	        }
+	
+			public static double splineTangent(T p0, T p1, T t0, T t1, double l) {
+				double ll = l*l;
+				return add( mul(sub(p0, p1), 6.0*(ll - l)),
+				            add( mul(t0, ( 3.0*ll - 4.0*l + 1.0)),
+				                 mul(t1, ( 3.0*ll - 2.0*l      )) ));
+	        }
 		}
 		
-		public static Point transform(List<TransformFunc> funcs, Point point) {
-			Point p = point;
-			foreach(TransformFunc func in funcs)
-				p = func(p);
-			return p;
-		}
+		public static double interpolationLinear(double p0, double p1, double l)
+			{ return (p1 - p0)*l + p0; }
 
-		public static double splinePoint(double p0, double p1, double t0, double t1, double l) {
-			return p0*(( 2.0*l - 3.0)*l*l + 1.0)
-			     + p1*((-2.0*l + 3.0)*l*l      )
-			     + t0*((     l - 2.0)*l*l + l  )
-			     + t1*((     l - 1.0)*l*l      );
+		public static double interpolationSpline(double p0, double p1, double t0, double t1, double l) {
+			double ll = l*l;
+			double lll = ll*l;
+			return p0*( 2.0*lll - 3.0*ll + 1.0)
+			     + p1*(-2.0*lll + 3.0*ll      )
+			     + t0*(     lll - 2.0*ll + l  )
+			     + t1*(     lll - 1.0*ll      );
         }
 
-		public static Point splinePoint(Point p0, Point p1, Point t0, Point t1, double l) {
-			return p0*(( 2.0*l - 3.0)*l*l + 1.0)
-			     + p1*((-2.0*l + 3.0)*l*l      )
-			     + t0*((     l - 2.0)*l*l + l  )
-			     + t1*((     l - 1.0)*l*l      );
+		public static double interpolationSplineTangent(double p0, double p1, double t0, double t1, double l) {
+			double ll = l*l;
+			return (p0 - p1)*6.0*(ll - l)
+			     + t0*( 3.0*ll - 4.0*l + 1.0)
+			     + t1*( 3.0*ll - 2.0*l      );
         }
 	}
 }

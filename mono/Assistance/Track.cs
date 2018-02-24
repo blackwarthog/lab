@@ -4,143 +4,256 @@ using Assistance.Drawing;
 
 namespace Assistance {
 	public class Track {
-		public static readonly Pen pen = new Pen("Dark Green", 3.0);
-		public static readonly Pen penSpecial = new Pen("Blue", 3.0);
-		public static readonly Pen penPreview = new Pen("Dark Green", 1.0, 0.25);
+		public class Owner { }
+	
+		public class Handler {
+			public readonly Owner owner;
+			public readonly Track original;
+			public readonly List<Track> tracks = new List<Track>();
+			public Handler(Owner owner, Track original) {
+				this.owner = owner;
+				this.original = original;
+			}
+		}
+
+		public class Modifier {
+			public readonly Handler handler;
+			public readonly double timeOffset;
+
+			public Modifier(Handler handler, double timeOffset = 0.0)
+				{ this.handler = handler; this.timeOffset = timeOffset; }
+			public Owner owner
+				{ get { return handler.owner; } }
+			public Track original
+				{ get { return handler.original; } }
+			public TrackPoint calcWayPoint(double originalIndex)
+				{ return original.calcWayPoint(originalIndex); }
+		}
+
+		public struct Point {
+			public Assistance.Point position;
+			public double pressure;
+			public Point tilt;
+	
+			public Point(
+				Assistance.Point position,
+				double pressure,
+				Point tilt
+			) {
+				this.position = position;
+				this.pressure = pressure;
+				this.tilt = tilt;
+			}
+			
+			public static Point operator+ (Point a, Point b)
+				{ return new Point(a.position + b.position, a.pressure + b.pressure, a.tilt + b.tilt); }
+			public static Point operator- (Point a, Point b)
+				{ return new Point(a.position - b.position, a.pressure - b.pressure, a.tilt - b.tilt); }
+			public static Point operator* (Point a, double b)
+				{ return new Point(a.position*b, a.pressure*b, a.tilt*b); }
+			public static Point operator* (double b, Point a)
+				{ return a*b; }
+			public static Point operator/ (Point a, double b)
+				{ return this*(1.0/b); }
+	
+			public bool isEqual(Point other) {
+				return position.isEqual(other.position)
+					&& Geometry.isEqual(pressure, other.pressure)
+					&& tilt.isEqual(other.tilt);
+			}
+	
+			public Point normalize() {
+				double l = position.len();
+				return l > Geometry.precision ? this/l : this;
+			}
+		}
+
+		public struct WayPoint {
+			public Point point;
+			public Point tangent;
+
+			public double originalIndex;
+			public double time;
+			public double length;
+			
+			public bool final;
+	
+			public WayPoint(
+				Point point,
+				Point tangent,
+				double originalIndex = 0.0,
+				double time = 0.0,
+				double length = 0.0,
+				bool final = false
+			) {
+				this.point = point;
+				this.tangent = tangent;
+				this.originalIndex = originalIndex;
+				this.time = time;
+				this.length = length;
+				this.final = final;
+			}
+		}
+		
 
 		private static long lastTouchId;
 		
-		public long touchId;
+		public readonly long touchId;
 		public readonly Gdk.Device device;
-		public readonly List<TrackPoint> points = new List<TrackPoint>();
+		public readonly List<WayPoint> points = new List<WayPoint>();
+		public readonly KeyHistory<Gdk.Key>.Holder keyHistory;
+		public readonly KeyHistory<uint>.Holder buttonHistory;
 
-		private readonly List<Track> parents = new List<Track>();
-		private readonly List<Geometry.TransformFunc> transformFuncs = new List<Geometry.TransformFunc>();
-
-		public static long getTouchId() { return ++lastTouchId; }
-
-		public Track(long touchId, Gdk.Device device)
-		{
-			this.touchId = touchId;
-			this.device = device;
-		}
-
-		public Track(Track parent, Geometry.TransformFunc transformFunc):
-			this(parent.touchId, parent.device)
-		{
-			parents.AddRange(parent.parents);
-			parents.Add(parent);
-			transformFuncs.AddRange(parent.transformFuncs);
-			transformFuncs.Add(transformFunc);
-		}
-
-		public Track(Track parent, Geometry.TransformFunc transformFunc, double precision):
-			this(parent, transformFunc)
-		{
-			rebuild(precision);
-		}
-
-		public Track createChild(Geometry.TransformFunc transformFunc){
-			return new Track(this, transformFunc);
-		}
-
-		public Track createChildAndBuild(Geometry.TransformFunc transformFunc, double precision = 1.0) {
-			return new Track(this, transformFunc, precision);
-		}
+		public readonly Modifier modifier;
 		
-		public Rectangle getBounds() {
-			if (points.Count == 0)
-				return new Rectangle();
-			Rectangle bounds = new Rectangle(points[0].point);
-			foreach(TrackPoint p in points)
-				bounds = bounds.expand(p.point);
-			return bounds.inflate(Math.Max(pen.width, penPreview.width) + 2.0);
-		}
+		public Handler handler;
+		public int wayPointsRemoved;
+		public int wayPointsAdded;
 
-		public TrackPoint transform(TrackPoint p) {
-			p.point = Geometry.transform(transformFuncs, p.point);
-			return p;
-		}
-				
-		private void addSpline(
-			TrackPoint p0, TrackPoint p1,
-			TrackPoint t0, TrackPoint t1,
-			TrackPoint tp0, TrackPoint tp1,
-			double l0, double l1,
-			double precisionSqr
+		public static long genTouchId() { return ++lastTouchId; }
+
+		public Track(
+			Gdk.Device device,
+			KeyHistory<Gdk.Key>.Holder keyHistory,
+			KeyHistory<uint>.Holder buttonHistory,
+			long touchId
 		) {
-			if ((tp1.point - tp0.point).lenSqr() < precisionSqr) {
-				points.Add(tp1);
-			} else {
-				double l = 0.5*(l0 + l1);
-				TrackPoint p = p0.spawn(
-					Geometry.splinePoint(p0.point, p1.point, t0.point, t1.point, l),
-					p0.time + l*(p1.time - p0.time),
-					Geometry.splinePoint(p0.pressure, p1.pressure, t0.pressure, t1.pressure, l),
-					Geometry.splinePoint(p0.tilt, p1.tilt, t0.tilt, t1.tilt, l) );
-				TrackPoint tp = transform(p);
-				addSpline(p0, p1, t0, t1, tp0, tp, l0, l, precisionSqr);
-				addSpline(p0, p1, t0, t1, tp, tp1, l, l1, precisionSqr);
-			}
+			this.device = device;
+			this.keyHistory = keyHistory;
+			this.buttonHistory = buttonHistory;
+			this.touchId = touchId;
 		}
 		
-		public void rebuild(double precision = 1.0) {
-			if (parents.Count == 0) return;
-			
-			points.Clear();
-			
-			Track root = parents[0];
-			if (root.points.Count < 2) {
-				foreach(TrackPoint p in root.points)
-					points.Add( transform(p) );
-				return;
-			}
-			
-			double precisionSqr = precision * precision;
-			TrackPoint p0 = root.points[0];
-			TrackPoint p1 = root.points[1];
-			TrackPoint t0 = new TrackPoint();
-			TrackPoint tp0 = transform(p0);
-			points.Add(tp0);
-			for(int i = 1; i < root.points.Count; ++i) {
-				TrackPoint p2 = root.points[i+1 < root.points.Count ? i+1 : i];
-				TrackPoint tp1 = transform(p1);
-				double dt = p2.time - p0.time;
-				TrackPoint t1 = dt > Geometry.precision
-				              ? (p2 - p0)*(p1.time - p0.time)/dt
-				              : new TrackPoint();
-				addSpline(p0, p1, t0, t1, tp0, tp1, 0.0, 1.0, precisionSqr);
+		public Track(
+			Gdk.Device device = null,
+			KeyHistory<Gdk.Key>.Holder keyHistory = null,
+			KeyHistory<uint>.Holder buttonHistory = null
+		):
+			this(device, genTouchId()) { }
 
-				p0 = p1;
-				p1 = p2;
-				tp0 = tp1;
-				t0 = t1;
+		public Track(Modifier modifier, long touchId):
+			this( modifier.original.device,
+				  modifier.original.keyHistory.offset( modifier.timeOffset ),
+				  modifier.original.buttonHistory.offset( modifier.timeOffset ),
+				  touchId )
+			{ this.modifier = modifier; }
+
+		public Track(Modifier modifier):
+			this(modifier, genTouchId()) { }
+
+		public Track original
+			{ get { return modifier != null ? modifier.original : null; } }
+		public double timeOffset
+			{ get { return modifier != null ? modifier.timeOffset : 0.0; } }
+
+		public Track getRoot()
+			{ return original == null ? this : original.getRoot(); }
+		public int getLevel()
+			{ return original == null ? 0 : original.getLevel() + 1; }
+		
+		public WayPoint getFirst()
+			{ return getWayPoint(0); }
+		public WayPoint getLast()
+			{ return getWayPoint(points.Count - 1); }
+		public bool isFinished()
+			{ return getLast().final; }
+		
+		public int clampIndex(int index)
+			{ return Math.Min(Math.Max(index, 0), points.Count - 1); }
+		public int floorIndex(double index, out double frac) {
+			int i = (int)Math.Floor(index + Geometry.precision);
+			if (i > points.Count - 1)
+				{ frac = 0.0; return points.Count - 1; }
+			if (i < 0)
+				{ frac = 0.0; return 0; }
+			frac = Math.Max(0.0, index - (double)i);
+			return i;
+		}
+		public int floorIndex(double index)
+			{ return clampIndex((int)Math.Floor(index + Geometry.precision)); }
+		public int ceilIndex(double index)
+			{ return clampIndex((int)Math.Floor(index + Geometry.precision)); }
+		
+		public WayPoint getWayPoint(int index) {
+			index = clampIndex(index);
+			return index < 0 ? new WayPoint() : points[index];
+		}
+		public WayPoint floorWayPoint(double index, out double frac)
+			{ return getWayPoint(floorIndex(index, out frac)); }
+		public WayPoint floorWayPoint(double index)
+			{ return getWayPoint(floorIndex(index)); }
+		public WayPoint ceilWayPoint(double index)
+			{ return getWayPoint(floorIndex(index)); }
+		
+		private delegate double WayPointFieldGetter(WayPoint p);
+		private double binarySearch(double value, WayPointFieldGetter getter) {
+			// points[a].value <= value < points[b].value
+			
+			if (points.Count <= 0) return 0.0;
+			int a = 0;
+			double aa = getter(points[a]);
+			if (Geometry.isLess(aa, value)) return 0.0;
+
+			int b = points.Count - 1;
+			double bb = getter(points[b]);
+			if (Geometry.isGreaterOrEqual(value, bb)) return (double)b;
+			
+			while(true) {
+				int c = (a + b)/2;
+				if (a == c) break;
+				double cc = getter(points[c]);
+				if (Geometry.isLess(value, cc))
+					{ b = c; bb = cc; } else { a = c; aa = cc; }
 			}
+
+			return Geometry.isLess(aa, bb) ? value + (value - aa)/(bb - aa) : value;
+		}
+			
+		public double indexByOriginalIndex(double originalIndex)
+			{ return binarySearch(originalIndex, delegate(WayPoint p) { return p.originalIndex; }); }
+		public double indexByTime(double time)
+			{ return binarySearch(time, delegate(WayPoint p) { return p.time; }); }
+		public double indexByLength(double length)
+			{ return binarySearch(length, delegate(WayPoint p) { return p.length; }); }
+		
+		public double originalIndexByIndex(double index) {
+			double frac;
+			WayPoint p0 = floorWayPoint(index, out frac), p1 = ceilWayPoint(index);
+			return Geometry.interpolationLinear(p0.originalIndex, p1.originalIndex, frac);
+		}
+		public double timeByIndex(double index) {
+			double frac;
+			WayPoint p0 = floorWayPoint(index, out frac), p1 = ceilWayPoint(index);
+			return Geometry.interpolationLinear(p0.time, p1.time, frac);
+		}
+		public double lengthByIndex(double index) {
+			double frac;
+			WayPoint p0 = floorWayPoint(index, out frac), p1 = ceilWayPoint(index);
+			return Geometry.interpolationLinear(p0.length, p1.length, frac);
 		}
 
-		public void draw(Cairo.Context context, bool preview = false) {
-			if (preview) {
-				if (points.Count < 2)
-					return;
-				context.Save();
-				penPreview.apply(context);
-				context.MoveTo(points[0].point.x, points[0].point.y);
-				for(int i = 1; i < points.Count; ++i)
-					context.LineTo(points[i].point.x, points[i].point.y);
-				context.Stroke();
-				context.Restore();
-			} else {
-				context.Save();
-				pen.apply(context);
-				foreach(TrackPoint p in points) {
-					double t = p.keyState.howLongPressed(Gdk.Key.m)
-					         + p.buttonState.howLongPressed(3);
-					double w = p.pressure*pen.width + 5.0*t;
-					context.Arc(p.point.x, p.point.y, 2.0*w, 0.0, 2.0*Math.PI);
-					context.Fill();
-				}
-				context.Restore();
-			}
+		public WayPoint calcWayPoint(double index) {
+			return modifier == null
+			     ? interpolate(index)
+			     : modifier.calcWayPoint( originalIndexByIndex(index) );
+		}
+		
+		public WayPoint interpolate(double index) {
+			double frac;
+			WayPoint p0 = floorIndex(index, out frac);
+			WayPoint p1 = ceilWayPoint(index);
+			return interpolate(p0, p1, frac);
+		}
+
+		public static WayPoint interpolate(WayPoint p0, WayPoint p1, double l) {
+			if (l <= Geometry.precision) return p0;
+			if (l >= 1.0 - Geometry.precision) return p1;
+			return new WayPoint(
+				Geometry.Interpolation<Point>.spline(p0.point, p1.point, p0.tangent, p1.tangent, l),
+				Geometry.Interpolation<Point>.splineTangent(p0.point, p1.point, p0.tangent, p1.tangent, l),
+				Geometry.interpolationLinear(p0.originalIndex, p1.originalIndex, l),
+				Geometry.interpolationLinear(p0.time, p1.time, l),
+				Geometry.interpolationLinear(p0.length, p1.length, l) );
 		}
 	}
 }

@@ -24,7 +24,7 @@ namespace Assistance {
 			{ return a.x*b.x + a.y*b.y; }
 
 		public bool isEqual(Point other)
-			{ return (this - other).lenSqr() <= Geometry.precision*Geometry.precision; }
+			{ return (this - other).lenSqr() <= Geometry.precisionSqr; }
 		public double lenSqr()
 			{ return x*x + y*y; }
 		public double len()
@@ -32,7 +32,7 @@ namespace Assistance {
 
 		public Point normalize() {
 			double l = len();
-			return l > Geometry.precision*Geometry.precision ? this/l : this;
+			return l > Geometry.precision ? this/l : this;
 		}
 
 		public Point rotate(double angle) {

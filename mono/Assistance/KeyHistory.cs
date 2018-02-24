@@ -18,6 +18,12 @@ namespace Assistance {
 				heldTicks = history.hold(ticks);
 			}
 			
+			public Holder offset(double timeOffset) {
+				return Geometry.isEqual(timeOffset, 0.0)
+				     ? this
+				     : new Holder(history, ticks, this.timeOffset + timeOffset);
+			}
+			
 			public KeyState<T>.Holder get(double time) {
 				long dticks = (long)Math.Ceiling(Timer.frequency*(time + timeOffset));
 				KeyState<T> state = history.get(ticks + dticks);
@@ -75,7 +81,7 @@ namespace Assistance {
 		}
 		
 		private long hold(long ticks) {
-			long heldTicks = Math.Max(ticks, current.ticks);
+			long heldTicks = Math.Max(ticks, states[0].ticks);
 			locks.Insert(findLock(heldTicks) + 1, heldTicks);
 			return heldTicks;
 		}

@@ -9,8 +9,10 @@ namespace Assistance {
 		Multiline = 4
 	};
 
-	
-	public class InputHandler {
+	public class Tool {
+		public Modifiers getAvailableModifiers()
+			{ return Modifiers.None; }
+
 		public void activate() { }
 
 		public void keyPress(Gdk.Key key, InputState state) { }
@@ -25,46 +27,53 @@ namespace Assistance {
 		public bool paintApply() { return false; }
 		public void paintCancel() { }
 
-		public void disactivate() { }
-	}
+		public void draw(Cairo.Context context) { }
 
-	
-	public class InputModifier {
-		public InputHandler getNext() { return null; }
-	
-		public void activate()
-			{ if (getNext() != null) getNext().activate(); }
-
-		public void keyPress(Gdk.Key key, InputState state)
-			{ if (getNext() != null) getNext().keyPress(key, state); }
-		public void keyRelease(Gdk.Key key, InputState state)
-			{ if (getNext() != null) getNext().keyRelease(key, state); }
-		public void buttonPress(Gdk.Device device, uint button, InputState state)
-			{ if (getNext() != null) getNext().buttonPress(device, button, state); }
-		public void buttonRelease(Gdk.Device device, uint button, InputState state)
-			{ if (getNext() != null) getNext().buttonRelease(device, button, state); }
-	
-		public bool paintBegin()
-			{ return getNext() == null ? false : getNext().paintBegin(); }
-		public void paintTrackBegin(Track track)
-			{ if (getNext() != null) getNext().paintTrackBegin(track); }
-		public void paintTrackPoint(Track track)
-			{ if (getNext() != null) getNext().paintTrackPoint(track); }
-		public void paintTrackEnd(Track track)
-			{ if (getNext() != null) getNext().paintTrackEnd(track); }
-		public bool paintApply()
-			{ return getNext() == null ? false : getNext().paintApply(); }
-		public void paintCancel()
-			{ if (getNext() != null) getNext().paintCancel(); }
-
-		public void disactivate()
-			{ if (getNext() != null) getNext().disactivate(); }
-	}
-	
-
-	public class Tool: InputHandler {
-		public Modifiers getAvailableModifiers()
-			{ return Modifiers.None; }
+		public void deactivate() { }
 	}
 }
 
+/*
+TODO:
+		//////////////////////////////////////////
+		// deprecated
+		//////////////////////////////////////////
+
+		public static readonly Pen pen = new Pen("Dark Green", 3.0);
+		public static readonly Pen penSpecial = new Pen("Blue", 3.0);
+		public static readonly Pen penPreview = new Pen("Dark Green", 1.0, 0.25);
+
+		public void draw(Cairo.Context context, bool preview = false) {
+			if (preview) {
+				if (points.Count < 2)
+					return;
+				context.Save();
+				penPreview.apply(context);
+				context.MoveTo(points[0].point.x, points[0].point.y);
+				for(int i = 1; i < points.Count; ++i)
+					context.LineTo(points[i].point.x, points[i].point.y);
+				context.Stroke();
+				context.Restore();
+			} else {
+				context.Save();
+				pen.apply(context);
+				foreach(TrackPoint p in points) {
+					double t = p.keyState.howLongPressed(Gdk.Key.m)
+					         + p.buttonState.howLongPressed(3);
+					double w = p.pressure*pen.width + 5.0*t;
+					context.Arc(p.point.x, p.point.y, 2.0*w, 0.0, 2.0*Math.PI);
+					context.Fill();
+				}
+				context.Restore();
+			}
+		}
+		
+		public Rectangle getBounds() {
+			if (points.Count == 0)
+				return new Rectangle();
+			Rectangle bounds = new Rectangle(points[0].point);
+			foreach(TrackPoint p in points)
+				bounds = bounds.expand(p.point);
+			return bounds.inflate(Math.Max(pen.width, penPreview.width) + 2.0);
+		}
+*/
