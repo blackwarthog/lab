@@ -5,7 +5,7 @@ using Assistance.Drawing;
 namespace Assistance {
 	public class Track {
 		public class Owner { }
-	
+
 		public class Handler {
 			public readonly Owner owner;
 			public readonly Track original;
@@ -76,14 +76,16 @@ namespace Assistance {
 			public double time;
 			public double length;
 			
+			public int depRootIndex;
 			public bool final;
 	
 			public WayPoint(
 				Point point,
-				Point tangent,
+				Point tangent = new Point(),
 				double originalIndex = 0.0,
 				double time = 0.0,
 				double length = 0.0,
+				int depRootIndex = 0,
 				bool final = false
 			) {
 				this.point = point;
@@ -91,15 +93,17 @@ namespace Assistance {
 				this.originalIndex = originalIndex;
 				this.time = time;
 				this.length = length;
+				this.depRootIndex = depRootIndex;
 				this.final = final;
 			}
 		}
 		
 
-		private static long lastTouchId;
+		private static long lastId;
 		
-		public readonly long touchId;
+		public readonly long id;
 		public readonly Gdk.Device device;
+		public readonly long touchId;
 		public readonly List<WayPoint> points = new List<WayPoint>();
 		public readonly KeyHistory<Gdk.Key>.Holder keyHistory;
 		public readonly KeyHistory<uint>.Holder buttonHistory;
@@ -110,36 +114,24 @@ namespace Assistance {
 		public int wayPointsRemoved;
 		public int wayPointsAdded;
 
-		public static long genTouchId() { return ++lastTouchId; }
-
-		public Track(
-			Gdk.Device device,
-			KeyHistory<Gdk.Key>.Holder keyHistory,
-			KeyHistory<uint>.Holder buttonHistory,
-			long touchId
-		) {
-			this.device = device;
-			this.keyHistory = keyHistory;
-			this.buttonHistory = buttonHistory;
-			this.touchId = touchId;
-		}
-		
 		public Track(
 			Gdk.Device device = null,
+			long touchId = 0,
 			KeyHistory<Gdk.Key>.Holder keyHistory = null,
 			KeyHistory<uint>.Holder buttonHistory = null
-		):
-			this(device, genTouchId()) { }
-
-		public Track(Modifier modifier, long touchId):
+		) {
+			this.id = ++lastId;
+			this.device = device;
+			this.touchId = touchId;
+			this.keyHistory = keyHistory;
+			this.buttonHistory = buttonHistory;
+		}
+		
+		public Track(Modifier modifier):
 			this( modifier.original.device,
 				  modifier.original.keyHistory.offset( modifier.timeOffset ),
-				  modifier.original.buttonHistory.offset( modifier.timeOffset ),
-				  touchId )
+				  modifier.original.buttonHistory.offset( modifier.timeOffset ) )
 			{ this.modifier = modifier; }
-
-		public Track(Modifier modifier):
-			this(modifier, genTouchId()) { }
 
 		public Track original
 			{ get { return modifier != null ? modifier.original : null; } }
@@ -253,7 +245,8 @@ namespace Assistance {
 				Geometry.Interpolation<Point>.splineTangent(p0.point, p1.point, p0.tangent, p1.tangent, l),
 				Geometry.interpolationLinear(p0.originalIndex, p1.originalIndex, l),
 				Geometry.interpolationLinear(p0.time, p1.time, l),
-				Geometry.interpolationLinear(p0.length, p1.length, l) );
+				Geometry.interpolationLinear(p0.length, p1.length, l),
+				p1.depRootIndex );
 		}
 	}
 }

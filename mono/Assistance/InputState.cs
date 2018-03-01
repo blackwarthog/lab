@@ -101,10 +101,10 @@ namespace Assistance {
 			{ return new KeyState<Gdk.Key>.Holder(keyState, ticks, timeOffset); }
 		public KeyState<Gdk.Key>.Holder keyStateHolder()
 			{ return keyStateHolder(ticks); }
-		public KeyHistory<Gdk.Key>.Holder keyStateHolder(long ticks, double timeOffset = 0.0)
+		public KeyHistory<Gdk.Key>.Holder keyHistoryHolder(long ticks, double timeOffset = 0.0)
 			{ return new KeyHistory<Gdk.Key>.Holder(keyHistory, ticks, timeOffset); }
-		public KeyHistory<Gdk.Key>.Holder keyStateHolder()
-			{ return keyStateHolder(ticks); }
+		public KeyHistory<Gdk.Key>.Holder keyHistoryHolder()
+			{ return keyHistoryHolder(ticks); }
 
 		public KeyState<uint>.Holder buttonStateHolder(Gdk.Device device, long ticks, double timeOffset = 0.0)
 			{ return new KeyState<uint>.Holder(buttonState(device), ticks, timeOffset); }
