@@ -6,9 +6,9 @@ namespace Assistance {
 		public readonly double precision;
 		public readonly double precisionSqr;
 		
-		public InputModifierInterpolation(double precision = 0.0) {
-			this.precision = precision;
-			this.precisionSqr = precision*precision;
+		public InputModifierInterpolation(double precision = 1.0) {
+			this.precision = Math.Max(precision, Geometry.precision);
+			this.precisionSqr = this.precision*this.precision;
 		}
 	
 		public void addSegment(Track track, Track.WayPoint p0, Track.WayPoint p1) {
@@ -37,7 +37,7 @@ namespace Assistance {
 			if (start < 0) start = 0;
 			int subStart = subTrack.floorIndex(subTrack.indexByOriginalIndex(start));
 			if (subTrack.points.Count < subStart) {
-				subTrack.points.RemoveRange(start, subTrack.points.Count - subStart);
+				subTrack.points.RemoveRange(subStart, subTrack.points.Count - subStart);
 				subTrack.wayPointsRemoved += subTrack.points.Count - subStart;
 			}
 			

@@ -10,9 +10,8 @@ namespace Assistance {
 		public readonly List<ActivePoint> points = new List<ActivePoint>();
 		public readonly Canvas canvas = new Canvas();
 		
-		public Document(Workarea workarea) {
-			this.workarea = workarea;
-		}
+		public Document(Workarea workarea)
+			{ this.workarea = workarea; }
 	}
 }
 

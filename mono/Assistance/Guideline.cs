@@ -9,9 +9,7 @@ namespace Assistance {
 		public static readonly double snapLenght = 20.0;
 		public static readonly double snapScale = 1.0;
 	
-		public virtual Point transformPoint(Point p) {
-			return p;
-		}
+		public virtual Track.WayPoint transformPoint(Track.WayPoint point) { }
 		
 		public virtual void draw(Cairo.Context context, bool active) { }
 

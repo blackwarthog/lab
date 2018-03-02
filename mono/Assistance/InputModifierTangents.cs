@@ -85,7 +85,10 @@ namespace Assistance {
 				subTrack.wayPointsAdded += index - start;
 				
 				// release previous key point
-				if (modifier.holder) modifier.holder.Dispose();
+				if (modifier.holder) {
+					modifier.holder.Dispose();
+					modifier.holder = null;
+				}
 				
 				if (track.isFinished) {
 					// finish

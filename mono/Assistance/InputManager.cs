@@ -15,17 +15,36 @@ namespace Assistance {
 		public class KeyPoint {
 			public class Holder: IDisposable {
 				public readonly KeyPoint keyPoint;
-				private bool disposed = false;
+				private bool holded = false;
+				
 				public Holder(KeyPoint keyPoint)
-					{ this.keyPoint = keyPoint; ++keyPoint.refCount; }
+					{ this.keyPoint = keyPoint; reuse(); }
+
+				public bool available
+					{ get { return keyPoint.available; } }
+				public bool isHolded
+					{ get { return holded; } }
+				public bool reuse() {
+					if (!holded) ++keyPoint.refCount;
+					holded = true;
+					return keyPoint.available;
+				}
+				public void release() {
+					if (holded) --keyPoint.refCount;
+					holded = false;
+				}
+					
 				public void Dispose()
 					{ Dispose(true); GC.SuppressFinalize(this); }
 				protected virtual void Dispose(bool disposing)
-					{ if (!disposed) --keyPoint.refCount; disposed = true; }
+					{  release(); }
 				~Holder()
 					{ Dispose(false); }
 			}
+			
 			private int refCount = 0;
+			public bool available = true;
+			
 			public Holder hold()
 				{ return new Holder(this); }
 			public bool isFree
@@ -80,6 +99,7 @@ namespace Assistance {
 				track.wayPointsRemoved = 0;
 				track.wayPointsAdded = track.points.Count - index - 1;
 			}
+			for(int i = level; i < keyPoints.Count; ++i) keyPoints[i].available = false;
 			keyPoints.RemoveRange(level, keyPoints.Count - level);
 		}
 		
@@ -87,7 +107,7 @@ namespace Assistance {
 			if (count <= 0)
 				return;
 			
-			level = keyPoints.Count - count;
+			int level = keyPoints.Count - count;
 			if (level >= keyPointsSent || tool.paintApply(keyPointsSent - level)) {
 				// apply
 				foreach(Track track in subTracks)
@@ -104,6 +124,7 @@ namespace Assistance {
 				}
 			}
 
+			for(int i = level; i < keyPoints.Count; ++i) keyPoints[i].available = false;
 			keyPoints.RemoveRange(level, keyPoints.Count - level);
 			if (level < keyPointsSent)
 				keyPointsSent = level;
