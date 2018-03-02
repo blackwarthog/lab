@@ -60,10 +60,11 @@
     </Compile>
     <Compile Include="Timer.cs" />
     <Compile Include="InputState.cs" />
-    <Compile Include="InputModifier.cs" />
     <Compile Include="InputModifierAssistants.cs" />
     <Compile Include="InputManager.cs" />
     <Compile Include="KeyHistory.cs" />
+    <Compile Include="InputModifierTangents.cs" />
+    <Compile Include="InputModifierInterpolation.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

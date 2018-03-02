@@ -7,8 +7,9 @@ namespace Assistance {
 
 		public class TrackHandler: Track.Handler {
 			public readonly List<int> keys = new List<int>();
-			public TrackHandler(InputManager owner, Track original):
-				base(owner, track) { }
+			public TrackHandler(InputManager owner, Track original, int keysCount = 0):
+				base(owner, track)
+				{ for(int i = 0; i < keysCount; ++i) keys.Add(0); }
 		}
 		
 		public class KeyPoint {
@@ -31,18 +32,29 @@ namespace Assistance {
 				{ get { return refCount <= 0; } }
 		}
 		
+		public class Modifier: Track.Owner {
+			public virtual void activate() { }
+			public virtual void modify(Track tracks, KeyPoint keyPoint, List<Track> outTracks)
+				{ }
+			public virtual void modify(List<Track> tracks, KeyPoint keyPoint, List<Track> outTracks)
+				{ foreach(Track track in tracks) modify(track, keyPoint, outTracks); }
+			public virtual void deactivate() { }
+		}
+
 		
 		public readonly Workarea workarea;
 		
 		private readonly InputState state = new InputState();
 
 		private Tool tool;
-		private readonly List<InputModifier> modifiers = new List<InputModifier>();
+		private readonly List<Modifier> modifiers = new List<Modifier>();
 
 		private readonly List<Track> tracks = new List<Track>();
-		private readonly List<Track> subTracks = null;
 		private readonly List<KeyPoint> keyPoints = new List<KeyPoint>();
 		private int keyPointsSent;
+
+		private List<Track> subTracks = null;
+		private readonly List<Track>[] subTracksBuf = new List<Track>[] { new List<Track>(), new List<Track>() };
 
 
 		InputManager(Workarea workarea)
@@ -106,9 +118,19 @@ namespace Assistance {
 			while(true) {
 				// run modifiers
 				KeyPoint newKeyPoint = new KeyPoint();
-				List<Track> subTracks = tracks;
-				foreach(Modifier modifier in modifiers)
-					subTracks = modifier.modify(subTracks);
+				subTracks = tracks;
+				int i = 0;
+				foreach(Modifier modifier in modifiers) {
+					List<Track> outTracks = subTracksBuf[i];
+					modifier.modify(subTracks, keyEvent, outTracks);
+					subTracks = outTracks;
+					i = 1 - i;
+				}
+				
+				// create handlers	
+				foreach(Track track in subTracks)
+					if (track.handler == null)
+						track.handler = new TrackHandler(this, track, keyPoints.Count);
 	
 				if (keyPoints.Count > 0) {
 					// rollback
@@ -277,15 +299,15 @@ namespace Assistance {
 		
 		public int getModifiersCount()
 			{ return modifiers.Count; }
-		public InputModifier getModifier(int index)
+		public Modifier getModifier(int index)
 			{ return modifiers[index]; }
 
-		public void insertModifier(int index, InputModifier modifier) {
+		public void insertModifier(int index, Modifier modifier) {
 			if (this.tool != null) finishTracks();
 			modifiers.Insert(index, modifier);
 			modifier.activate();
 		}
-		public void addModifier(InputModifier modifier)
+		public void addModifier(Modifier modifier)
 			{ insertModifier(getModifiersCount(), modifier); }
 		
 		public void removeModifier(int index) {
@@ -293,7 +315,7 @@ namespace Assistance {
 			modifiers[i].deactivate();
 			modifiers.RemoveAt(index);
 		}
-		public void removeModifier(InputModifier modifier) {
+		public void removeModifier(Modifier modifier) {
 			for(int i = 0; i < getModifiersCount(); ++i)
 				if (getModifier(i) == modifier)
 					{ removeModifier(i); break; }

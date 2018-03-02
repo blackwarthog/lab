@@ -26,7 +26,7 @@ namespace Assistance {
 				{ get { return handler.owner; } }
 			public Track original
 				{ get { return handler.original; } }
-			public TrackPoint calcWayPoint(double originalIndex)
+			public virtual WayPoint calcWayPoint(double originalIndex)
 				{ return original.calcWayPoint(originalIndex); }
 		}
 
@@ -137,6 +137,9 @@ namespace Assistance {
 			{ get { return modifier != null ? modifier.original : null; } }
 		public double timeOffset
 			{ get { return modifier != null ? modifier.timeOffset : 0.0; } }
+			
+		public bool isChanged
+			{ get { return wayPointsAdded != 0 || wayPointsRemoved != 0; } }
 
 		public Track getRoot()
 			{ return original == null ? this : original.getRoot(); }
