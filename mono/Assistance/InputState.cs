@@ -43,7 +43,7 @@ namespace Assistance {
 			return history;
 		}
 		public KeyState<uint> buttonState(Gdk.Device device)
-			{ buttonHistory(device).current; }
+			{ return buttonHistory(device).current; }
 
 		public void buttonEvent(bool press, Gdk.Device device, uint button, long ticks) {
 			touch(ticks);
@@ -67,7 +67,7 @@ namespace Assistance {
 		public double howLongButtonPressed(Gdk.Device device, uint button, long ticks, double timeOffset = 0.0)
 			{ return KeyState<uint>.Holder.howLongPressed(buttonFind(device, button), ticks, timeOffset); }
 		public double howLongButtonPressed(Gdk.Device device, uint button)
-			{ return howLongButtonPressed(device, ticks); }
+			{ return howLongButtonPressed(device, button, ticks); }
 
 		public KeyState<uint> buttonFindDefault(uint button)
 			{ return buttonFind(null, button); }
@@ -113,7 +113,7 @@ namespace Assistance {
 		public KeyHistory<uint>.Holder buttonHistoryHolder(Gdk.Device device, long ticks, double timeOffset = 0.0)
 			{ return new KeyHistory<uint>.Holder(buttonHistory(device), ticks, timeOffset); }
 		public KeyHistory<uint>.Holder buttonHistoryHolder(Gdk.Device device)
-			{ return buttonHistoryHolder(buttonHistory(device), ticks); }
+			{ return buttonHistoryHolder(device, ticks); }
 	}
 }
 

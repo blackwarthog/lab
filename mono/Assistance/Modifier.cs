@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Assistance.Drawing;
 
 namespace Assistance {
-	public class Modifier: ActivePoint.Owner, InputModifier {
+	public class Modifier: ActivePoint.Owner, InputManager.IModifier {
 		public static readonly Pen pen = new Pen("Light Gray");
 
 		public Modifier(Document document): base(document) {
@@ -21,7 +21,9 @@ namespace Assistance {
 		}
 
 		public virtual void activate() { }
-		public virtual List<Track> modify(List<Track> tracks) { return tracks; }
+		public virtual void modify(Track track, InputManager.KeyPoint keyPoint, List<Track> outTracks) { }
+		public virtual void modify(List<Track> tracks, InputManager.KeyPoint keyPoint, List<Track> outTracks)
+			{ foreach(Track track in tracks) modify(track, keyPoint, outTracks); }
 		public virtual void deactivate() { }
 
 		public virtual void draw(Cairo.Context context) { }

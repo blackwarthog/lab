@@ -66,19 +66,19 @@ namespace Assistance {
    				{ // mul
    					ParameterExpression a = Expression.Parameter(typeof(T));
 				    ParameterExpression b = Expression.Parameter(typeof(double));
-				    mul = Expression.Lambda<FullFunc>(Expression.Multiply(a, b), a, b).Compile();
+				    mul = Expression.Lambda<HalfFunc>(Expression.Multiply(a, b), a, b).Compile();
 				}
    				{ // div
    					ParameterExpression a = Expression.Parameter(typeof(T));
 				    ParameterExpression b = Expression.Parameter(typeof(double));
-				    div = Expression.Lambda<FullFunc>(Expression.Divide(a, b), a, b).Compile();
+				    div = Expression.Lambda<HalfFunc>(Expression.Divide(a, b), a, b).Compile();
 				}
    			}
    			
 			public static T linear(T p0, T p1, double l)
 				{ return add(mul(sub(p1, p0), l), p0); }
 	
-			public static double spline(T p0, T p1, T t0, T t1, double l) {
+			public static T spline(T p0, T p1, T t0, T t1, double l) {
 				double ll = l*l;
 				double lll = ll*l;
 				return add( add( mul(p0, ( 2.0*lll - 3.0*ll + 1.0)),
@@ -87,7 +87,7 @@ namespace Assistance {
 				                 mul(t1, (     lll - 1.0*ll      )) ));
 	        }
 	
-			public static double splineTangent(T p0, T p1, T t0, T t1, double l) {
+			public static T splineTangent(T p0, T p1, T t0, T t1, double l) {
 				double ll = l*l;
 				return add( mul(sub(p0, p1), 6.0*(ll - l)),
 				            add( mul(t0, ( 3.0*ll - 4.0*l + 1.0)),

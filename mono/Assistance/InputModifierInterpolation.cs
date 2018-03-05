@@ -19,14 +19,14 @@ namespace Assistance {
 			addSegment(track, p, p1);
 		}
 	
-		public override List<Track> modify(Track track, InputManager.KeyPoint keyPoint, List<Track> outTracks) {
+		public override void modify(Track track, InputManager.KeyPoint keyPoint, List<Track> outTracks) {
 			if (track.handler == null) {
 				track.handler = new Track.Handler(this, track);
 				track.handler.tracks.Add(new Track( new Track.Modifier(track.handler) ));
 			}
 			
 			Track subTrack = track.handler.tracks[0];
-			Modifier modifier = (Modifier)subTrack.modifier;
+			Track.Modifier modifier = subTrack.modifier;
 			outTracks.Add(subTrack);
 			
 			if (!track.isChanged)

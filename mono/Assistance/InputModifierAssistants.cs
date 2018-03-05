@@ -7,14 +7,12 @@ namespace Assistance {
 		public readonly Workarea workarea;
 		public readonly bool interpolate;
 		
-		public InputModifierAssistants(Workarea workarea, bool interpolate = false, double precision = 1.0):
-			base(precision)
-		{
+		public InputModifierAssistants(Workarea workarea, bool interpolate = false) {
 			this.workarea = workarea;
 			this.interpolate = interpolate;
 		}
 		
-		public class Modifier: Track.Modifier {
+		public new class Modifier: Track.Modifier {
 			public Modifier(Track.Handler handler):
 				base(handler) { }
 			
@@ -27,7 +25,7 @@ namespace Assistance {
 			}
 		}
 
-		public override List<Track> modify(Track track, InputManager.KeyPoint keyPoint, List<Track> outTracks) {
+		public override void modify(Track track, InputManager.KeyPoint keyPoint, List<Track> outTracks) {
 			Track subTrack;
 			Modifier modifier;
 			
@@ -36,7 +34,7 @@ namespace Assistance {
 					return;
 
 				Track.Handler handler = new Track.Handler(this, track);
-				modifier = new Track.Modifier(track.handler);
+				modifier = new Modifier(track.handler);
 				workarea.getGuidelines(modifier.guidelines, track.points[0].point.position);
 				if (interpolate && modifier.guidelines.Count == 0)
 					{ base.modify(track, keyPoint, outTracks); return; }
@@ -70,7 +68,7 @@ namespace Assistance {
 				subTrack.wayPointsRemoved += subTrack.points.Count - start;
 			}
 			
-			bool trackIsLong = track.points.Count > 0 && track.getLast().length > 2.0*Guideline.snapLenght;
+			bool trackIsLong = track.points.Count > 0 && track.getLast().length >= Guideline.maxLenght;
 			if (!trackIsLong && modifier.holder != null && !modifier.holder.isHolded && modifier.holder.available)
 				modifier.holder.reuse();
 			
@@ -82,7 +80,7 @@ namespace Assistance {
 					modifier.guidelines[0] = guideline;
 					start = 0;
 					subTrack.wayPointsRemoved += subTrack.points.Count;
-					subTrack.points.Clear;
+					subTrack.points.Clear();
 				}
 				if (trackIsLong)
 					modifier.holder.release();

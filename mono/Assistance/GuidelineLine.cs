@@ -26,8 +26,11 @@ namespace Assistance {
 			context.Restore();
 		}
 		
-		public override Point transformPoint(Point p) {
-			return Point.dot(p - p0, direction)*direction + p0;
+		public override Track.WayPoint transformPoint(Track.WayPoint p) {
+			Track.WayPoint np = p;
+			np.point.position = Point.dot(p.point.position - p0, direction)*direction + p0;
+			np.tangent.position = direction;
+			return np;
 		}
 	}
 }

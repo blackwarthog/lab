@@ -10,11 +10,23 @@ namespace Assistance {
 			CircleCross,
 		};
 
-		public class Owner {
-			public readonly Document document;
-			public readonly List<ActivePoint> points = new List<ActivePoint>();
+		public interface IOwner {
+			Document document { get; }
+			List<ActivePoint> points { get; }
 			
-			public Owner(Document document) { this.document = document; }
+			void onMovePoint(ActivePoint point, Point position);
+			void bringToFront();
+			void remove();
+		}
+
+		public class Owner: IOwner {
+			private readonly Document privateDocument;
+			private readonly List<ActivePoint> privatePoints = new List<ActivePoint>();
+
+			public Document document { get { return privateDocument; } }
+			public List<ActivePoint> points { get { return privatePoints; } }
+
+			public Owner(Document document) { this.privateDocument = document; }
 			public virtual void onMovePoint(ActivePoint point, Point position) { point.position = position; }
 			public virtual void bringToFront() { }
 			public virtual void remove() { foreach(ActivePoint point in points) document.points.Remove(point); }
@@ -28,11 +40,11 @@ namespace Assistance {
 		public static readonly Brush brushActive = new Brush("Light Blue");
 
 		public readonly Document document;
-		public readonly Owner owner;
+		public readonly IOwner owner;
 		public readonly Type type;
 		public Point position;
 
-		public ActivePoint(Owner owner, Type type, Point position = new Point()) {
+		public ActivePoint(IOwner owner, Type type, Point position = new Point()) {
 			this.document = owner.document;
 			this.owner = owner;
 			this.type = type;

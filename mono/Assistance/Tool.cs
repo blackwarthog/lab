@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Assistance {
 	public class Tool {
@@ -32,7 +33,7 @@ namespace Assistance {
 		// try to merge N top painting levels and return true, or do nothing and return false
 		// was:            ------O-------O------O------
 		// become (N = 2): ------O---------------------
-		public virtual bool paintApply(int count) { return 0; }
+		public virtual int paintApply(int count) { return 0; }
 
 		// reset top level to initial state
 		// was:            ------O-------O------O------

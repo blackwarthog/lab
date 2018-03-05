@@ -34,9 +34,7 @@
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="MainWindow.cs" />
-    <Compile Include="Assistant.cs">
-      <DependentUpon>AssistantGrid.cs</DependentUpon>
-    </Compile>
+    <Compile Include="Assistant.cs" />
     <Compile Include="ActivePoint.cs" />
     <Compile Include="Point.cs" />
     <Compile Include="Workarea.cs" />
@@ -46,18 +44,13 @@
     <Compile Include="Guideline.cs" />
     <Compile Include="GuidelineLine.cs" />
     <Compile Include="AssistantVanishingPoint.cs" />
-    <Compile Include="AssistantGrid.cs" />
     <Compile Include="Geometry.cs" />
-    <Compile Include="Modifier.cs">
-      <DependentUpon>Point.cs</DependentUpon>
-    </Compile>
+    <Compile Include="Modifier.cs" />
     <Compile Include="ModifierSnowflake.cs" />
     <Compile Include="Document.cs" />
     <Compile Include="Tool.cs" />
     <Compile Include="Drawing.cs" />
-    <Compile Include="KeyState.cs">
-      <DependentUpon>MainWindow.cs</DependentUpon>
-    </Compile>
+    <Compile Include="KeyState.cs" />
     <Compile Include="Timer.cs" />
     <Compile Include="InputState.cs" />
     <Compile Include="InputModifierAssistants.cs" />

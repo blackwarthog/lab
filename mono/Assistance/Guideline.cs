@@ -8,14 +8,15 @@ namespace Assistance {
 		public static readonly Pen penActive = new Pen("Deep Sky Blue");
 		public static readonly double snapLenght = 20.0;
 		public static readonly double snapScale = 1.0;
+		public static readonly double maxLenght = 2.0*snapLenght*snapScale;
 	
-		public virtual Track.WayPoint transformPoint(Track.WayPoint point) { }
+		public virtual Track.WayPoint transformPoint(Track.WayPoint point)
+			{ return point; }
 		
 		public virtual void draw(Cairo.Context context, bool active) { }
 
-		public void draw(Cairo.Context context) {
-			draw(context, false);
-		}
+		public void draw(Cairo.Context context)
+			{ draw(context, false); }
 		
 		public double calcTrackWeight(Track track) {
 			if (track.points.Count < 1)
@@ -24,9 +25,9 @@ namespace Assistance {
 			double sumLength = 0.0;
 			double sumDeviation = 0.0;
 			
-			Point prev = track.points[0].point;
-			foreach(TrackPoint tp in track.points) {
-				Point p = tp.point;
+			Point prev = track.points[0].point.position;
+			foreach(Track.WayPoint wp in track.points) {
+				Point p = wp.point.position;
 				double length = (p - prev).len();
 				sumLength += length;
 				
@@ -35,7 +36,8 @@ namespace Assistance {
 					double weight = length*Geometry.logNormalDistribuitionUnscaled(midStepLength, snapLenght, snapScale);
 					sumWeight += weight;
 				
-					double deviation = (transformPoint(p) - p).len();
+					Track.WayPoint nwp = transformPoint(wp);
+					double deviation = (nwp.point.position - p).len();
 					sumDeviation += weight*deviation;
 				}
 				prev = p;

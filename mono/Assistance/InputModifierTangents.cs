@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Assistance {
 	public class InputModifierTangents: InputManager.Modifier {
 		public class Modifier: Track.Modifier {
-			public Modifier(Handler handler):
+			public Modifier(Track.Handler handler):
 				base(handler) { }
 			
 			public InputManager.KeyPoint.Holder holder = null;
@@ -22,7 +22,7 @@ namespace Assistance {
 			}
 		}
 
-		public override List<Track> modify(Track track, InputManager.KeyPoint keyPoint, List<Track> outTracks) {
+		public override void modify(Track track, InputManager.KeyPoint keyPoint, List<Track> outTracks) {
 			if (track.handler == null) {
 				track.handler = new Track.Handler(this, track);
 				track.handler.tracks.Add(new Track( new Modifier(track.handler) ));
@@ -85,12 +85,12 @@ namespace Assistance {
 				subTrack.wayPointsAdded += index - start;
 				
 				// release previous key point
-				if (modifier.holder) {
+				if (modifier.holder != null) {
 					modifier.holder.Dispose();
 					modifier.holder = null;
 				}
 				
-				if (track.isFinished) {
+				if (track.isFinished()) {
 					// finish
 					modifier.tangents.Add(new Track.Point());
 					subTrack.points.Add(track.getLast());

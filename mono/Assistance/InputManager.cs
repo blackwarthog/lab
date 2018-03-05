@@ -2,13 +2,13 @@ using System;
 using System.Collections.Generic;
 
 namespace Assistance {
-	public class InputManager: Track.Owner {
+	public class InputManager: Track.IOwner {
 		public static readonly Drawing.Pen penPreview = new Drawing.Pen("Dark Green", 1.0, 0.25);
 
 		public class TrackHandler: Track.Handler {
 			public readonly List<int> keys = new List<int>();
 			public TrackHandler(InputManager owner, Track original, int keysCount = 0):
-				base(owner, track)
+				base(owner, original)
 				{ for(int i = 0; i < keysCount; ++i) keys.Add(0); }
 		}
 		
@@ -51,10 +51,15 @@ namespace Assistance {
 				{ get { return refCount <= 0; } }
 		}
 		
-		public class Modifier: Track.Owner {
+		public interface IModifier: Track.IOwner {
+			void activate();
+			void modify(List<Track> tracks, KeyPoint keyPoint, List<Track> outTracks);
+			void deactivate();
+		}
+
+		public class Modifier: IModifier {
 			public virtual void activate() { }
-			public virtual void modify(Track tracks, KeyPoint keyPoint, List<Track> outTracks)
-				{ }
+			public virtual void modify(Track track, KeyPoint keyPoint, List<Track> outTracks) { }
 			public virtual void modify(List<Track> tracks, KeyPoint keyPoint, List<Track> outTracks)
 				{ foreach(Track track in tracks) modify(track, keyPoint, outTracks); }
 			public virtual void deactivate() { }
@@ -66,7 +71,7 @@ namespace Assistance {
 		private readonly InputState state = new InputState();
 
 		private Tool tool;
-		private readonly List<Modifier> modifiers = new List<Modifier>();
+		private readonly List<IModifier> modifiers = new List<IModifier>();
 
 		private readonly List<Track> tracks = new List<Track>();
 		private readonly List<KeyPoint> keyPoints = new List<KeyPoint>();
@@ -86,7 +91,7 @@ namespace Assistance {
 			
 			int level = keyIndex + 1;
 			if (level <= keyPointsSent) {
-				if (level <= keyPointsSent)
+				if (level < keyPointsSent)
 					tool.paintPop(keyPointsSent - level);
 				tool.paintCancel();
 				keyPointsSent = level;
@@ -95,45 +100,51 @@ namespace Assistance {
 			foreach(Track track in subTracks) {
 				TrackHandler handler = (TrackHandler)track.handler;
 				handler.keys.RemoveRange(level, keyPoints.Count - level);
-				int index = handler.keys[keyIndex];
+				int cnt = handler.keys[keyIndex];
 				track.wayPointsRemoved = 0;
-				track.wayPointsAdded = track.points.Count - index - 1;
+				track.wayPointsAdded = track.points.Count - cnt;
 			}
 			for(int i = level; i < keyPoints.Count; ++i) keyPoints[i].available = false;
 			keyPoints.RemoveRange(level, keyPoints.Count - level);
 		}
 		
-		private void paintApply(int count, Dictionary<long, Track> subTracks) {
+		private void paintApply(int count, List<Track> subTracks) {
 			if (count <= 0)
 				return;
 			
 			int level = keyPoints.Count - count;
-			if (level >= keyPointsSent || tool.paintApply(keyPointsSent - level)) {
+			
+			if (level < keyPointsSent) {
 				// apply
-				foreach(Track track in subTracks)
-					((TrackHandler)track.handler).keys.RemoveRange(level, keyPoints.Count - level);
-			} else {
-				// rollback
-				tool.paintPop(keyPointsSent - level);
+				keyPointsSent -= tool.paintApply(keyPointsSent - level);
 				foreach(Track track in subTracks) {
 					TrackHandler handler = (TrackHandler)track.handler;
-					int index = handler.keys[level];
-					handler.keys.RemoveRange(level, keyPoints.Count - level);
-					track.wayPointsRemoved = 0;
-					track.wayPointsAdded = track.points.Count - index - 1;
+					handler.keys.RemoveRange(keyPointsSent, handler.keys.Count - keyPointsSent);
 				}
 			}
 
+			if (level < keyPointsSent) {
+				// rollback
+				tool.paintPop(keyPointsSent - level);
+				keyPointsSent = level;
+				foreach(Track track in subTracks) {
+					TrackHandler handler = (TrackHandler)track.handler;
+					int cnt = handler.keys[keyPointsSent];
+					handler.keys.RemoveRange(keyPointsSent, handler.keys.Count - keyPointsSent);
+					track.wayPointsRemoved = 0;
+					track.wayPointsAdded = track.points.Count - cnt;
+				}
+			}
+
+			// remove keypoints
 			for(int i = level; i < keyPoints.Count; ++i) keyPoints[i].available = false;
 			keyPoints.RemoveRange(level, keyPoints.Count - level);
-			if (level < keyPointsSent)
-				keyPointsSent = level;
 		}
 		
 		private void paintTracks() {
 			bool allFinished = true;
 			foreach(Track track in tracks)
-				if (!track.isFinished)
+				if (!track.isFinished())
 					{ allFinished = false; break; }
 
 			while(true) {
@@ -141,9 +152,9 @@ namespace Assistance {
 				KeyPoint newKeyPoint = new KeyPoint();
 				subTracks = tracks;
 				int i = 0;
-				foreach(Modifier modifier in modifiers) {
+				foreach(IModifier modifier in modifiers) {
 					List<Track> outTracks = subTracksBuf[i];
-					modifier.modify(subTracks, keyEvent, outTracks);
+					modifier.modify(subTracks, newKeyPoint, outTracks);
 					subTracks = outTracks;
 					i = 1 - i;
 				}
@@ -182,9 +193,7 @@ namespace Assistance {
 					if (allFinished) {
 						paintApply(keyPoints.Count, subTracks);
 						tracks.Clear();
-						this.subTracks = null;
-					} else {
-						this.subTracks = subTracks;
+						this.subTracks.Clear();
 					}
 					break;
 				}
@@ -198,8 +207,8 @@ namespace Assistance {
 		}
 		
 		private int trackCompare(Track track, Gdk.Device device, long touchId) {
-			if (track.device < device) return -1;
-			if (track.device > device) return 1;
+			if (track.device.Handle.ToInt64() < device.Handle.ToInt64()) return -1;
+			if (track.device.Handle.ToInt64() > device.Handle.ToInt64()) return 1;
 			if (track.touchId < touchId) return -1;
 			if (track.touchId > touchId) return 1;
 			return 0;
@@ -275,8 +284,8 @@ namespace Assistance {
 		
 		public void trackEvent(long touchId, Gdk.Device device, Track.Point point, bool final, long ticks) {
 			if (tool != null) {
-				Track track = getTrack(touchId, device, ticks);
-				if (!track.isFinished) {
+				Track track = getTrack(device, touchId, ticks);
+				if (!track.isFinished()) {
 					double time = (double)(ticks - track.keyHistory.ticks)*Timer.step - track.keyHistory.timeOffset;
 					addTrackPoint(track, point, time, final);
 					paintTracks();
@@ -320,23 +329,23 @@ namespace Assistance {
 		
 		public int getModifiersCount()
 			{ return modifiers.Count; }
-		public Modifier getModifier(int index)
+		public IModifier getModifier(int index)
 			{ return modifiers[index]; }
 
-		public void insertModifier(int index, Modifier modifier) {
+		public void insertModifier(int index, IModifier modifier) {
 			if (this.tool != null) finishTracks();
 			modifiers.Insert(index, modifier);
 			modifier.activate();
 		}
-		public void addModifier(Modifier modifier)
+		public void addModifier(IModifier modifier)
 			{ insertModifier(getModifiersCount(), modifier); }
 		
 		public void removeModifier(int index) {
 			if (this.tool != null) finishTracks();
-			modifiers[i].deactivate();
+			modifiers[index].deactivate();
 			modifiers.RemoveAt(index);
 		}
-		public void removeModifier(Modifier modifier) {
+		public void removeModifier(IModifier modifier) {
 			for(int i = 0; i < getModifiersCount(); ++i)
 				if (getModifier(i) == modifier)
 					{ removeModifier(i); break; }

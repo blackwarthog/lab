@@ -4,13 +4,13 @@ using Assistance.Drawing;
 
 namespace Assistance {
 	public class Track {
-		public class Owner { }
+		public interface IOwner { }
 
 		public class Handler {
-			public readonly Owner owner;
+			public readonly IOwner owner;
 			public readonly Track original;
 			public readonly List<Track> tracks = new List<Track>();
-			public Handler(Owner owner, Track original) {
+			public Handler(IOwner owner, Track original) {
 				this.owner = owner;
 				this.original = original;
 			}
@@ -22,7 +22,7 @@ namespace Assistance {
 
 			public Modifier(Handler handler, double timeOffset = 0.0)
 				{ this.handler = handler; this.timeOffset = timeOffset; }
-			public Owner owner
+			public IOwner owner
 				{ get { return handler.owner; } }
 			public Track original
 				{ get { return handler.original; } }
@@ -33,12 +33,12 @@ namespace Assistance {
 		public struct Point {
 			public Assistance.Point position;
 			public double pressure;
-			public Point tilt;
+			public Assistance.Point tilt;
 	
 			public Point(
 				Assistance.Point position,
 				double pressure,
-				Point tilt
+				Assistance.Point tilt
 			) {
 				this.position = position;
 				this.pressure = pressure;
@@ -51,10 +51,10 @@ namespace Assistance {
 				{ return new Point(a.position - b.position, a.pressure - b.pressure, a.tilt - b.tilt); }
 			public static Point operator* (Point a, double b)
 				{ return new Point(a.position*b, a.pressure*b, a.tilt*b); }
-			public static Point operator* (double b, Point a)
+			public static Point operator* (double a, Point b)
 				{ return a*b; }
 			public static Point operator/ (Point a, double b)
-				{ return this*(1.0/b); }
+				{ return a*(1.0/b); }
 	
 			public bool isEqual(Point other) {
 				return position.isEqual(other.position)
@@ -129,6 +129,7 @@ namespace Assistance {
 		
 		public Track(Modifier modifier):
 			this( modifier.original.device,
+				  modifier.original.touchId,
 				  modifier.original.keyHistory.offset( modifier.timeOffset ),
 				  modifier.original.buttonHistory.offset( modifier.timeOffset ) )
 			{ this.modifier = modifier; }
@@ -235,7 +236,7 @@ namespace Assistance {
 		
 		public WayPoint interpolate(double index) {
 			double frac;
-			WayPoint p0 = floorIndex(index, out frac);
+			WayPoint p0 = floorWayPoint(index, out frac);
 			WayPoint p1 = ceilWayPoint(index);
 			return interpolate(p0, p1, frac);
 		}

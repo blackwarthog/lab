@@ -51,9 +51,10 @@ namespace Assistance {
 		public KeyState<T> current
 			{ get { return states[ states.Count - 1 ]; } }
 		
-		public void change(bool press, T value, long ticks)	{
+		public KeyState<T> change(bool press, T value, long ticks)	{
 			states.Add(current.change(press, value, ticks));
 			autoRemove();
+			return current;
 		}
 		public KeyState<T> press(T value, long ticks)
 			{ return change(true, value, ticks); }
@@ -64,9 +65,9 @@ namespace Assistance {
 			// locks[a] <= ticks < locks[b]
 			int a = 0;
 			int b = states.Count - 1;
-			if (locks[a] < locks) return -1;
+			if (locks[a] < ticks) return -1;
 			if (ticks >= locks[b]) return b;
-			while(True) {
+			while(true) {
 				int c = (a + b)/2;
 				if (a == c) break;
 				if (ticks < locks[c]) b = c; else a = c;
@@ -97,8 +98,8 @@ namespace Assistance {
 			int a = 0;
 			int b = states.Count - 1;
 			if (states[a].ticks < ticks) return new KeyState<T>();
-			if (ticks >= states[b].ticks) return states[b].ticks;
-			while(True) {
+			if (ticks >= states[b].ticks) return states[b];
+			while(true) {
 				int c = (a + b)/2;
 				if (a == c) break;
 				if (ticks < states[c].ticks) b = c; else a = c;
