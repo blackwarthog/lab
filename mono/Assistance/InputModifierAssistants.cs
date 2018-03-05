@@ -5,11 +5,11 @@ using System.Collections.Generic;
 namespace Assistance {
 	public class InputModifierAssistants: InputModifierTangents {
 		public readonly Workarea workarea;
-		public readonly bool interpolate;
+		public readonly bool defaultTangents;
 		
-		public InputModifierAssistants(Workarea workarea, bool interpolate = false) {
+		public InputModifierAssistants(Workarea workarea, bool defaultTangents = false) {
 			this.workarea = workarea;
-			this.interpolate = interpolate;
+			this.defaultTangents = defaultTangents;
 		}
 		
 		public new class Modifier: Track.Modifier {
@@ -18,6 +18,7 @@ namespace Assistance {
 			
 			public InputManager.KeyPoint.Holder holder = null;
 			public List<Guideline> guidelines = new List<Guideline>();
+			public List<Guideline> hintGuidelines = new List<Guideline>();
 			
 			public override Track.WayPoint calcWayPoint(double originalIndex) {
 				Track.WayPoint p = original.calcWayPoint(originalIndex);
@@ -36,7 +37,7 @@ namespace Assistance {
 				Track.Handler handler = new Track.Handler(this, track);
 				modifier = new Modifier(track.handler);
 				workarea.getGuidelines(modifier.guidelines, track.points[0].point.position);
-				if (interpolate && modifier.guidelines.Count == 0)
+				if (defaultTangents && modifier.guidelines.Count == 0)
 					{ base.modify(track, keyPoint, outTracks); return; }
 				
 				track.handler = handler;
@@ -51,7 +52,7 @@ namespace Assistance {
 			}
 			
 			subTrack = track.handler.tracks[0];
-			if (subTrack.modifier is InputModifierTangents.Modifier)
+			if (!(subTrack.modifier is Modifier))
 				{ base.modify(track, keyPoint, outTracks); return; }
 			
 			modifier = (Modifier)subTrack.modifier;
@@ -90,6 +91,20 @@ namespace Assistance {
 			for(int i = start; i < track.points.Count; ++i)
 				subTrack.points.Add(modifier.calcWayPoint(i));
 			subTrack.wayPointsAdded = subTrack.points.Count - start;
+		}
+		
+		public override void draw(Cairo.Context context, Track track) {
+			if (track.handler == null) return;
+			Track subTrack = track.handler.tracks[0];
+			if (!(subTrack.modifier is Modifier))
+				{ base.draw(context, track); return; }
+			Modifier modifier = (Modifier)subTrack.modifier;
+			if (modifier.guidelines.Count > 0 && subTrack.points.Count > 0) {
+				workarea.getGuidelines(modifier.hintGuidelines, subTrack.points[0].point.position);
+				foreach(Guideline gl in modifier.hintGuidelines)
+					gl.draw(context);
+				modifier.hintGuidelines.Clear();
+			}
 		}
 	}
 }

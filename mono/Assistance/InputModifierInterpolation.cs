@@ -26,7 +26,6 @@ namespace Assistance {
 			}
 			
 			Track subTrack = track.handler.tracks[0];
-			Track.Modifier modifier = subTrack.modifier;
 			outTracks.Add(subTrack);
 			
 			if (!track.isChanged)

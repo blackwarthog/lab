@@ -77,7 +77,6 @@ namespace Assistance {
 				}
 				
 				// add points
-				Track.WayPoint p0 = track.getWayPoint(start - 1);
 				for(int i = start; i < track.points.Count; ++i)
 					subTrack.points.Add( subTrack.calcWayPoint(i) );
 				subTrack.wayPointsAdded += subTrack.points.Count - start;

@@ -14,19 +14,19 @@ namespace Assistance {
 		Cairo.ImageSurface surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 1, 1);
 
 		Workarea workarea = new Workarea();
+		ToolFull toolFull;
+		
 		bool dragging = false;
+		bool painting = false;
 		ActivePoint activePoint;
 
-		uint timeStart = 0;
-		long ticksStart = 0;
-		long lastTicks = 0;
 		Point offset;
 		Point cursor;
 		
-		InputState inputState = new InputState();
+		long touchId;
+		long ticksStart = 0;
+		double timeStart = 0;
 		
-		Track track = null;
-
 		public MainWindow(): base(Gtk.WindowType.Toplevel) {
 			foreach(Gdk.Device device in Display.ListDevices()) {
 				if (device.Name.Contains("tylus")) {
@@ -42,6 +42,9 @@ namespace Assistance {
 			       | Gdk.EventMask.ButtonMotionMask
 			       | Gdk.EventMask.PointerMotionMask;
 			ExtensionEvents = Gdk.ExtensionMode.All;
+			
+			toolFull = new ToolFull(workarea);
+			workarea.setTool(toolFull);
         }
         
         protected override bool OnDeleteEvent(Gdk.Event e) {
@@ -95,29 +98,26 @@ namespace Assistance {
 			activePoint.bringToFront();
 		}
 
-		private void beginTrack(Gdk.Device device) {
+		private void beginTrack(double timeStart) {
 			endDragAndTrack();
-			track = new Track(Track.getTouchId(), device);
+			++touchId;
 			ticksStart = Timer.ticks();
+			this.timeStart = timeStart;
 		}
 
 		private void endDragAndTrack() {
 			dragging = false;
 			offset = new Point();
-			
-			if (track != null)
-				workarea.paintTrack(track);
-			track = null;
+			if (painting) {
+				painting = false;
+				workarea.inputManager.finishTracks();
+			}
 		}
 		
 		protected override bool OnKeyPressEvent(Gdk.EventKey e) {
 			switch(e.Key) {
 			case Gdk.Key.Key_1:
 				new AssistantVanishingPoint(workarea.document, cursor);
-				endDragAndTrack();
-				break;
-			case Gdk.Key.Key_2:
-				new AssistantGrid(workarea.document, cursor);
 				endDragAndTrack();
 				break;
 			case Gdk.Key.Q:
@@ -137,8 +137,7 @@ namespace Assistance {
 				endDragAndTrack();
 				break;
 			default:
-				inputState.keyPress(e.Key, Timer.ticks());
-				retryTrackPoint();
+				workarea.inputManager.keyEvent(true, e.Key, Timer.ticks());
 				break;
 			}
 			QueueDraw();
@@ -146,46 +145,29 @@ namespace Assistance {
 		}
 		
 		protected override bool OnKeyReleaseEvent(Gdk.EventKey e) {
-			inputState.keyRelease(e.Key, Timer.ticks());
-			retryTrackPoint();
+			workarea.inputManager.keyEvent(false, e.Key, Timer.ticks());
 			return base.OnKeyReleaseEvent(e);
 		}
 		
-		void addTrackPoint(Point p, double time, double pressure, Point tilt) {
-			if (track == null)
+		void addTrackPoint(Gdk.Device device, Point p, double time, double pressure, Point tilt, bool final) {
+			if (!painting)
 				return;
 
-			TrackPoint point = new TrackPoint();
-			point.point = p;
-			point.time = time;
+			Track.Point point = new Track.Point();
+			point.position = p;
 			point.pressure = pressure;
-			point.tilt = tilt;
+			point.tilt = tilt;	
 			
-			long ticks = Timer.ticks();
-			if (track.points.Count > 0) {
-				double t = track.points[ track.points.Count-1 ].time;
-				if (point.time - t < Geometry.precision)
-					point.time = t + (ticks - lastTicks)*Timer.step;
-			}
-			lastTicks = ticks;
-
-			point.keyState.state = inputState.keyState;
-			point.keyState.ticks = ticksStart;
-			point.keyState.timeOffset = point.time;
+			long ticks = ticksStart + (long)Math.Round((time - timeStart)*Timer.frequency);
 			
-			point.buttonState.state = inputState.buttonState(track.device);
-			point.buttonState.ticks = ticksStart;
-			point.buttonState.timeOffset = point.time;
-			
-			track.points.Add(point);
+			workarea.inputManager.trackEvent(device, touchId, point, final, ticks);
 		}
 
-		void addTrackPoint(double x, double y, uint t, Gdk.Device device, double[] axes) {
+		void addTrackPoint(double x, double y, uint t, Gdk.Device device, double[] axes, bool final) {
 			Point point = windowToWorkarea(new Point(x, y));
 			double time = (double)(t - timeStart)*0.001;
 			double pressure = 0.5;
 			Point tilt = new Point(0.0, 0.0);
-			
 			if (device != null && axes != null) {
 				double v;
 				if (device.GetAxis(axes, Gdk.AxisUse.Pressure, out v))
@@ -195,46 +177,25 @@ namespace Assistance {
 				if (device.GetAxis(axes, Gdk.AxisUse.Ytilt, out v))
 					tilt.y = v;
 			}
-			
-			long ticks = Timer.ticks();
-			long dticks = Math.Max(1, ticks - lastTicks);
-			lastTicks = ticks;
-			if (track.points.Count > 0) {
-				double prevTime = track.points[ track.points.Count-1 ].time;
-				if (time - prevTime < Geometry.precision)
-					time = prevTime + dticks*Timer.step;
-			}
-
-			addTrackPoint(point, time, pressure, tilt);
+			addTrackPoint(device, point, time, pressure, tilt, final);
 		}
 		
-		void addTrackPoint(Gdk.EventButton e) {
-			addTrackPoint(e.X, e.Y, e.Time, e.Device, e.Axes);
-		}
-
-		void addTrackPoint(Gdk.EventMotion e) {
-			addTrackPoint(e.X, e.Y, e.Time, e.Device, e.Axes);
-		}
-
-		void retryTrackPoint() {
-			if (track == null || track.points.Count < 1) return;
-			TrackPoint last = track.points[track.points.Count-1];
-			addTrackPoint(last.point, last.time, last.pressure, last.tilt);
-		}
+		void addTrackPoint(Gdk.EventButton e, bool press)
+			{ addTrackPoint(e.X, e.Y, e.Time, e.Device, e.Axes, !press); }
+		void addTrackPoint(Gdk.EventMotion e)
+			{ addTrackPoint(e.X, e.Y, e.Time, e.Device, e.Axes, false); }
 
 		protected override bool OnButtonPressEvent(Gdk.EventButton e) {
 			cursor = windowToWorkarea(new Point(e.X, e.Y));
-			Console.WriteLine(e.Button.ToString());
-			inputState.buttonPress(e.Device, e.Button, Timer.ticks());
-			retryTrackPoint();
+			workarea.inputManager.buttonEvent(true, e.Device, e.Button, Timer.ticks());
 			if (e.Button == 1) {
 				timeStart = e.Time;
 				activePoint = workarea.findPoint(cursor);
 				if (activePoint != null) {
 					beginDrag();
 				} else {
-					beginTrack(e.Device);
-					addTrackPoint(e);
+					beginTrack((double)e.Time*0.001);
+					addTrackPoint(e, true);
 				}
 			}
 			QueueDraw();
@@ -243,13 +204,12 @@ namespace Assistance {
 
 		protected override bool OnButtonReleaseEvent(Gdk.EventButton e) {
 			cursor = windowToWorkarea(new Point(e.X, e.Y));
-			inputState.buttonRelease(e.Device, e.Button, Timer.ticks());
-			retryTrackPoint();
+			workarea.inputManager.buttonEvent(false, e.Device, e.Button, Timer.ticks());
 			if (e.Button == 1) {
-				if (!dragging && track != null)
-					addTrackPoint(e);
+				if (!dragging && painting)
+					addTrackPoint(e, false);
 				endDragAndTrack();
-				if (!dragging && track == null)
+				if (!dragging && !painting)
 					activePoint = workarea.findPoint(cursor);
 			}
 			QueueDraw();
@@ -261,8 +221,7 @@ namespace Assistance {
 			if (dragging) {
 				activePoint.owner.onMovePoint(activePoint, cursor + offset);
 			} else
-			if (track != null) {
-				if (e.IsHint) Gdk.Display.Default.Beep();
+			if (painting) {
 				addTrackPoint(e);
 			} else {
 				activePoint = workarea.findPoint(cursor);
@@ -273,7 +232,7 @@ namespace Assistance {
 
         public void draw(Cairo.Context context) {
         	context.Translate(surface.Width/2, surface.Height/2);
-			workarea.draw(context, activePoint, cursor + offset, track);
+			workarea.draw(context, activePoint);
         }
     }
 }

@@ -55,6 +55,7 @@ namespace Assistance {
 		public interface IModifier: Track.IOwner {
 			void activate();
 			void modify(List<Track> tracks, KeyPoint keyPoint, List<Track> outTracks);
+			void draw(Cairo.Context context, List<Track> tracks);
 			void deactivate();
 		}
 
@@ -63,6 +64,9 @@ namespace Assistance {
 			public virtual void modify(Track track, KeyPoint keyPoint, List<Track> outTracks) { }
 			public virtual void modify(List<Track> tracks, KeyPoint keyPoint, List<Track> outTracks)
 				{ foreach(Track track in tracks) modify(track, keyPoint, outTracks); }
+			public virtual void draw(Cairo.Context context, Track tracks) { }
+			public virtual void draw(Cairo.Context context, List<Track> tracks)
+				{ foreach(Track track in tracks) draw(context, track); }
 			public virtual void deactivate() { }
 		}
 
@@ -70,21 +74,19 @@ namespace Assistance {
 		public readonly Workarea workarea;
 		
 		private readonly InputState state = new InputState();
-
+		
+		private bool wantActive;
+		private bool actualActive;
 		private Tool tool;
 		private readonly List<IModifier> modifiers = new List<IModifier>();
 
-		private readonly List<Track> tracks = new List<Track>();
+		private readonly List<List<Track>> tracks = new List<List<Track>>() { new List<Track>() };
 		private readonly List<KeyPoint> keyPoints = new List<KeyPoint>();
 		private int keyPointsSent;
 
-		private List<Track> subTracks = null;
-		private readonly List<Track>[] subTracksBuf = new List<Track>[] { new List<Track>(), new List<Track>() };
 
-
-		InputManager(Workarea workarea)
+		public InputManager(Workarea workarea)
 			{ this.workarea = workarea; }
-
 
 		private void paintRollbackTo(int keyIndex, List<Track> subTracks) {
 			if (keyIndex >= keyPoints.Count)
@@ -146,21 +148,18 @@ namespace Assistance {
 		
 		private void paintTracks() {
 			bool allFinished = true;
-			foreach(Track track in tracks)
+			foreach(Track track in tracks[0])
 				if (!track.isFinished())
 					{ allFinished = false; break; }
 
 			while(true) {
 				// run modifiers
 				KeyPoint newKeyPoint = new KeyPoint();
-				subTracks = tracks;
-				int i = 0;
-				foreach(IModifier modifier in modifiers) {
-					List<Track> outTracks = subTracksBuf[i];
-					modifier.modify(subTracks, newKeyPoint, outTracks);
-					subTracks = outTracks;
-					i = 1 - i;
+				for(int i = 0; i < modifiers.Count; ++i) {
+					tracks[i+1].Clear();
+					modifiers[i].modify(tracks[i], newKeyPoint, tracks[i+1]);
 				}
+				List<Track> subTracks = tracks[modifiers.Count];
 				
 				// create handlers	
 				foreach(Track track in subTracks)
@@ -195,8 +194,8 @@ namespace Assistance {
 				if (newKeyPoint.isFree) {
 					if (allFinished) {
 						paintApply(keyPoints.Count, subTracks);
-						tracks.Clear();
-						this.subTracks.Clear();
+						foreach(List<Track> ts in tracks)
+							ts.Clear();
 					}
 					break;
 				}
@@ -223,7 +222,7 @@ namespace Assistance {
 				touchId,
 				state.keyHistoryHolder(ticks),
 				state.buttonHistoryHolder(device, ticks) );
-			tracks.Insert(index, track);
+			tracks[0].Insert(index, track);
 			return track;
 		}
 		
@@ -231,23 +230,23 @@ namespace Assistance {
 			int cmp;
 			
 			int a = 0;
-			cmp = trackCompare(tracks[a], device, touchId);
-			if (cmp == 0) return tracks[a];
+			cmp = trackCompare(tracks[0][a], device, touchId);
+			if (cmp == 0) return tracks[0][a];
 			if (cmp < 0) return createTrack(a, device, touchId, ticks);
 			
 			int b = tracks.Count - 1;
-			cmp = trackCompare(tracks[b], device, touchId);
-			if (cmp == 0) return tracks[b];
+			cmp = trackCompare(tracks[0][b], device, touchId);
+			if (cmp == 0) return tracks[0][b];
 			if (cmp > 0) return createTrack(b+1, device, touchId, ticks);
 			
 			// binary search: tracks[a] < tracks[c] < tracks[b]
 			while(true) {
 				int c = (a + b)/2;
 				if (a == c) break;
-				cmp = trackCompare(tracks[c], device, touchId);
+				cmp = trackCompare(tracks[0][c], device, touchId);
 				if (cmp < 0) b = c; else
 					if (cmp > 0) a = c; else
-						return tracks[c];
+						return tracks[0][c];
 			}
 			return createTrack(b, device, touchId, ticks);
 		}
@@ -275,18 +274,46 @@ namespace Assistance {
 		}
 		
 		private void touchTracks(bool finish = false) {
-			foreach(Track track in tracks)
+			foreach(Track track in tracks[0])
 				if (!track.isFinished() && track.points.Count > 0)
 					addTrackPoint(track, track.getLast().point, track.getLast().time, finish);
 			paintTracks();
 		}
 		
-		private void finishTracks()
-			{ touchTracks(true); }
+		private void actualActivate() {
+			bool wasActive = actualActive;
+			actualActive = wantActive && tool != null;
+			if (wasActive == actualActive) return;
+			
+			if (actualActive) {
+				foreach(IModifier modifier in modifiers)
+					modifier.activate();
+				tool.activate();
+			} else {
+				touchTracks(true);
+				tool.deactivate();
+				foreach(IModifier modifier in modifiers)
+					modifier.deactivate();
+			}
+		}
+		
+		public bool isActive()
+			{ return actualActive; }
+		public void activate()
+			{ wantActive = true; actualActivate(); }
+		public void deactivate()
+			{ wantActive = false; actualActivate(); }
+		public void finishTracks()
+			{ if (isActive()) touchTracks(true); }
+			
+		public List<Track> getInputTracks()
+			{ return tracks[0]; }
+		public List<Track> getOutputTracks()
+			{ return tracks[modifiers.Count]; }
 		
 		
-		public void trackEvent(long touchId, Gdk.Device device, Track.Point point, bool final, long ticks) {
-			if (tool != null) {
+		public void trackEvent(Gdk.Device device, long touchId, Track.Point point, bool final, long ticks) {
+			if (isActive()) {
 				Track track = getTrack(device, touchId, ticks);
 				if (!track.isFinished()) {
 					double time = (double)(ticks - track.keyHistory.ticks)*Timer.step - track.keyHistory.timeOffset;
@@ -298,7 +325,7 @@ namespace Assistance {
 
 		public void keyEvent(bool press, Gdk.Key key, long ticks) {
 			state.keyEvent(press, key, ticks);
-			if (tool != null) {
+			if (isActive()) {
 				tool.keyEvent(press, key, state);
 				touchTracks();
 			}
@@ -306,27 +333,30 @@ namespace Assistance {
 		
 		public void buttonEvent(bool press, Gdk.Device device, uint button, long ticks) {
 			state.buttonEvent(press, device, button, ticks);
-			if (tool != null) {
+			if (isActive()) {
 				tool.buttonEvent(press, device, button, state);
 				touchTracks();
 			}
 		}
 	
-		
 		public Tool getTool()
 			{ return tool; }
 		
 		public void setTool(Tool tool) {
 			if (this.tool == tool) {
-				if (this.tool != null) {
+				if (actualActive) {
 					finishTracks();
 					this.tool.deactivate();
 				}
 				
 				this.tool = tool;
 				
-				if (this.tool != null)
-					this.tool.activate();
+				if (actualActive) {
+					if (this.tool != null)
+						this.tool.activate();
+					else
+						actualActivate();
+				}
 			}
 		}
 		
@@ -336,17 +366,23 @@ namespace Assistance {
 			{ return modifiers[index]; }
 
 		public void insertModifier(int index, IModifier modifier) {
-			if (this.tool != null) finishTracks();
+			if (actualActive)
+				finishTracks();
 			modifiers.Insert(index, modifier);
-			modifier.activate();
+			tracks.Insert(index+1, new List<Track>());
+			if (actualActive)
+				modifier.activate();
 		}
 		public void addModifier(IModifier modifier)
 			{ insertModifier(getModifiersCount(), modifier); }
 		
 		public void removeModifier(int index) {
-			if (this.tool != null) finishTracks();
-			modifiers[index].deactivate();
+			if (actualActive) {
+				finishTracks();
+				modifiers[index].deactivate();
+			}
 			modifiers.RemoveAt(index);
+			tracks.RemoveAt(index+1);
 		}
 		public void removeModifier(IModifier modifier) {
 			for(int i = 0; i < getModifiersCount(); ++i)
@@ -355,16 +391,16 @@ namespace Assistance {
 		}
 		public void clearModifiers() {
 			while(getModifiersCount() > 0)
-				removeModifier(0);
+				removeModifier(getModifiersCount() - 1);
 		}
 	
 		
 		public void draw(Cairo.Context context) {
 			// paint not sent sub-tracks
-			if (subTracks != null && keyPointsSent < keyPoints.Count) {
+			if (keyPointsSent < keyPoints.Count) {
 				context.Save();
 				penPreview.apply(context);
-				foreach(Track track in subTracks) {
+				foreach(Track track in getOutputTracks()) {
 					TrackHandler handler = (TrackHandler)track.handler;
 					int start = handler.keys[keyPointsSent];
 					if (start < track.points.Count) {
@@ -388,6 +424,10 @@ namespace Assistance {
 				context.Stroke();
 				context.Restore();
 			}
+			
+			// paint modifiers
+			for(int i = 0; i < modifiers.Count; ++i)
+				modifiers[i].draw(context, tracks[i]);
 		}
 	}
 }
