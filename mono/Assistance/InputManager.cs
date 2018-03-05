@@ -4,6 +4,7 @@ using System.Collections.Generic;
 namespace Assistance {
 	public class InputManager: Track.IOwner {
 		public static readonly Drawing.Pen penPreview = new Drawing.Pen("Dark Green", 1.0, 0.25);
+		public static readonly double levelAlpha = 0.8;
 
 		public class TrackHandler: Track.Handler {
 			public readonly List<int> keys = new List<int>();
@@ -116,7 +117,9 @@ namespace Assistance {
 			
 			if (level < keyPointsSent) {
 				// apply
-				keyPointsSent -= tool.paintApply(keyPointsSent - level);
+				int applied = tool.paintApply(keyPointsSent - level);
+				applied = Math.Max(0, Math.Min(keyPointsSent - level, applied));
+				keyPointsSent -= applied;
 				foreach(Track track in subTracks) {
 					TrackHandler handler = (TrackHandler)track.handler;
 					handler.keys.RemoveRange(keyPointsSent, handler.keys.Count - keyPointsSent);
@@ -185,7 +188,7 @@ namespace Assistance {
 				}
 				
 				// send to tool
-				if (keyPointsSent == keyPoints.Count)
+				if (keyPointsSent == keyPoints.Count && subTracks.Count > 0)
 					tool.paintTracks(subTracks);
 				
 				// is paint finished?
@@ -365,9 +368,21 @@ namespace Assistance {
 					TrackHandler handler = (TrackHandler)track.handler;
 					int start = handler.keys[keyPointsSent];
 					if (start < track.points.Count) {
+						Drawing.Color color = penPreview.color;
+						int level = keyPointsSent;
+						
+						color.apply(context);
 						context.MoveTo(track.points[start].point.position.x, track.points[start].point.position.y);
-						for(int i = start + 1; i < track.points.Count; ++i)
-							context.MoveTo(track.points[i].point.position.x, track.points[i].point.position.y);
+						for(int i = start + 1; i < track.points.Count; ++i) {
+							while(level < handler.keys.Count && handler.keys[level] <= i) {
+								context.Stroke();
+								context.MoveTo(track.points[i-1].point.position.x, track.points[i-1].point.position.y);
+								color.a *= levelAlpha;
+								color.apply(context);
+								++level;
+							}
+							context.LineTo(track.points[i].point.position.x, track.points[i].point.position.y);
+						}
 					}
 				}
 				context.Stroke();

@@ -9,8 +9,16 @@ namespace Assistance {
 			Tangents = 1,
 			Interpolation = 2,
 			Guideline = 4,
-			Multiline = 8
+			Multiline = 8,
+			All = 15
 		};
+		
+		
+		public readonly Workarea workarea;
+		
+		
+		public Tool(Workarea workarea)
+			{ this.workarea = workarea; }
 
 		public virtual ModifierTypes getAvailableModifierTypes()
 			{ return ModifierTypes.None; }
@@ -30,7 +38,7 @@ namespace Assistance {
 		// become:         ------O-------O------------
 		public virtual void paintTracks(List<Track> tracks) { }
 
-		// try to merge N top painting levels and return true, or do nothing and return false
+		// try to merge N top painting levels and return count of levels that actually merged
 		// was:            ------O-------O------O------
 		// become (N = 2): ------O---------------------
 		public virtual int paintApply(int count) { return 0; }

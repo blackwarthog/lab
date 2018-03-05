@@ -138,6 +138,8 @@ namespace Assistance {
 			{ get { return modifier != null ? modifier.original : null; } }
 		public double timeOffset
 			{ get { return modifier != null ? modifier.timeOffset : 0.0; } }
+		public long ticks
+			{ get { return keyHistory.ticks; } }
 			
 		public bool isChanged
 			{ get { return wayPointsAdded != 0 || wayPointsRemoved != 0; } }
@@ -168,7 +170,7 @@ namespace Assistance {
 		public int floorIndex(double index)
 			{ return clampIndex((int)Math.Floor(index + Geometry.precision)); }
 		public int ceilIndex(double index)
-			{ return clampIndex((int)Math.Floor(index + Geometry.precision)); }
+			{ return clampIndex((int)Math.Ceiling(index - Geometry.precision)); }
 		
 		public WayPoint getWayPoint(int index) {
 			index = clampIndex(index);
