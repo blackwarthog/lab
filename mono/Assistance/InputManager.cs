@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Assistance {
 	public class InputManager: Track.IOwner {
-		public static readonly Drawing.Pen penPreview = new Drawing.Pen("Dark Green", 1.0, 0.25);
+		public static readonly Drawing.Pen penPreview = new Drawing.Pen("Dark Green", 3.0, 0.25);
 		public static readonly double levelAlpha = 0.8;
 
 		public class TrackHandler: Track.Handler {
@@ -55,7 +55,7 @@ namespace Assistance {
 		public interface IModifier: Track.IOwner {
 			void activate();
 			void modify(List<Track> tracks, KeyPoint keyPoint, List<Track> outTracks);
-			void draw(Cairo.Context context, List<Track> tracks);
+			void draw(Cairo.Context context, List<Track> tracks, List<Point> hovers);
 			void deactivate();
 		}
 
@@ -64,9 +64,12 @@ namespace Assistance {
 			public virtual void modify(Track track, KeyPoint keyPoint, List<Track> outTracks) { }
 			public virtual void modify(List<Track> tracks, KeyPoint keyPoint, List<Track> outTracks)
 				{ foreach(Track track in tracks) modify(track, keyPoint, outTracks); }
-			public virtual void draw(Cairo.Context context, Track tracks) { }
-			public virtual void draw(Cairo.Context context, List<Track> tracks)
-				{ foreach(Track track in tracks) draw(context, track); }
+			public virtual void drawHover(Cairo.Context context, Point hover) { }
+			public virtual void drawTrack(Cairo.Context context, Track track) { }
+			public virtual void draw(Cairo.Context context, List<Track> tracks, List<Point> hovers) {
+				foreach(Track track in tracks) drawTrack(context, track);
+				foreach(Point hover in hovers) drawHover(context, hover);
+			}
 			public virtual void deactivate() { }
 		}
 
@@ -91,7 +94,7 @@ namespace Assistance {
 		private void paintRollbackTo(int keyIndex, List<Track> subTracks) {
 			if (keyIndex >= keyPoints.Count)
 				return;
-			
+
 			int level = keyIndex + 1;
 			if (level <= keyPointsSent) {
 				if (level < keyPointsSent)
@@ -114,34 +117,33 @@ namespace Assistance {
 		private void paintApply(int count, List<Track> subTracks) {
 			if (count <= 0)
 				return;
-			
+				
 			int level = keyPoints.Count - count;
+			bool resend = true;
 			
 			if (level < keyPointsSent) {
 				// apply
 				int applied = tool.paintApply(keyPointsSent - level);
 				applied = Math.Max(0, Math.Min(keyPointsSent - level, applied));
 				keyPointsSent -= applied;
-				foreach(Track track in subTracks) {
-					TrackHandler handler = (TrackHandler)track.handler;
-					handler.keys.RemoveRange(keyPointsSent, handler.keys.Count - keyPointsSent);
-				}
+				if (keyPointsSent == level) resend = false;
 			}
-
+			
 			if (level < keyPointsSent) {
 				// rollback
 				tool.paintPop(keyPointsSent - level);
 				keyPointsSent = level;
-				foreach(Track track in subTracks) {
-					TrackHandler handler = (TrackHandler)track.handler;
-					int cnt = handler.keys[keyPointsSent];
-					handler.keys.RemoveRange(keyPointsSent, handler.keys.Count - keyPointsSent);
-					track.wayPointsRemoved = 0;
-					track.wayPointsAdded = track.points.Count - cnt;
-				}
 			}
 
 			// remove keypoints
+			foreach(Track track in subTracks) {
+				TrackHandler handler = (TrackHandler)track.handler;
+				if (resend) {
+					track.wayPointsRemoved = 0;
+					track.wayPointsAdded = track.points.Count - handler.keys[keyPointsSent];
+				}
+				handler.keys.RemoveRange(level, handler.keys.Count - level);
+			}
 			for(int i = level; i < keyPoints.Count; ++i) keyPoints[i].available = false;
 			keyPoints.RemoveRange(level, keyPoints.Count - level);
 		}
@@ -171,7 +173,7 @@ namespace Assistance {
 					int rollbackIndex = keyPoints.Count;
 					foreach(Track track in subTracks) {
 						if (track.wayPointsRemoved > 0) {
-							int count = track.points.Count - track.wayPointsAdded + track.wayPointsRemoved;
+							int count = track.points.Count - track.wayPointsAdded;
 							TrackHandler handler = (TrackHandler)track.handler;
 							while(rollbackIndex > 0 && (rollbackIndex >= keyPoints.Count || handler.keys[rollbackIndex] > count))
 								--rollbackIndex;
@@ -189,6 +191,10 @@ namespace Assistance {
 				// send to tool
 				if (keyPointsSent == keyPoints.Count && subTracks.Count > 0)
 					tool.paintTracks(subTracks);
+				foreach(Track track in subTracks) {
+					track.wayPointsRemoved = 0;
+					track.wayPointsAdded = 0;
+				}
 				
 				// is paint finished?
 				if (newKeyPoint.isFree) {
@@ -206,11 +212,15 @@ namespace Assistance {
 				foreach(Track track in subTracks)
 					((TrackHandler)track.handler).keys.Add(track.points.Count);
 			}
+
 		}
-		
+
+		private long getDeviceId(Gdk.Device device)
+			{ return device == null ? 0 : device.Handle.ToInt64(); }
+				
 		private int trackCompare(Track track, Gdk.Device device, long touchId) {
-			if (track.device.Handle.ToInt64() < device.Handle.ToInt64()) return -1;
-			if (track.device.Handle.ToInt64() > device.Handle.ToInt64()) return 1;
+			if (getDeviceId(track.device) < getDeviceId(device)) return -1;
+			if (getDeviceId(track.device) > getDeviceId(device)) return 1;
 			if (track.touchId < touchId) return -1;
 			if (track.touchId > touchId) return 1;
 			return 0;
@@ -227,6 +237,8 @@ namespace Assistance {
 		}
 		
 		private Track getTrack(Gdk.Device device, long touchId, long ticks) {
+			if (tracks[0].Count == 0)
+				return createTrack(0, device, touchId, ticks);
 			int cmp;
 			
 			int a = 0;
@@ -234,7 +246,7 @@ namespace Assistance {
 			if (cmp == 0) return tracks[0][a];
 			if (cmp < 0) return createTrack(a, device, touchId, ticks);
 			
-			int b = tracks.Count - 1;
+			int b = tracks[0].Count - 1;
 			cmp = trackCompare(tracks[0][b], device, touchId);
 			if (cmp == 0) return tracks[0][b];
 			if (cmp > 0) return createTrack(b+1, device, touchId, ticks);
@@ -343,7 +355,7 @@ namespace Assistance {
 			{ return tool; }
 		
 		public void setTool(Tool tool) {
-			if (this.tool == tool) {
+			if (this.tool != tool) {
 				if (actualActive) {
 					finishTracks();
 					this.tool.deactivate();
@@ -395,14 +407,20 @@ namespace Assistance {
 		}
 	
 		
-		public void draw(Cairo.Context context) {
+		public void draw(Cairo.Context context, List<Point> hovers) {
+			if (!isActive()) return;
+
+			// paint tool
+			tool.draw(context);
+			
 			// paint not sent sub-tracks
 			if (keyPointsSent < keyPoints.Count) {
 				context.Save();
 				penPreview.apply(context);
 				foreach(Track track in getOutputTracks()) {
 					TrackHandler handler = (TrackHandler)track.handler;
-					int start = handler.keys[keyPointsSent];
+					int start = handler.keys[keyPointsSent] - 1;
+					if (start < 0) start = 0;
 					if (start < track.points.Count) {
 						Drawing.Color color = penPreview.color;
 						int level = keyPointsSent;
@@ -427,7 +445,7 @@ namespace Assistance {
 			
 			// paint modifiers
 			for(int i = 0; i < modifiers.Count; ++i)
-				modifiers[i].draw(context, tracks[i]);
+				modifiers[i].draw(context, tracks[i], hovers);
 		}
 	}
 }

@@ -6,7 +6,8 @@ namespace Assistance {
 	public class InputModifierAssistants: InputModifierTangents {
 		public readonly Workarea workarea;
 		public readonly bool defaultTangents;
-		
+		public readonly List<Guideline> shownGuidelines = new List<Guideline>();
+				
 		public InputModifierAssistants(Workarea workarea, bool defaultTangents = false) {
 			this.workarea = workarea;
 			this.defaultTangents = defaultTangents;
@@ -18,7 +19,6 @@ namespace Assistance {
 			
 			public InputManager.KeyPoint.Holder holder = null;
 			public List<Guideline> guidelines = new List<Guideline>();
-			public List<Guideline> hintGuidelines = new List<Guideline>();
 			
 			public override Track.WayPoint calcWayPoint(double originalIndex) {
 				Track.WayPoint p = original.calcWayPoint(originalIndex);
@@ -35,7 +35,7 @@ namespace Assistance {
 					return;
 
 				Track.Handler handler = new Track.Handler(this, track);
-				modifier = new Modifier(track.handler);
+				modifier = new Modifier(handler);
 				workarea.getGuidelines(modifier.guidelines, track.points[0].point.position);
 				if (defaultTangents && modifier.guidelines.Count == 0)
 					{ base.modify(track, keyPoint, outTracks); return; }
@@ -65,18 +65,18 @@ namespace Assistance {
 			int start = track.points.Count - track.wayPointsAdded;
 			if (start < 0) start = 0;
 			if (subTrack.points.Count < start) {
-				subTrack.points.RemoveRange(start, subTrack.points.Count - start);
 				subTrack.wayPointsRemoved += subTrack.points.Count - start;
+				subTrack.points.RemoveRange(start, subTrack.points.Count - start);
 			}
 			
-			bool trackIsLong = track.points.Count > 0 && track.getLast().length >= Guideline.maxLenght;
+			bool trackIsLong = track.points.Count > 0 && (track.getLast().length >= Guideline.maxLenght || track.isFinished());
 			if (!trackIsLong && modifier.holder != null && !modifier.holder.isHolded && modifier.holder.available)
 				modifier.holder.reuse();
 			
 			// select guideline
 			if (modifier.holder != null && modifier.holder.isHolded) {
 				Guideline guideline = Guideline.findBest(modifier.guidelines, track);
-				if (guideline != modifier.guidelines[0]) {
+				if (guideline != null && guideline != modifier.guidelines[0]) {
 					modifier.guidelines[ modifier.guidelines.IndexOf(guideline) ] = modifier.guidelines[0];
 					modifier.guidelines[0] = guideline;
 					start = 0;
@@ -91,20 +91,23 @@ namespace Assistance {
 			for(int i = start; i < track.points.Count; ++i)
 				subTrack.points.Add(modifier.calcWayPoint(i));
 			subTrack.wayPointsAdded = subTrack.points.Count - start;
+			
+			track.wayPointsRemoved = 0;
+			track.wayPointsAdded = 0;
 		}
-		
-		public override void draw(Cairo.Context context, Track track) {
+
+		public override void drawHover(Cairo.Context context, Point hover) {
+			workarea.getGuidelines(shownGuidelines, hover);
+			foreach(Guideline guideline in shownGuidelines)
+				guideline.draw(context);
+			shownGuidelines.Clear();
+		}
+				
+		public override void drawTrack(Cairo.Context context, Track track) {
 			if (track.handler == null) return;
 			Track subTrack = track.handler.tracks[0];
-			if (!(subTrack.modifier is Modifier))
-				{ base.draw(context, track); return; }
-			Modifier modifier = (Modifier)subTrack.modifier;
-			if (modifier.guidelines.Count > 0 && subTrack.points.Count > 0) {
-				workarea.getGuidelines(modifier.hintGuidelines, subTrack.points[0].point.position);
-				foreach(Guideline gl in modifier.hintGuidelines)
-					gl.draw(context);
-				modifier.hintGuidelines.Clear();
-			}
+			if (subTrack.points.Count > 0)
+				drawHover(context, subTrack.getLast().point.position);
 		}
 	}
 }

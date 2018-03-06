@@ -4,13 +4,13 @@ namespace Assistance {
 	namespace Drawing {
 		public class Helper {
 			public static Rectangle getBounds(Cairo.Context context) {
-				double w = 1.0;
-				double h = 1.0;
-				if (context.GetTarget() is Cairo.ImageSurface) {
-					Cairo.ImageSurface surface = (Cairo.ImageSurface)context.GetTarget();
-					w = surface.Width;
-					h = surface.Height;
-				}
+				double w = 2000;
+				double h = 1500;
+				//if (context.GetTarget() is Cairo.ImageSurface) {
+				//	Cairo.ImageSurface surface = (Cairo.ImageSurface)context.GetTarget();
+				//	w = surface.Width;
+				//	h = surface.Height;
+				//}
 				
 				Point[] corners = new Point[] {
 					new Point(0.0, 0.0),

@@ -49,11 +49,11 @@ namespace Assistance {
 				int start = track.points.Count - track.wayPointsAdded;
 				if (start < 0) start = 0;
 				if (start > 1) --start;
-				if (subTrack.points.Count < start) {
-					subTrack.points.RemoveRange(start, subTrack.points.Count - start);
+				if (start < subTrack.points.Count) {
 					subTrack.wayPointsRemoved += subTrack.points.Count - start;
+					subTrack.points.RemoveRange(start, subTrack.points.Count - start);
 				}
-				if (modifier.tangents.Count < start)
+				if (start < modifier.tangents.Count)
 					modifier.tangents.RemoveRange(start, modifier.tangents.Count - start);
 				
 				// add first point

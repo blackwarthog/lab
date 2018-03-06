@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 namespace Assistance {
 	public class InputModifierInterpolation: InputManager.Modifier {
+		public static readonly int maxRecursion = 8;
+	
 		public readonly double precision;
 		public readonly double precisionSqr;
 		
@@ -11,12 +13,12 @@ namespace Assistance {
 			this.precisionSqr = this.precision*this.precision;
 		}
 	
-		public void addSegment(Track track, Track.WayPoint p0, Track.WayPoint p1) {
-			if ((p1.point.position - p0.point.position).lenSqr() <= precisionSqr)
+		public void addSegment(Track track, Track.WayPoint p0, Track.WayPoint p1, int level = 0) {
+			if (level >= maxRecursion || (p1.point.position - p0.point.position).lenSqr() <= precisionSqr)
 				{ track.points.Add(p1); return; }
 			Track.WayPoint p = track.modifier.calcWayPoint(0.5*(p0.originalIndex + p1.originalIndex));
-			addSegment(track, p0, p);
-			addSegment(track, p, p1);
+			addSegment(track, p0, p, level + 1);
+			addSegment(track, p, p1, level + 1);
 		}
 	
 		public override void modify(Track track, InputManager.KeyPoint keyPoint, List<Track> outTracks) {
@@ -35,9 +37,11 @@ namespace Assistance {
 			int start = track.points.Count - track.wayPointsAdded;
 			if (start < 0) start = 0;
 			int subStart = subTrack.floorIndex(subTrack.indexByOriginalIndex(start));
-			if (subTrack.points.Count < subStart) {
-				subTrack.points.RemoveRange(subStart, subTrack.points.Count - subStart);
+			if (subStart < 0) subStart = 0;
+			
+			if (subStart < subTrack.points.Count) {
 				subTrack.wayPointsRemoved += subTrack.points.Count - subStart;
+				subTrack.points.RemoveRange(subStart, subTrack.points.Count - subStart);
 			}
 			
 			// add points
@@ -48,6 +52,9 @@ namespace Assistance {
 				p0 = p1;
 			}
 			subTrack.wayPointsAdded += subTrack.points.Count - subStart;
+			
+			track.wayPointsRemoved = 0;
+			track.wayPointsAdded = 0;
 		}
 	}
 }

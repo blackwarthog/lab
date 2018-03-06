@@ -10,14 +10,14 @@ namespace Assistance {
 		
 		public static bool isEqual(double a, double b)
 			{ return Math.Abs(b - a) <= precision; }
+		public static bool isLess(double a, double b)
+			{ return b - a > precision; }
+		public static bool isGreater(double a, double b)
+			{ return a - b > precision; }
+		public static bool isLessOrEqual(double a, double b)
+			{ return a - b <= precision; }
 		public static bool isGreaterOrEqual(double a, double b)
 			{ return b - a <= precision; }
-		public static bool isLessOrEqual(double a, double b)
-			{ return isGreaterOrEqual(b, a); }
-		public static bool isLess(double a, double b)
-			{ return !isGreaterOrEqual(a, b); }
-		public static bool isGreater(double a, double b)
-			{ return !isGreaterOrEqual(b, a); }
 		
 		public static double logNormalDistribuitionUnscaled(double x, double x0, double w) {
 			return Math.Exp(-0.5*Math.Pow(Math.Log(x/x0)/w, 2.0))/x;
@@ -108,6 +108,22 @@ namespace Assistance {
         }
 
 		public static double interpolationSplineTangent(double p0, double p1, double t0, double t1, double l) {
+			double ll = l*l;
+			return (p0 - p1)*6.0*(ll - l)
+			     + t0*( 3.0*ll - 4.0*l + 1.0)
+			     + t1*( 3.0*ll - 2.0*l      );
+        }
+
+		public static Track.Point interpolationSpline(Track.Point p0, Track.Point p1, Track.Point t0, Track.Point t1, double l) {
+			double ll = l*l;
+			double lll = ll*l;
+			return p0*( 2.0*lll - 3.0*ll + 1.0)
+			     + p1*(-2.0*lll + 3.0*ll      )
+			     + t0*(     lll - 2.0*ll + l  )
+			     + t1*(     lll - 1.0*ll      );
+        }
+
+		public static Track.Point interpolationSplineTangent(Track.Point p0, Track.Point p1, Track.Point t0, Track.Point t1, double l) {
 			double ll = l*l;
 			return (p0 - p1)*6.0*(ll - l)
 			     + t0*( 3.0*ll - 4.0*l + 1.0)

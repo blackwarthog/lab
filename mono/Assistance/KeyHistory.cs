@@ -63,8 +63,9 @@ namespace Assistance {
 		
 		private int findLock(long ticks) {
 			// locks[a] <= ticks < locks[b]
+			if (locks.Count == 0) return -1;
 			int a = 0;
-			int b = states.Count - 1;
+			int b = locks.Count - 1;
 			if (locks[a] < ticks) return -1;
 			if (ticks >= locks[b]) return b;
 			while(true) {

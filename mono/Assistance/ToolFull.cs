@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Assistance {
 	public class ToolFull: Tool {
-		public static readonly Drawing.Pen pen = new Drawing.Pen("Dark Green", 10.0);
+		public static readonly Drawing.Pen pen = new Drawing.Pen("Dark Green", 3.0);
 		public static readonly double levelAlpha = 0.8;
 	
 		
@@ -25,32 +25,36 @@ namespace Assistance {
 			return true;
 		}
 
-		private void paintPoint(DynamicSurface surface, Cairo.Context context, Track.WayPoint point) {
+		private void paintPoint(DynamicSurface surface, Track.WayPoint point) {
 			Point p = point.point.position;
 			double r = pen.width*point.point.pressure;
+			Drawing.Color color = pen.color;
+			if (r < 0.01) r = 0.01;
+			if (r > Geometry.precision && r < 0.5)
+				{ color.a *= r/0.5; r = 0.5; }
 			double rr = r + 1.0;
 			
-			surface.expandContext(ref context, new Rectangle(p.x - rr, p.y - rr, p.x + rr, p.y + rr));
+			surface.expand(new Rectangle(p.x - rr, p.y - rr, p.x + rr, p.y + rr));
 
-			context.Save();
-			pen.apply(context);
-			context.Arc(p.x, p.y, r, 0.0, 2.0*Math.PI);
-			context.Fill();
-			context.Restore();
+			surface.context.Save();
+			pen.apply(surface.context);
+			color.apply(surface.context);
+			surface.context.Arc(p.x, p.y, r, 0.0, 2.0*Math.PI);
+			surface.context.Fill();
+			surface.context.Restore();
 		}
 
 		public override void paintTracks(List<Track> tracks) {
 			DynamicSurface surface = getSurface();
-			Cairo.Context context = surface.getContext();
 			while(true) {
 				Track track = null;
-				long minTicks = long.MaxValue;
+				long minTicks = 0;
 				double minTimeOffset = 0.0;
 				foreach(Track t in tracks) {
 					if (t.wayPointsAdded > 0) {
 						long ticks = t.ticks;
 						double timeOffset = t.timeOffset + t.points[t.points.Count - t.wayPointsAdded].time;
-						if ((ticks - minTicks)*Timer.frequency + timeOffset - minTimeOffset < 0.0) {
+						if (track == null || (ticks - minTicks)*Timer.frequency + timeOffset - minTimeOffset < 0.0) {
 							track = t;
 							minTicks = ticks;
 							minTimeOffset = timeOffset;
@@ -58,23 +62,18 @@ namespace Assistance {
 					}
 				}
 				if (track == null) break;
-				paintPoint(surface, context, track.points[track.points.Count - track.wayPointsAdded]);
+				paintPoint(surface, track.points[track.points.Count - track.wayPointsAdded]);
 				--track.wayPointsAdded;
 			}
-			context.GetTarget().Flush();
-			context.Dispose();
 		}
 		
 		public override int paintApply(int count) {
 			int level = stack.Count - count;
 			DynamicSurface surface = getSurface(level);
-			Cairo.Context context = surface.getContext();
 			for(int i = level; i < stack.Count; ++i) {
-				surface.expandContext(ref context, stack[i].getBounds(), true);
-				stack[i].draw(context);
+				surface.expand(stack[i].getBounds(), true);
+				stack[i].draw(surface.context);
 			}
-			context.GetTarget().Flush();
-			context.Dispose();
 			paintPop(count);
 			return count;
 		}

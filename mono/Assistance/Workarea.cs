@@ -47,6 +47,9 @@ namespace Assistance {
 				inputManager.activate();
 			}
 		}
+		
+		public void updateModifiers()
+			{ setTool(getTool(), true); }
 
 		public ActivePoint findPoint(Point position) {
 			foreach(ActivePoint point in document.points.Reverse<ActivePoint>())
@@ -60,12 +63,12 @@ namespace Assistance {
 				assistant.getGuidelines(outGuidelines, target);
 		}
 
-		public void draw(Cairo.Context context, ActivePoint activePoint) {
+		public void draw(Cairo.Context context, List<Point> hovers, ActivePoint activePoint) {
 			// canvas
 			document.canvas.draw(context);
 
 			// input manager
-			inputManager.draw(context);
+			inputManager.draw(context, hovers);
 			
 			// modifiers
 			foreach(Modifier modifier in document.modifiers)

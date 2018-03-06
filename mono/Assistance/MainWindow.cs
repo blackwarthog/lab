@@ -10,9 +10,7 @@ namespace Assistance {
 			win.Maximize();
         	Gtk.Application.Run();
         }
-
-		Cairo.ImageSurface surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, 1, 1);
-
+		
 		Workarea workarea = new Workarea();
 		ToolFull toolFull;
 		
@@ -22,6 +20,7 @@ namespace Assistance {
 
 		Point offset;
 		Point cursor;
+		List<Point> hovers = new List<Point>();
 		
 		long touchId;
 		long ticksStart = 0;
@@ -47,48 +46,41 @@ namespace Assistance {
 			workarea.setTool(toolFull);
         }
         
+        private bool refreshOnIdle()
+        	{ QueueDraw(); return false; }
+        private void Refresh()
+        	{ GLib.Idle.Add(refreshOnIdle); }
+        
         protected override bool OnDeleteEvent(Gdk.Event e) {
 			Gtk.Application.Quit();
-			return true;
-		}
-
-		protected override void OnSizeAllocated(Gdk.Rectangle allocation) {
-			if ( surface.Width != allocation.Width
-	          || surface.Height != allocation.Height )
-	        {
-	        	surface.Dispose();
-	        	surface = new Cairo.ImageSurface(Cairo.Format.ARGB32, allocation.Width, allocation.Height);
-	       	}
-			base.OnSizeAllocated(allocation);
+			return false;
 		}
 
 		protected override bool OnExposeEvent(Gdk.EventExpose e) {
-			Cairo.Context context = new Cairo.Context(surface);
-        	context.Antialias = Cairo.Antialias.Gray;
-        	
+            Cairo.Context context = Gdk.CairoHelper.Create(e.Window);
+
         	context.Save();
         	context.SetSourceRGBA(1.0, 1.0, 1.0, 1.0);
-        	context.Rectangle(0, 0, surface.Width, surface.Height);
+        	context.Rectangle(0, 0, Allocation.Width, Allocation.Height);
         	context.Fill();
         	context.Restore();
-            
+        	
+        	context.Save();
+			context.Antialias = Cairo.Antialias.Gray;
             draw(context);
+        	context.Restore();
+            
             context.Dispose();
             
-            context = Gdk.CairoHelper.Create(GdkWindow);
-            context.SetSource(surface);
-            context.Paint();
-            context.Dispose();
-
-			return true;
+			return false;
 		}
 
 		public Point windowToWorkarea(Point p) {
-			return new Point(p.x - surface.Width/2.0, p.y - surface.Height/2.0);
+			return new Point(p.x - Allocation.Width/2.0, p.y - Allocation.Height/2.0);
 		}
 
 		public Point workareaToWindow(Point p) {
-			return new Point(p.x + surface.Width/2.0, p.y + surface.Height/2.0);
+			return new Point(p.x + Allocation.Width/2.0, p.y + Allocation.Height/2.0);
 		}
 
 		private void beginDrag() {
@@ -103,6 +95,7 @@ namespace Assistance {
 			++touchId;
 			ticksStart = Timer.ticks();
 			this.timeStart = timeStart;
+			painting = true;
 		}
 
 		private void endDragAndTrack() {
@@ -140,7 +133,7 @@ namespace Assistance {
 				workarea.inputManager.keyEvent(true, e.Key, Timer.ticks());
 				break;
 			}
-			QueueDraw();
+			Refresh();
 			return base.OnKeyPressEvent(e);
 		}
 		
@@ -159,13 +152,12 @@ namespace Assistance {
 			point.tilt = tilt;	
 			
 			long ticks = ticksStart + (long)Math.Round((time - timeStart)*Timer.frequency);
-			
 			workarea.inputManager.trackEvent(device, touchId, point, final, ticks);
 		}
 
 		void addTrackPoint(double x, double y, uint t, Gdk.Device device, double[] axes, bool final) {
 			Point point = windowToWorkarea(new Point(x, y));
-			double time = (double)(t - timeStart)*0.001;
+			double time = (double)t*0.001;
 			double pressure = 0.5;
 			Point tilt = new Point(0.0, 0.0);
 			if (device != null && axes != null) {
@@ -189,7 +181,6 @@ namespace Assistance {
 			cursor = windowToWorkarea(new Point(e.X, e.Y));
 			workarea.inputManager.buttonEvent(true, e.Device, e.Button, Timer.ticks());
 			if (e.Button == 1) {
-				timeStart = e.Time;
 				activePoint = workarea.findPoint(cursor);
 				if (activePoint != null) {
 					beginDrag();
@@ -198,8 +189,8 @@ namespace Assistance {
 					addTrackPoint(e, true);
 				}
 			}
-			QueueDraw();
-			return true;
+			Refresh();
+			return false;
 		}
 
 		protected override bool OnButtonReleaseEvent(Gdk.EventButton e) {
@@ -212,8 +203,8 @@ namespace Assistance {
 				if (!dragging && !painting)
 					activePoint = workarea.findPoint(cursor);
 			}
-			QueueDraw();
-			return true;
+			Refresh();
+			return false;
 		}
 
 		protected override bool OnMotionNotifyEvent(Gdk.EventMotion e) {
@@ -226,13 +217,15 @@ namespace Assistance {
 			} else {
 				activePoint = workarea.findPoint(cursor);
 			}
-			QueueDraw();
-			return true;
+			Refresh();
+			return false;
 		}
 
         public void draw(Cairo.Context context) {
-        	context.Translate(surface.Width/2, surface.Height/2);
-			workarea.draw(context, activePoint);
+        	context.Translate(Allocation.Width/2, Allocation.Height/2);
+        	hovers.Clear();
+        	if (!painting) hovers.Add(cursor);
+			workarea.draw(context, hovers, activePoint);
         }
     }
 }

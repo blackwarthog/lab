@@ -154,7 +154,7 @@ namespace Assistance {
 		public WayPoint getLast()
 			{ return getWayPoint(points.Count - 1); }
 		public bool isFinished()
-			{ return getLast().final; }
+			{ return points.Count > 0 && getLast().final; }
 		
 		public int clampIndex(int index)
 			{ return Math.Min(Math.Max(index, 0), points.Count - 1); }
@@ -181,7 +181,7 @@ namespace Assistance {
 		public WayPoint floorWayPoint(double index)
 			{ return getWayPoint(floorIndex(index)); }
 		public WayPoint ceilWayPoint(double index)
-			{ return getWayPoint(floorIndex(index)); }
+			{ return getWayPoint(ceilIndex(index)); }
 		
 		private delegate double WayPointFieldGetter(WayPoint p);
 		private double binarySearch(double value, WayPointFieldGetter getter) {
@@ -190,7 +190,7 @@ namespace Assistance {
 			if (points.Count <= 0) return 0.0;
 			int a = 0;
 			double aa = getter(points[a]);
-			if (Geometry.isLess(aa, value)) return 0.0;
+			if (Geometry.isLess(value, aa)) return 0.0;
 
 			int b = points.Count - 1;
 			double bb = getter(points[b]);
@@ -247,8 +247,8 @@ namespace Assistance {
 			if (l <= Geometry.precision) return p0;
 			if (l >= 1.0 - Geometry.precision) return p1;
 			return new WayPoint(
-				Geometry.Interpolation<Point>.spline(p0.point, p1.point, p0.tangent, p1.tangent, l),
-				Geometry.Interpolation<Point>.splineTangent(p0.point, p1.point, p0.tangent, p1.tangent, l),
+				Geometry.interpolationSpline(p0.point, p1.point, p0.tangent, p1.tangent, l),
+				Geometry.interpolationSplineTangent(p0.point, p1.point, p0.tangent, p1.tangent, l),
 				Geometry.interpolationLinear(p0.originalIndex, p1.originalIndex, l),
 				Geometry.interpolationLinear(p0.time, p1.time, l),
 				Geometry.interpolationLinear(p0.length, p1.length, l),

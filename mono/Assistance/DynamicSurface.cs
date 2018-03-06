@@ -8,6 +8,7 @@ namespace Assistance {
 		private int offsetX;
 		private int offsetY;
 		private Cairo.ImageSurface surface;
+		private Cairo.Context privateContext;
 		
 		public DynamicSurface(double incrementScale = 1.2)
 			{ this.incrementScale = incrementScale; }
@@ -24,21 +25,20 @@ namespace Assistance {
 		public int height
 			{ get { return isEmpty ? 0 : surface.Height; } }
 		
+		public Cairo.Context context
+			{ get { return privateContext; } }
+
 		public Rectangle getBounds() {
 			return isEmpty ? new Rectangle()
 			     : new Rectangle((double)offsetX, (double)offsetY, (double)(offsetX + surface.Width), (double)(offsetY + surface.Height));
 		}
 
-		public Cairo.Context getContext() {
-			if (isEmpty) return null;
-			Cairo.Context context = new Cairo.Context(surface);
-			context.Antialias = Cairo.Antialias.Gray;
-			context.Translate(-offsetX, -offsetY);
-			return context;
-		}
+		public void flush()
+			{ if (surface != null) surface.Flush(); }
 
 		public void draw(Cairo.Context context, double alpha = 1.0) {
 			if (isEmpty) return;
+			flush();
 			context.Save();
 			context.Translate(offsetX, offsetY);
 			context.SetSource(surface);
@@ -49,15 +49,19 @@ namespace Assistance {
 
 		public void clear() {
 			if (isEmpty) return;
+			privateContext.Dispose();
+			privateContext = null;
 			surface.Dispose();
 			surface = null;
-		}
+        }
 
-		private bool doExpand(Rectangle rect, bool noScale) {
+		public bool expand(Rectangle rect, bool noScale = false) {
+			rect = new Rectangle(rect.p0).expand(rect.p1);
+		
 			int rl = (int)Math.Floor(rect.x0 + Geometry.precision);
 			int rt = (int)Math.Floor(rect.y0 + Geometry.precision);
-			int rr = Math.Max(rl, (int)Math.Ceiling(rect.x1 - Geometry.precision));
-			int rb = Math.Max(rt, (int)Math.Ceiling(rect.y1 - Geometry.precision));
+			int rr = Math.Max(rl, (int)Math.Ceiling(rect.x1 - Geometry.precision)) + 1;
+			int rb = Math.Max(rt, (int)Math.Ceiling(rect.y1 - Geometry.precision)) + 1;
 		    
 		    int l, t, r, b;
 		    if (surface == null) {
@@ -81,44 +85,28 @@ namespace Assistance {
 		    int h = b - t;
 		    if (surface != null && l == offsetX && t == offsetY && w == surface.Width && h == surface.Height)
 		    	return false;
-
-			Cairo.ImageSurface newSurface = new Cairo.ImageSurface(Cairo.Format.ARGB32, w, h);
-	    	Cairo.Context context = new Cairo.Context(newSurface);
-	    	if (surface != null) {
-		    	context.Translate(offsetX - l, offsetY - t);
-		    	context.SetSource(surface);
-		    	context.Paint();
-				context.GetTarget().Flush();
-				context.Dispose();
-			}
+		    if (w <= 0 || h <= 0)
+		    	return false;
 			
+			Cairo.ImageSurface newSurface = new Cairo.ImageSurface(Cairo.Format.ARGB32, w, h);
+			Cairo.Context newContext = new Cairo.Context(newSurface);
+	    	if (!isEmpty) {
+	    		flush();
+	    		newContext.Save();
+		    	newContext.Translate(offsetX - l, offsetY - t);
+		    	newContext.SetSource(surface);
+		    	newContext.Paint();
+		    	newContext.Restore();
+				clear();
+			}
 			offsetX = l;
 			offsetY = t;
 			surface = newSurface;
+			privateContext = newContext;
+			privateContext.Antialias = Cairo.Antialias.Gray;
+			privateContext.Translate(-offsetX, -offsetY);
 			
 			return true;
-		}
-
-		public bool expand(Rectangle rect, bool noScale = false) {
-			Cairo.Surface surface = this.surface;
-			if (doExpand(rect, noScale)) {
-				if (surface != null) surface.Dispose();
-				return true;
-			}
-			return false;
-		}
-		
-		public bool expandContext(ref Cairo.Context context, Rectangle rect, bool noScale = false) {
-			Cairo.Surface surface = this.surface;
-			if (context != null) context.GetTarget().Flush();
-			if (doExpand(rect, noScale)) {
-				Cairo.Context oldContext = context;
-				context = getContext();
-				if (oldContext != null) oldContext.Dispose();
-				surface.Dispose();
-				return true;
-			}
-			return false;
 		}
 
 		public void Dispose()

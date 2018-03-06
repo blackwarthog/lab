@@ -8,7 +8,7 @@ namespace Assistance {
 		public static readonly Pen penActive = new Pen("Deep Sky Blue");
 		public static readonly double snapLenght = 20.0;
 		public static readonly double snapScale = 1.0;
-		public static readonly double maxLenght = 2.0*snapLenght*snapScale;
+		public static readonly double maxLenght = 20.0*snapLenght*snapScale;
 	
 		public virtual Track.WayPoint transformPoint(Track.WayPoint point)
 			{ return point; }
@@ -48,11 +48,11 @@ namespace Assistance {
 		}
 
 		public static Guideline findBest(List<Guideline> guidelines, Track track) {
-			double bestWeight = double.PositiveInfinity;
+			double bestWeight = 0.0;
 			Guideline best = null;
 			foreach(Guideline guideline in guidelines) {
 				double weight = guideline.calcTrackWeight(track);
-				if (weight < bestWeight) {
+				if (best == null || weight < bestWeight) {
 					bestWeight = weight;
 					best = guideline;
 				}

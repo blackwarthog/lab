@@ -71,16 +71,19 @@ namespace Assistance {
 			if (start < 0) start = 0;
 			foreach(Track subTrack in track.handler.tracks) {
 				// remove points
-				if (subTrack.points.Count < start) {
-					subTrack.points.RemoveRange(start, subTrack.points.Count - start);
+				if (start < subTrack.points.Count) {
 					subTrack.wayPointsRemoved += subTrack.points.Count - start;
+					subTrack.points.RemoveRange(start, subTrack.points.Count - start);
 				}
 				
 				// add points
 				for(int i = start; i < track.points.Count; ++i)
-					subTrack.points.Add( subTrack.calcWayPoint(i) );
+					subTrack.points.Add( subTrack.modifier.calcWayPoint(i) );
 				subTrack.wayPointsAdded += subTrack.points.Count - start;
 			}
+			
+			track.wayPointsRemoved = 0;
+			track.wayPointsAdded = 0;
 		}
 	}
 }
