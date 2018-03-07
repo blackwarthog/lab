@@ -270,7 +270,7 @@ namespace Assistance {
 			
 			// calc length
 			double length = track.points.Count > 0
-			              ? (point.position - track.getLast().point.position).lenSqr() + track.getLast().length
+			              ? (point.position - track.getLast().point.position).len() + track.getLast().length
 			              : 0.0;
 			
 			// add

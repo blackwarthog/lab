@@ -167,10 +167,14 @@ namespace Assistance {
 			frac = Math.Max(0.0, index - (double)i);
 			return i;
 		}
+		public int floorIndexNoClamp(double index)
+			{ return (int)Math.Floor(index + Geometry.precision); }
 		public int floorIndex(double index)
-			{ return clampIndex((int)Math.Floor(index + Geometry.precision)); }
+			{ return clampIndex(floorIndexNoClamp(index)); }
+		public int ceilIndexNoClamp(double index)
+			{ return (int)Math.Ceiling(index - Geometry.precision); }
 		public int ceilIndex(double index)
-			{ return clampIndex((int)Math.Ceiling(index - Geometry.precision)); }
+			{ return clampIndex(ceilIndexNoClamp(index)); }
 		
 		public WayPoint getWayPoint(int index) {
 			index = clampIndex(index);
@@ -204,7 +208,7 @@ namespace Assistance {
 					{ b = c; bb = cc; } else { a = c; aa = cc; }
 			}
 
-			return Geometry.isLess(aa, bb) ? value + (value - aa)/(bb - aa) : value;
+			return Geometry.isLess(aa, bb) ? (double)a + (value - aa)/(bb - aa) : (double)a;
 		}
 			
 		public double indexByOriginalIndex(double originalIndex)

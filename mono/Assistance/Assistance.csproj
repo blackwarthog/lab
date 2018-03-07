@@ -60,6 +60,7 @@
     <Compile Include="InputModifierInterpolation.cs" />
     <Compile Include="ToolFull.cs" />
     <Compile Include="DynamicSurface.cs" />
+    <Compile Include="ModifierSpiro.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

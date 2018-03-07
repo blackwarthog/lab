@@ -118,6 +118,11 @@ namespace Assistance {
 				new ModifierSnowflake(workarea.document, cursor);
 				endDragAndTrack();
 				break;
+			case Gdk.Key.W:
+			case Gdk.Key.w:
+				new ModifierSpiro(workarea.document, cursor);
+				endDragAndTrack();
+				break;
 			case Gdk.Key.I:
 			case Gdk.Key.i:
 				Gtk.InputDialog dialog = new Gtk.InputDialog();
