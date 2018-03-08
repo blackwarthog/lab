@@ -20,7 +20,7 @@ namespace Assistance {
 			public List<Guideline> guidelines = new List<Guideline>();
 			
 			public override Track.WayPoint calcWayPoint(double originalIndex) {
-				Track.WayPoint p = original.calcWayPoint(originalIndex);
+				Track.WayPoint p = base.calcWayPoint(originalIndex);
 				Point pp = p.point.position - center;
 				p.point.position = center + new Point(Point.dot(pp, px), Point.dot(pp, py));
 				p.tangent.position = new Point(Point.dot(p.tangent.position, px), Point.dot(p.tangent.position, py));

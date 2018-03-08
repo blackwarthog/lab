@@ -162,11 +162,18 @@ namespace Assistance {
 					modifiers[i].modify(tracks[i], newKeyPoint, tracks[i+1]);
 				}
 				List<Track> subTracks = tracks[modifiers.Count];
-				
+
 				// create handlers	
 				foreach(Track track in subTracks)
 					if (track.handler == null)
 						track.handler = new TrackHandler(this, track, keyPoints.Count);
+
+				//Console.WriteLine("--- tracks:");
+				//for(int i = 0; i < tracks.Count; ++i) {
+				//	Console.WriteLine("    level " + i);
+				//	foreach(Track t in tracks[i])
+				//		t.print();
+				//}
 	
 				if (keyPoints.Count > 0) {
 					// rollback

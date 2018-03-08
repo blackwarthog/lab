@@ -11,13 +11,13 @@ namespace Assistance {
 		public static bool isEqual(double a, double b)
 			{ return Math.Abs(b - a) <= precision; }
 		public static bool isLess(double a, double b)
-			{ return b - a > precision; }
+			{ return a - precision < b; }
 		public static bool isGreater(double a, double b)
-			{ return a - b > precision; }
+			{ return b - precision < a; }
 		public static bool isLessOrEqual(double a, double b)
-			{ return a - b <= precision; }
+			{ return a + precision <= b; }
 		public static bool isGreaterOrEqual(double a, double b)
-			{ return b - a <= precision; }
+			{ return b + precision <= a; }
 		
 		public static double logNormalDistribuitionUnscaled(double x, double x0, double w) {
 			return Math.Exp(-0.5*Math.Pow(Math.Log(x/x0)/w, 2.0))/x;
@@ -76,7 +76,7 @@ namespace Assistance {
    			}
    			
 			public static T linear(T p0, T p1, double l)
-				{ return add(mul(sub(p1, p0), l), p0); }
+				{ return add(mul(p0, 1.0-l), mul(p1, l)); }
 	
 			public static T spline(T p0, T p1, T t0, T t1, double l) {
 				double ll = l*l;
@@ -96,7 +96,7 @@ namespace Assistance {
 		}
 		
 		public static double interpolationLinear(double p0, double p1, double l)
-			{ return (p1 - p0)*l + p0; }
+			{ return p0*(1.0 - l) + p1*l; }
 
 		public static double interpolationSpline(double p0, double p1, double t0, double t1, double l) {
 			double ll = l*l;

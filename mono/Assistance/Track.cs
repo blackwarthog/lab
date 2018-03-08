@@ -26,8 +26,11 @@ namespace Assistance {
 				{ get { return handler.owner; } }
 			public Track original
 				{ get { return handler.original; } }
-			public virtual WayPoint calcWayPoint(double originalIndex)
-				{ return original.calcWayPoint(originalIndex); }
+			public virtual WayPoint calcWayPoint(double originalIndex) {
+				WayPoint p = original.calcWayPoint(originalIndex);
+				p.originalIndex = originalIndex;
+				return p;
+			}
 		}
 
 		public struct Point {
@@ -257,6 +260,16 @@ namespace Assistance {
 				Geometry.interpolationLinear(p0.time, p1.time, l),
 				Geometry.interpolationLinear(p0.length, p1.length, l),
 				p1.depRootIndex );
+		}
+		
+		public void print() {
+			foreach(WayPoint wp in points)
+				Console.Write(
+					"{2:f1}, ",
+					wp.point.position.x,
+					wp.point.position.y,
+					wp.originalIndex );
+			Console.WriteLine();
 		}
 	}
 }

@@ -21,7 +21,7 @@ namespace Assistance {
 			public List<Guideline> guidelines = new List<Guideline>();
 			
 			public override Track.WayPoint calcWayPoint(double originalIndex) {
-				Track.WayPoint p = original.calcWayPoint(originalIndex);
+				Track.WayPoint p = base.calcWayPoint(originalIndex);
 				return guidelines.Count > 0 ? guidelines[0].transformPoint(p) : p;
 			}
 		}

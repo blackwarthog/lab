@@ -38,16 +38,20 @@ namespace Assistance {
 			if (start < 0) start = 0;
 			int subStart = subTrack.floorIndex(subTrack.indexByOriginalIndex(start));
 			if (subStart < 0) subStart = 0;
+			if (subStart < subTrack.points.Count && subTrack.points[subStart].originalIndex + Geometry.precision < start)
+				++subStart;
 			
+			while(subStart > 0 && subTrack.points[subStart-1].originalIndex + Geometry.precision >= start)
+				--subStart;
 			if (subStart < subTrack.points.Count) {
 				subTrack.wayPointsRemoved += subTrack.points.Count - subStart;
 				subTrack.points.RemoveRange(subStart, subTrack.points.Count - subStart);
 			}
 			
 			// add points
-			Track.WayPoint p0 = track.getWayPoint(start - 1);
+			Track.WayPoint p0 = subTrack.modifier.calcWayPoint(start - 1);
 			for(int i = start; i < track.points.Count; ++i) {
-				Track.WayPoint p1 = track.points[i];
+				Track.WayPoint p1 = subTrack.modifier.calcWayPoint(i);
 				addSegment(subTrack, p0, p1);
 				p0 = p1;
 			}

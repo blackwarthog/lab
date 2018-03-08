@@ -18,7 +18,9 @@ namespace Assistance {
 				Track.WayPoint p1 = original.getWayPoint(i1);
 				p0.tangent = tangents[i0];
 				p1.tangent = tangents[i1];
-				return Track.interpolate(p0, p1, frac);
+				Track.WayPoint p = Track.interpolate(p0, p1, frac);
+				p.originalIndex = originalIndex;
+				return p;
 			}
 		}
 
