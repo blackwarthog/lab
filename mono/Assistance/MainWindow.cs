@@ -48,8 +48,9 @@ namespace Assistance {
         
         private bool refreshOnIdle()
         	{ QueueDraw(); return false; }
-        private void Refresh()
-        	{ GLib.Idle.Add(refreshOnIdle); }
+        private void Refresh() {
+        	QueueDraw(); //GLib.Idle.Add(refreshOnIdle);
+        }
         
         protected override bool OnDeleteEvent(Gdk.Event e) {
 			Gtk.Application.Quit();
@@ -57,6 +58,8 @@ namespace Assistance {
 		}
 
 		protected override bool OnExposeEvent(Gdk.EventExpose e) {
+			workarea.inputManager.processTracks();
+
             Cairo.Context context = Gdk.CairoHelper.Create(e.Window);
 
         	context.Save();
@@ -75,13 +78,11 @@ namespace Assistance {
 			return false;
 		}
 
-		public Point windowToWorkarea(Point p) {
-			return new Point(p.x - Allocation.Width/2.0, p.y - Allocation.Height/2.0);
-		}
+		public Point windowToWorkarea(Point p)
+			{ return new Point(p.x - Allocation.Width/2.0, p.y - Allocation.Height/2.0); }
 
-		public Point workareaToWindow(Point p) {
-			return new Point(p.x + Allocation.Width/2.0, p.y + Allocation.Height/2.0);
-		}
+		public Point workareaToWindow(Point p)
+			{ return new Point(p.x + Allocation.Width/2.0, p.y + Allocation.Height/2.0); }
 
 		private void beginDrag() {
 			endDragAndTrack();

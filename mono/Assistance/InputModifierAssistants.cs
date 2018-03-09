@@ -3,17 +3,14 @@ using System.Diagnostics;
 using System.Collections.Generic;
 
 namespace Assistance {
-	public class InputModifierAssistants: InputModifierTangents {
+	public class InputModifierAssistants: InputManager.Modifier {
 		public readonly Workarea workarea;
-		public readonly bool defaultTangents;
 		public readonly List<Guideline> shownGuidelines = new List<Guideline>();
 				
-		public InputModifierAssistants(Workarea workarea, bool defaultTangents = false) {
-			this.workarea = workarea;
-			this.defaultTangents = defaultTangents;
-		}
+		public InputModifierAssistants(Workarea workarea)
+			{ this.workarea = workarea; }
 		
-		public new class Modifier: Track.Modifier {
+		public class Modifier: Track.Modifier {
 			public Modifier(Track.Handler handler):
 				base(handler) { }
 			
@@ -34,13 +31,10 @@ namespace Assistance {
 				if (track.points.Count == 0)
 					return;
 
-				Track.Handler handler = new Track.Handler(this, track);
-				modifier = new Modifier(handler);
+				track.handler = new Track.Handler(this, track);
+				modifier = new Modifier(track.handler);
 				workarea.getGuidelines(modifier.guidelines, track.points[0].position);
-				if (defaultTangents && modifier.guidelines.Count == 0)
-					{ base.modify(track, keyPoint, outTracks); return; }
 				
-				track.handler = handler;
 				subTrack = new Track(modifier);
 				track.handler.tracks.Add(subTrack);
 				
@@ -52,9 +46,6 @@ namespace Assistance {
 			}
 			
 			subTrack = track.handler.tracks[0];
-			if (!(subTrack.modifier is Modifier))
-				{ base.modify(track, keyPoint, outTracks); return; }
-			
 			modifier = (Modifier)subTrack.modifier;
 			outTracks.Add(subTrack);
 			

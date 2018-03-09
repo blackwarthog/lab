@@ -299,7 +299,6 @@ namespace Assistance {
 					addTrackPoint(track, p.position, p.pressure, p.tilt, p.time, finish);
 				}
 			}
-			paintTracks();
 		}
 		
 		private void actualActivate() {
@@ -325,8 +324,10 @@ namespace Assistance {
 			{ wantActive = true; actualActivate(); }
 		public void deactivate()
 			{ wantActive = false; actualActivate(); }
+		public void processTracks()
+			{ if (isActive()) paintTracks(); }
 		public void finishTracks()
-			{ if (isActive()) touchTracks(true); }
+			{ if (isActive()) { touchTracks(true); processTracks(); } }
 			
 		public List<Track> getInputTracks()
 			{ return tracks[0]; }
@@ -340,7 +341,6 @@ namespace Assistance {
 				if (!track.isFinished()) {
 					double time = (double)(ticks - track.keyHistory.ticks)*Timer.step - track.keyHistory.timeOffset;
 					addTrackPoint(track, position, pressure, tilt, time, final);
-					paintTracks();
 				}
 			}
 		}
@@ -348,16 +348,20 @@ namespace Assistance {
 		public void keyEvent(bool press, Gdk.Key key, long ticks) {
 			state.keyEvent(press, key, ticks);
 			if (isActive()) {
+				processTracks();
 				tool.keyEvent(press, key, state);
 				touchTracks();
+				processTracks();
 			}
 		}
 		
 		public void buttonEvent(bool press, Gdk.Device device, uint button, long ticks) {
 			state.buttonEvent(press, device, button, ticks);
 			if (isActive()) {
+				processTracks();
 				tool.buttonEvent(press, device, button, state);
 				touchTracks();
+				processTracks();
 			}
 		}
 	

@@ -8,18 +8,16 @@ namespace Assistance {
 		public readonly InputManager inputManager;
 		
 		private readonly InputModifierTangents modifierTangents;
-		private readonly InputModifierAssistants modifierAssistantsSimple;
-		private readonly InputModifierAssistants modifierAssistantsTangents;
-		private readonly InputModifierInterpolation modifierInterpolation;
+		private readonly InputModifierAssistants modifierAssistants;
+		private readonly InputModifierSegmentation modifierSegmentation;
 		
 		public Workarea() {
 			document = new Document(this);
 			inputManager = new InputManager(this);
 			
 			modifierTangents = new InputModifierTangents();
-			modifierAssistantsSimple = new InputModifierAssistants(this, false);
-			modifierAssistantsTangents = new InputModifierAssistants(this, true);
-			modifierInterpolation = new InputModifierInterpolation();
+			modifierAssistants = new InputModifierAssistants(this);
+			modifierSegmentation = new InputModifierSegmentation();
 		}
 		
 		public Tool getTool()
@@ -31,17 +29,15 @@ namespace Assistance {
 				inputManager.clearModifiers();
 				if (tool != null) {
 					Tool.ModifierTypes types = tool.getAvailableModifierTypes();
-					if ((Tool.ModifierTypes.Tangents & types) != 0 && (Tool.ModifierTypes.Guideline & types) == 0)
+					if ((Tool.ModifierTypes.Tangents & types) != 0)
 						inputManager.addModifier(modifierTangents);
-					if ((Tool.ModifierTypes.Tangents & types) == 0 && (Tool.ModifierTypes.Guideline & types) != 0)
-						inputManager.addModifier(modifierAssistantsSimple);
-					if ((Tool.ModifierTypes.Tangents & types) != 0 && (Tool.ModifierTypes.Guideline & types) != 0)
-						inputManager.addModifier(modifierAssistantsTangents);
+					if ((Tool.ModifierTypes.Guideline & types) != 0)
+						inputManager.addModifier(modifierAssistants);
 					if ((Tool.ModifierTypes.Multiline & types) != 0)
 						foreach(Modifier modifier in document.modifiers)
 							inputManager.addModifier(modifier);
-					if ((Tool.ModifierTypes.Interpolation & types) != 0)
-						inputManager.addModifier(modifierInterpolation);
+					if ((Tool.ModifierTypes.Segmentation & types) != 0)
+						inputManager.addModifier(modifierSegmentation);
 				}
 				inputManager.setTool(tool);
 				inputManager.activate();

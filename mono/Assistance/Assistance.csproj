@@ -57,10 +57,10 @@
     <Compile Include="InputManager.cs" />
     <Compile Include="KeyHistory.cs" />
     <Compile Include="InputModifierTangents.cs" />
-    <Compile Include="InputModifierInterpolation.cs" />
     <Compile Include="ToolFull.cs" />
     <Compile Include="DynamicSurface.cs" />
     <Compile Include="ModifierSpiro.cs" />
+    <Compile Include="InputModifierSegmentation.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

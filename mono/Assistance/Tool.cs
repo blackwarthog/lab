@@ -7,7 +7,7 @@ namespace Assistance {
 		public enum ModifierTypes {
 			None = 0,
 			Tangents = 1,
-			Interpolation = 2,
+			Segmentation = 2,
 			Guideline = 4,
 			Multiline = 8,
 			All = 15
