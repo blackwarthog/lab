@@ -25,15 +25,14 @@ namespace Assistance {
 			return true;
 		}
 
-		private void paintPoint(DynamicSurface surface, Track.WayPoint point) {
-			Point p = point.point.position;
-			double r = pen.width*point.point.pressure;
+		private void paintPoint(DynamicSurface surface, Track.Point point) {
+			Point p = point.position;
+			double r = pen.width*point.pressure;
 			Drawing.Color color = pen.color;
 			if (r < 0.01) r = 0.01;
 			if (r > Geometry.precision && r < 0.5)
 				{ color.a *= r/0.5; r = 0.5; }
 			double rr = r + 1.0;
-			//rr += 10.0*(Math.Abs(point.tangent.position.x) + Math.Abs(point.tangent.position.y))
 			
 			surface.expand(new Rectangle(p.x - rr, p.y - rr, p.x + rr, p.y + rr));
 
@@ -42,14 +41,6 @@ namespace Assistance {
 			color.apply(surface.context);
 			surface.context.Arc(p.x, p.y, r, 0.0, 2.0*Math.PI);
 			surface.context.Fill();
-
-			//pen.apply(surface.context);
-			//color.a = 0.5;
-			//color.apply(surface.context);
-			//surface.context.LineWidth = 0.5;
-			//surface.context.MoveTo(p.x, p.y);
-			//surface.context.RelLineTo(-10.0*point.tangent.position.y, 10.0*point.tangent.position.x);
-			//surface.context.Stroke();
 
 			surface.context.Restore();
 		}

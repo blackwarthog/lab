@@ -19,11 +19,10 @@ namespace Assistance {
 			public InputManager.KeyPoint.Holder holder = null;
 			public List<Guideline> guidelines = new List<Guideline>();
 			
-			public override Track.WayPoint calcWayPoint(double originalIndex) {
-				Track.WayPoint p = base.calcWayPoint(originalIndex);
-				Point pp = p.point.position - center;
-				p.point.position = center + new Point(Point.dot(pp, px), Point.dot(pp, py));
-				p.tangent.position = new Point(Point.dot(p.tangent.position, px), Point.dot(p.tangent.position, py));
+			public override Track.Point calcPoint(double originalIndex) {
+				Track.Point p = base.calcPoint(originalIndex);
+				Point pp = p.position - center;
+				p.position = center + new Point(Point.dot(pp, px), Point.dot(pp, py));
 				return p;
 			}
 		}
@@ -78,7 +77,7 @@ namespace Assistance {
 				
 				// add points
 				for(int i = start; i < track.points.Count; ++i)
-					subTrack.points.Add( subTrack.modifier.calcWayPoint(i) );
+					subTrack.points.Add( subTrack.modifier.calcPoint(i) );
 				subTrack.wayPointsAdded += subTrack.points.Count - start;
 			}
 			

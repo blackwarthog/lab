@@ -3,25 +3,55 @@ using System.Collections.Generic;
 
 namespace Assistance {
 	public class InputModifierTangents: InputManager.Modifier {
+		public struct Tangent {
+			public Point position;
+			public double pressure;
+			public Point tilt;
+			
+			public Tangent(
+				Point position,
+				double pressure = 0.0,
+				Point tilt = new Point() )
+			{
+				this.position = position;
+				this.pressure = pressure;
+				this.tilt = tilt;
+			}
+		}
+	
 		public class Modifier: Track.Modifier {
 			public Modifier(Track.Handler handler):
 				base(handler) { }
 			
 			public InputManager.KeyPoint.Holder holder = null;
-			public readonly List<Track.Point> tangents = new List<Track.Point>();
+			public readonly List<Tangent> tangents = new List<Tangent>();
 			
-			public override Track.WayPoint calcWayPoint(double originalIndex) {
+			public override Track.Point calcPoint(double originalIndex) {
 				double frac;
 				int i0 = original.floorIndex(originalIndex, out frac);
 				int i1 = original.ceilIndex(originalIndex);
-				Track.WayPoint p0 = original.getWayPoint(i0);
-				Track.WayPoint p1 = original.getWayPoint(i1);
-				p0.tangent = tangents[i0];
-				p1.tangent = tangents[i1];
-				Track.WayPoint p = Track.interpolate(p0, p1, frac);
+				Track.Point p = i0 < 0 ? new Track.Point()
+				              : interpolateSpline(
+									original.points[i0],
+									original.points[i1],
+									tangents[i0],
+									tangents[i1],
+									frac );
 				p.originalIndex = originalIndex;
 				return p;
 			}
+		}
+
+		public static Track.Point interpolateSpline(Track.Point p0, Track.Point p1, Tangent t0, Tangent t1, double l) {
+			if (l <= Geometry.precision) return p0;
+			if (l >= 1.0 - Geometry.precision) return p1;
+			return new Track.Point(
+				Geometry.interpolationSpline(p0.position, p1.position, t0.position, t1.position, l),
+				Geometry.interpolationSpline(p0.pressure, p1.pressure, t0.pressure, t1.pressure, l),
+				Geometry.interpolationSpline(p0.tilt, p1.tilt, t0.tilt, t1.tilt, l),
+				Geometry.interpolationLinear(p0.originalIndex, p1.originalIndex, l),
+				Geometry.interpolationLinear(p0.time, p1.time, l),
+				Geometry.interpolationLinear(p0.length, p1.length, l) );
 		}
 
 		public override void modify(Track track, InputManager.KeyPoint keyPoint, List<Track> outTracks) {
@@ -41,7 +71,7 @@ namespace Assistance {
 			
 			if (!track.isChanged && subTrack.points.Count == track.points.Count - 1) {
 				// add temporary point
-				modifier.tangents.Add(new Track.Point());
+				modifier.tangents.Add(new Tangent());
 				subTrack.points.Add(track.getLast());
 				++subTrack.wayPointsAdded;
 			} else {
@@ -61,7 +91,7 @@ namespace Assistance {
 				// add first point
 				int index = start;
 				if (index == 0) {
-					modifier.tangents.Add(new Track.Point());
+					modifier.tangents.Add(new Tangent());
 					subTrack.points.Add(track.getLast());
 					++index;
 				}
@@ -69,15 +99,17 @@ namespace Assistance {
 				// add points with tangents
 				if (track.points.Count > 2) {
 					while(index < track.points.Count - 1) {
-						Track.WayPoint p = track.points[index];
-						double t0 = track.points[index-1].time;
-						double t2 = track.points[index+1].time;
-						double dt = t2 - t0;
-						p.tangent = dt > Geometry.precision
-						          ? (track.points[index+1].point - track.points[index-1].point)*(p.time - t0)/dt
-						          : new Track.Point();
-						modifier.tangents.Add(p.tangent);
-						subTrack.points.Add(p);
+						Track.Point p0 = track.points[index-1];
+						Track.Point p1 = track.points[index];
+						Track.Point p2 = track.points[index+1];
+						double dt = p2.time - p0.time;
+						double k = dt > Geometry.precision ? (p1.time - p0.time)/dt : 0.0;
+						Tangent tangent = new Tangent(
+							(p2.position - p0.position)*k,
+							(p2.pressure - p0.pressure)*k,
+							(p2.tilt - p0.tilt)*k );
+						modifier.tangents.Add(tangent);
+						subTrack.points.Add(p1);
 						++index;
 					}
 				}
@@ -94,7 +126,7 @@ namespace Assistance {
 				
 				if (track.isFinished()) {
 					// finish
-					modifier.tangents.Add(new Track.Point());
+					modifier.tangents.Add(new Tangent());
 					subTrack.points.Add(track.getLast());
 					++subTrack.wayPointsAdded;
 				} else {

@@ -148,16 +148,9 @@ namespace Assistance {
 		}
 		
 		void addTrackPoint(Gdk.Device device, Point p, double time, double pressure, Point tilt, bool final) {
-			if (!painting)
-				return;
-
-			Track.Point point = new Track.Point();
-			point.position = p;
-			point.pressure = pressure;
-			point.tilt = tilt;	
-			
+			if (!painting) return;
 			long ticks = ticksStart + (long)Math.Round((time - timeStart)*Timer.frequency);
-			workarea.inputManager.trackEvent(device, touchId, point, final, ticks);
+			workarea.inputManager.trackEvent(device, touchId, p, pressure, tilt, final, ticks);
 		}
 
 		void addTrackPoint(double x, double y, uint t, Gdk.Device device, double[] axes, bool final) {

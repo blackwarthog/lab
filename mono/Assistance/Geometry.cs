@@ -114,7 +114,10 @@ namespace Assistance {
 			     + t1*( 3.0*ll - 2.0*l      );
         }
 
-		public static Track.Point interpolationSpline(Track.Point p0, Track.Point p1, Track.Point t0, Track.Point t1, double l) {
+		public static Point interpolationLinear(Point p0, Point p1, double l)
+			{ return p0*(1.0 - l) + p1*l; }
+
+		public static Point interpolationSpline(Point p0, Point p1, Point t0, Point t1, double l) {
 			double ll = l*l;
 			double lll = ll*l;
 			return p0*( 2.0*lll - 3.0*ll + 1.0)
@@ -123,7 +126,7 @@ namespace Assistance {
 			     + t1*(     lll - 1.0*ll      );
         }
 
-		public static Track.Point interpolationSplineTangent(Track.Point p0, Track.Point p1, Track.Point t0, Track.Point t1, double l) {
+		public static Point interpolationSplineTangent(Point p0, Point p1, Point t0, Point t1, double l) {
 			double ll = l*l;
 			return (p0 - p1)*6.0*(ll - l)
 			     + t0*( 3.0*ll - 4.0*l + 1.0)

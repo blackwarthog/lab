@@ -20,8 +20,8 @@ namespace Assistance {
 			public InputManager.KeyPoint.Holder holder = null;
 			public List<Guideline> guidelines = new List<Guideline>();
 			
-			public override Track.WayPoint calcWayPoint(double originalIndex) {
-				Track.WayPoint p = base.calcWayPoint(originalIndex);
+			public override Track.Point calcPoint(double originalIndex) {
+				Track.Point p = base.calcPoint(originalIndex);
 				return guidelines.Count > 0 ? guidelines[0].transformPoint(p) : p;
 			}
 		}
@@ -36,7 +36,7 @@ namespace Assistance {
 
 				Track.Handler handler = new Track.Handler(this, track);
 				modifier = new Modifier(handler);
-				workarea.getGuidelines(modifier.guidelines, track.points[0].point.position);
+				workarea.getGuidelines(modifier.guidelines, track.points[0].position);
 				if (defaultTangents && modifier.guidelines.Count == 0)
 					{ base.modify(track, keyPoint, outTracks); return; }
 				
@@ -89,7 +89,7 @@ namespace Assistance {
 			
 			// add points
 			for(int i = start; i < track.points.Count; ++i)
-				subTrack.points.Add(modifier.calcWayPoint(i));
+				subTrack.points.Add(modifier.calcPoint(i));
 			subTrack.wayPointsAdded = subTrack.points.Count - start;
 			
 			track.wayPointsRemoved = 0;
@@ -107,7 +107,7 @@ namespace Assistance {
 			if (track.handler == null) return;
 			Track subTrack = track.handler.tracks[0];
 			if (subTrack.points.Count > 0)
-				drawHover(context, subTrack.getLast().point.position);
+				drawHover(context, subTrack.getLast().position);
 		}
 	}
 }

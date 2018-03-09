@@ -13,10 +13,10 @@ namespace Assistance {
 			this.precisionSqr = this.precision*this.precision;
 		}
 	
-		public void addSegment(Track track, Track.WayPoint p0, Track.WayPoint p1, int level = 0) {
-			if (level >= maxRecursion || (p1.point.position - p0.point.position).lenSqr() <= precisionSqr)
+		public void addSegment(Track track, Track.Point p0, Track.Point p1, int level = 0) {
+			if (level >= maxRecursion || (p1.position - p0.position).lenSqr() <= precisionSqr)
 				{ track.points.Add(p1); return; }
-			Track.WayPoint p = track.modifier.calcWayPoint(0.5*(p0.originalIndex + p1.originalIndex));
+			Track.Point p = track.modifier.calcPoint(0.5*(p0.originalIndex + p1.originalIndex));
 			addSegment(track, p0, p, level + 1);
 			addSegment(track, p, p1, level + 1);
 		}
@@ -49,9 +49,9 @@ namespace Assistance {
 			}
 			
 			// add points
-			Track.WayPoint p0 = subTrack.modifier.calcWayPoint(start - 1);
+			Track.Point p0 = subTrack.modifier.calcPoint(start - 1);
 			for(int i = start; i < track.points.Count; ++i) {
-				Track.WayPoint p1 = subTrack.modifier.calcWayPoint(i);
+				Track.Point p1 = subTrack.modifier.calcPoint(i);
 				addSegment(subTrack, p0, p1);
 				p0 = p1;
 			}

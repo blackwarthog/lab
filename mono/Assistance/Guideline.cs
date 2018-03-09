@@ -10,7 +10,7 @@ namespace Assistance {
 		public static readonly double snapScale = 1.0;
 		public static readonly double maxLenght = 20.0*snapLenght*snapScale;
 	
-		public virtual Track.WayPoint transformPoint(Track.WayPoint point)
+		public virtual Track.Point transformPoint(Track.Point point)
 			{ return point; }
 		
 		public virtual void draw(Cairo.Context context, bool active) { }
@@ -25,9 +25,9 @@ namespace Assistance {
 			double sumLength = 0.0;
 			double sumDeviation = 0.0;
 			
-			Point prev = track.points[0].point.position;
-			foreach(Track.WayPoint wp in track.points) {
-				Point p = wp.point.position;
+			Point prev = track.points[0].position;
+			foreach(Track.Point tp in track.points) {
+				Point p = tp.position;
 				double length = (p - prev).len();
 				sumLength += length;
 				
@@ -36,8 +36,8 @@ namespace Assistance {
 					double weight = length*Geometry.logNormalDistribuitionUnscaled(midStepLength, snapLenght, snapScale);
 					sumWeight += weight;
 				
-					Track.WayPoint nwp = transformPoint(wp);
-					double deviation = (nwp.point.position - p).len();
+					Track.Point ntp = transformPoint(tp);
+					double deviation = (ntp.position - p).len();
 					sumDeviation += weight*deviation;
 				}
 				prev = p;

@@ -270,32 +270,35 @@ namespace Assistance {
 			return createTrack(b, device, touchId, ticks);
 		}
 		
-		private void addTrackPoint(Track track, Track.Point point, double time, bool final) {
+		private void addTrackPoint(Track track, Point position, double pressure, Point tilt, double time, bool final) {
 			// fix time
 			if (track.points.Count > 0)
 				time = Math.Max(time, track.getLast().time + Timer.step);
 			
 			// calc length
 			double length = track.points.Count > 0
-			              ? (point.position - track.getLast().point.position).len() + track.getLast().length
+			              ? (position - track.getLast().position).len() + track.getLast().length
 			              : 0.0;
 			
 			// add
-			track.points.Add( new Track.WayPoint(
-				point,
-				new Track.Point(),
+			track.points.Add( new Track.Point(
+				position,
+				pressure,
+				tilt,
 				(double)track.points.Count,
 				time,
-				length,
-				track.points.Count,
+				length,				
 				final ));
 			++track.wayPointsAdded;
 		}
 		
 		private void touchTracks(bool finish = false) {
-			foreach(Track track in tracks[0])
-				if (!track.isFinished() && track.points.Count > 0)
-					addTrackPoint(track, track.getLast().point, track.getLast().time, finish);
+			foreach(Track track in tracks[0]) {
+				if (!track.isFinished() && track.points.Count > 0) {
+					Track.Point p = track.getLast();
+					addTrackPoint(track, p.position, p.pressure, p.tilt, p.time, finish);
+				}
+			}
 			paintTracks();
 		}
 		
@@ -331,12 +334,12 @@ namespace Assistance {
 			{ return tracks[modifiers.Count]; }
 		
 		
-		public void trackEvent(Gdk.Device device, long touchId, Track.Point point, bool final, long ticks) {
+		public void trackEvent(Gdk.Device device, long touchId, Point position, double pressure, Point tilt, bool final, long ticks) {
 			if (isActive()) {
 				Track track = getTrack(device, touchId, ticks);
 				if (!track.isFinished()) {
 					double time = (double)(ticks - track.keyHistory.ticks)*Timer.step - track.keyHistory.timeOffset;
-					addTrackPoint(track, point, time, final);
+					addTrackPoint(track, position, pressure, tilt, time, final);
 					paintTracks();
 				}
 			}
@@ -433,16 +436,16 @@ namespace Assistance {
 						int level = keyPointsSent;
 						
 						color.apply(context);
-						context.MoveTo(track.points[start].point.position.x, track.points[start].point.position.y);
+						context.MoveTo(track.points[start].position.x, track.points[start].position.y);
 						for(int i = start + 1; i < track.points.Count; ++i) {
 							while(level < handler.keys.Count && handler.keys[level] <= i) {
 								context.Stroke();
-								context.MoveTo(track.points[i-1].point.position.x, track.points[i-1].point.position.y);
+								context.MoveTo(track.points[i-1].position.x, track.points[i-1].position.y);
 								color.a *= levelAlpha;
 								color.apply(context);
 								++level;
 							}
-							context.LineTo(track.points[i].point.position.x, track.points[i].point.position.y);
+							context.LineTo(track.points[i].position.x, track.points[i].position.y);
 						}
 					}
 				}
