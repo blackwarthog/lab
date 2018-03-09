@@ -35,6 +35,7 @@ namespace Assistance {
 				double c = Math.Cos(angle);
 			
 				p.position += new Point(c, s)*radius;
+				p.pressure *= 0.5*(1.0 + c);
 				return p;
 			}
 		}
