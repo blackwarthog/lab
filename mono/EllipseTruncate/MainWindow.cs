@@ -18,9 +18,14 @@ namespace EllipseTruncate {
         	Gtk.Application.Run();
         }
 		
+		Point cursor;
 		Point offset;
 		ActivePoint point;
+		ActiveAngleRange rangeAdd;
+		ActiveAngleRange rangeXor;
+		ActiveAngleRange rangeSub;
 		List<ActivePoint> points = new List<ActivePoint>();
+		List<ActiveAngleRange> ranges = new List<ActiveAngleRange>();
 		
 		ActivePoint ellipse0 = new ActivePoint(500.0, 500.0),
 		            ellipse1 = new ActivePoint(600.0, 500.0),
@@ -28,6 +33,8 @@ namespace EllipseTruncate {
 		ActivePoint bounds0 = new ActivePoint(450.0, 500.0),
 		            bounds1 = new ActivePoint(500.0, 700.0),
 		            bounds2 = new ActivePoint(600.0, 550.0);
+		ActiveAngleRange rangeA = new ActiveAngleRange(new Point(150.0, 150.0), 50.0);
+		ActiveAngleRange rangeB = new ActiveAngleRange(new Point(400.0, 150.0), 50.0);
 		
 		public MainWindow(): base(Gtk.WindowType.Toplevel) {
 			Events = Gdk.EventMask.KeyPressMask
@@ -37,7 +44,10 @@ namespace EllipseTruncate {
 			       | Gdk.EventMask.ButtonMotionMask
 			       | Gdk.EventMask.PointerMotionMask;
 			ExtensionEvents = Gdk.ExtensionMode.All;
+			rangeA.b = rangeB.a;
+			rangeB.b = rangeA.a;
 			points.AddRange(new ActivePoint[] {ellipse0, ellipse1, ellipse2, bounds0, bounds1, bounds2});
+			ranges.AddRange(new ActiveAngleRange[] {rangeA, rangeB});
         }
         
         private bool refreshOnIdle()
@@ -89,34 +99,96 @@ namespace EllipseTruncate {
 			ellipse.drawFull(context);
 			ellipse.drawTruncated(context, bounds0.point, bounds1.point, bounds2.point);
 			
+			// draw ranges
+			foreach(ActiveAngleRange rl in ranges) {
+				rl.draw(context);
+				if ((cursor - rl.point).len() < 2.0*rl.radius || !rl.current.isEmpty()) {
+					context.Save();
+					context.SetSourceRGBA(0.0, 0.0, 0.0, 0.5);
+					context.LineWidth = 1.0;
+					context.MoveTo(rl.point.x, rl.point.y);
+					context.LineTo(cursor.x, cursor.y);
+					context.Stroke();
+					context.Restore();
+				}					
+			}
+			
         	context.Restore();
             context.Dispose();
 			return false;
 		}
+		
+		private void releaseButton() {
+			if (rangeAdd != null) rangeAdd.add();
+			if (rangeXor != null) rangeXor.xor();
+			if (rangeSub != null) rangeSub.subtract();
+			point = null;
+			rangeAdd = null;
+			rangeXor = null;
+			rangeSub = null;
+		}
 
 		protected override bool OnButtonPressEvent(Gdk.EventButton e) {
+			cursor = new Point(e.X, e.Y);
+			releaseButton();
+
+			ActivePoint ap = null;
+			Point o = new Point();
+		    foreach(ActivePoint p in points)
+				if ((p.point - cursor).len() <= 5.0)
+					{ o = p.point - cursor; ap = p; }
+			ActiveAngleRange ar = null;
+			uint a0 = 0;
+		    foreach(ActiveAngleRange r in ranges)
+				if ((r.point - cursor).len() < 2.0*r.radius)
+					{ ar = r; a0 = AngleRange.toUIntDiscrete((cursor - r.point).atan()); }
+
 			if (e.Button == 1) {
-				Point cursor = new Point(e.X, e.Y);
-				point = null;
-			    foreach(ActivePoint p in points)
-					if ((p.point - cursor).len() <= 5.0)
-						{ offset = p.point - cursor; point = p; }
+				if (ap != null) {
+					point = ap;
+					offset = o;
+				} else
+				if (ar != null) {
+					ar.current = new AngleRange.Entry();
+					ar.current.a0 = a0;
+					rangeAdd = ar;
+				}
+			} else
+			if (e.Button == 2) {
+				if (ar != null) {
+					ar.current = new AngleRange.Entry();
+					ar.current.a0 = a0;
+					rangeXor = ar;
+				}
+			} else
+			if (e.Button == 3) {
+				if (ar != null) {
+					ar.current = new AngleRange.Entry();
+					ar.current.a0 = a0;
+					rangeSub = ar;
+				}
 			}
+			
 			Refresh();
 			return false;
 		}
 
 		protected override bool OnButtonReleaseEvent(Gdk.EventButton e) {
-			if (e.Button == 1) point = null;
+			cursor = new Point(e.X, e.Y);
+			releaseButton();
 			Refresh();
 			return false;
 		}
 
 		protected override bool OnMotionNotifyEvent(Gdk.EventMotion e) {
-			if (point != null) {
-				Point cursor = new Point(e.X, e.Y);
-				point.point = cursor + offset;
-			}
+			cursor = new Point(e.X, e.Y);
+			if (point != null) point.point = cursor + offset;
+			if (rangeAdd != null)
+				rangeAdd.current.a1 = AngleRange.toUIntDiscrete((cursor - rangeAdd.point).atan());
+			if (rangeXor != null)
+				rangeXor.current.a1 = AngleRange.toUIntDiscrete((cursor - rangeXor.point).atan());
+			if (rangeSub != null)
+				rangeSub.current.a1 = AngleRange.toUIntDiscrete((cursor - rangeSub.point).atan());
 			Refresh();
 			return false;
 		}

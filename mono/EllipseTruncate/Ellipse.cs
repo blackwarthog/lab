@@ -1,43 +1,7 @@
 using System;
+using System.Collections.Generic;
 
 namespace EllipseTruncate {
-	public struct AngleRange {
-		public double angle, size;
-		
-		public AngleRange(double angle, double size)
-			{ this.angle = angle; this.size = size; }
-		public bool isEmpty()
-			{ return size <= Geometry.precision; }
-		public bool isFull()
-			{ return size >= 2.0*Math.PI - Geometry.precision; }
-		public double end()
-			{ return wrap(angle + size); }
-		public bool contains(double a)
-			{ return diff(a, angle) < size; }
-		public bool intersects(AngleRange r)
-			{ return contains(r.angle) || r.contains(angle); }
-		public AngleRange union(AngleRange r) {
-			double da = diff(r.angle, angle);
-			if (da <= size + Geometry.precision)
-				return new AngleRange(angle, Math.Max(size, da + r.size));
-			da = 2.0*Math.PI - da;
-			if (da <= r.size + Geometry.precision)
-				return new AngleRange(r.angle, Math.Max(r.size, da + size));
-			da = Math.Min(angle, r.angle);
-			return new AngleRange(da, Math.Max(angle + size, r.angle + r.size) - da);
-		}
-
-		public static AngleRange byAngles(double a0, double a1)
-			{ return new AngleRange(a0, diff(a1, a0)); }
-		public static double diff(double a1, double a0)
-			{ return a0 < a1 ? a1 - a0 : a1 - a0 + 2.0*Math.PI; }
-		public static double wrap(double angle) {
-			return angle >  Math.PI ? angle - 2.0*Math.PI
-			     : angle < -Math.PI ? angle + 2.0*Math.PI
-			     : angle;
-		}
-	}
-
 	public class Ellipse {
 		public Point center;
 		public Point p1;
@@ -100,33 +64,32 @@ namespace EllipseTruncate {
 		private static void swap(ref int a, ref int b)
 			{ int c = a; a = b; b = c; }
 
-		private bool cutRange(ref int index, AngleRange[] ranges, double da, double h) {
-			if (h <= Geometry.precision - 1.0) {
+		private bool cutRange(AngleRange range, uint da, double h) {
+			if (h <= Geometry.precision - 1.0)
 				return true;
-			} else
-			if (h >= 1.0 - Geometry.precision) {
+			if (h >= 1.0 - Geometry.precision)
 				return false;
-			} else {
-				double a = Math.Asin(h);
-				ranges[index].angle = AngleRange.wrap( a < 0.0
-				                                     ? da - a - Math.PI
-				                                     : da - a + Math.PI );
-				ranges[index].size = Math.PI + a + a;
-				int j = index;
-				for(int i = 0, r = 0; i < index;) {
-					if (r > 0) ranges[i] = ranges[i + r];
-					if (ranges[i].intersects(ranges[j])) {
-						if (j < i) { ranges[j] = ranges[i].union(ranges[j]); ++r; --index; }
-						      else { ranges[i] = ranges[i].union(ranges[j]); j = i; ++i; }
-						if (ranges[j].isFull())
-							return false;
-					} else ++i;
-				}
-				if (j == index) ++index;
-			}
-			return true;
+			uint a = AngleRange.toUInt(Math.Asin(h));
+			range.subtract(new AngleRange.Entry(
+				da - a, (da + a)^AngleRange.half ));
+			return !range.isEmpty();
 		}
 		
+		public void putSegment(Cairo.Context context, double da, double s, double c, double a0, double a1) {
+			int cnt = (int)Math.Floor((a1 - a0)/da);
+			Point r = new Point(1.0, 0.0).rotate(a0);
+			Point p = matrix*r;
+			context.MoveTo(p.x, p.y);
+			for(int j = 0; j < cnt; ++j) {
+				r = new Point(r.x*c - r.y*s, r.y*c + r.x*s);
+  				p = matrix*r;
+				context.LineTo(p.x, p.y);
+			}
+			r = new Point(1.0, 0.0).rotate(a1);
+			p = matrix*r;
+			context.LineTo(p.x, p.y);
+		}
+
 		public void drawTruncated(Cairo.Context context, Point b0, Point b1, Point b2) {
 			Point dx = matrixInv.turn(b1 - b0);
 			Point dy = matrixInv.turn(b2 - b0);
@@ -134,18 +97,14 @@ namespace EllipseTruncate {
 			Point ny = dy.rotate90().normalize();
 			Point o = matrixInv*b0;
 			
-			double ax = dx.atan();
-			double ay = dy.atan();
-			double aax = AngleRange.wrap(ax + Math.PI);
-			double aay = AngleRange.wrap(ay + Math.PI);
+			uint ax = AngleRange.toUInt(dx.atan());
+			uint ay = AngleRange.toUInt(dy.atan());
 
 			double sign = nx*dy;
 			if (Math.Abs(sign) <= Geometry.precision) return;
 			if (sign < 0.0) {
-				double a;
 				nx *= -1.0; ny *= -1.0;
-				a = ax; ax = aax; aax = a;
-				a = ay; ay = aay; aay = a;
+				ax ^= AngleRange.half; ay ^= AngleRange.half;
 			}
 
 			context.Save();
@@ -159,28 +118,12 @@ namespace EllipseTruncate {
 			context.Fill();
 			context.Restore();
 			
-			// gather invisible ranges
-			AngleRange[] cutRanges = new AngleRange[4];
-			int count = 0;
-			if ( !cutRange(ref count, cutRanges, ax , (o*nx))          ) return;
-			if ( !cutRange(ref count, cutRanges, aax, -((o+dx+dy)*nx)) ) return;
-			if ( !cutRange(ref count, cutRanges, ay , (o+dx)*ny)       ) return;
-			if ( !cutRange(ref count, cutRanges, aay, -((o+dy)*ny))    ) return;
-			
-			// sort bounds
-			for(int i = 0; i < count; ++i)
-				for(int j = i+1; j < count; ++j)
-					if (cutRanges[j].angle < cutRanges[i].angle)
-						{ AngleRange r = cutRanges[i]; cutRanges[i] = cutRanges[j]; cutRanges[j] = r; }
-						
-			// invert bounds
-			AngleRange[] ranges = new AngleRange[4];
-			for(int i = 0; i < count; ++i)
-				ranges[i] = AngleRange.byAngles(cutRanges[(i > 0 ? i : count) - 1].end(), cutRanges[i].angle);
-			
-			// dummy 
-			if (count == 0)
-				ranges[count++] = new AngleRange(0.0, 2.0*Math.PI);
+			// build ranges
+			AngleRange range = new AngleRange(true);
+			if ( !cutRange(range, ax, o*nx) ) return;
+			if ( !cutRange(range, ax^AngleRange.half, -((o+dx+dy)*nx)) ) return;
+			if ( !cutRange(range, ay, (o+dx)*ny) ) return;
+			if ( !cutRange(range, ay^AngleRange.half, -((o+dy)*ny)) ) return;
 			
 			// draw
     		int segments = 100;
@@ -191,21 +134,20 @@ namespace EllipseTruncate {
     		context.Save();
 			context.LineWidth = 2.0;
 			context.SetSourceRGBA(0.0, 0.0, 1.0, 1.0);
-			for(int i = 0; i < count; ++i) {
-				double angle = ranges[i].angle;
-				double size = ranges[i].size;
-    			int cnt = (int)Math.Floor(size/da);
-    			Point r = new Point(1.0, 0.0).rotate(angle);
-    			Point p = matrix*r;
-    			context.MoveTo(p.x, p.y);
-				for(int j = 0; j < cnt; ++j) {
-					r = new Point(r.x*c - r.y*s, r.y*c + r.x*s);
-	  				p = matrix*r;
-					context.LineTo(p.x, p.y);
+			if (range.isFull()) {
+				putSegment(context, da, s, c, 0.0, AngleRange.period);
+			} else {
+				bool f = range.flip;
+				uint prev = range.angles[range.angles.Count - 1];
+				foreach(uint a in range.angles) {
+					if (f) {
+						double a0 = AngleRange.toDouble(prev);
+						double a1 = AngleRange.toDouble(a);
+						if (a < prev) a1 += AngleRange.period;
+						putSegment(context, da, s, c, a0, a1);
+					}
+					prev = a; f = !f;
 				}
-    			r = new Point(1.0, 0.0).rotate(angle + size);
-    			p = matrix*r;
-    			context.LineTo(p.x, p.y);
 			}
 			context.Stroke();
 			context.Restore();
