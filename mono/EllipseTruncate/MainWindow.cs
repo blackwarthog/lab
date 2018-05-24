@@ -99,6 +99,11 @@ namespace EllipseTruncate {
 			ellipse.drawFull(context);
 			ellipse.drawTruncated(context, bounds0.point, bounds1.point, bounds2.point);
 			
+			// draw concentric grid
+			ConcentricGrid cg = new ConcentricGrid(
+				ellipse, 20.0, bounds0.point, bounds1.point, bounds2.point );
+			cg.draw(context);
+			
 			// draw ranges
 			foreach(ActiveAngleRange rl in ranges) {
 				rl.draw(context);

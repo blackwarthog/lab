@@ -81,6 +81,8 @@ namespace EllipseTruncate {
 			{ return this*scaling(x, y); }
 		public Matrix scale(Point s)
 			{ return this*scaling(s); }
+		public Matrix scale(double s)
+			{ return this*scaling(s, s); }
 			
 		public Point transform(Point p) {
 			return new Point( m00*p.x + m10*p.y + m20,

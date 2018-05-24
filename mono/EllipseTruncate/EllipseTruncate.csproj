@@ -43,6 +43,7 @@
     <Compile Include="Matrix.cs" />
     <Compile Include="AngleRange.cs" />
     <Compile Include="ActiveAngleRange.cs" />
+    <Compile Include="ConcentricGrid.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

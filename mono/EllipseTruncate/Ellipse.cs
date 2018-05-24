@@ -3,51 +3,54 @@ using System.Collections.Generic;
 
 namespace EllipseTruncate {
 	public class Ellipse {
-		public Point center;
-		public Point p1;
-		public Point p2;
-		public double r1;
-		public double r2;
-		public double angle;
-		
 		public Matrix matrix;
 		public Matrix matrixInv;
 	
 		public Ellipse(Point p0, Point p1, Point p2) {
-			center = p0;
-			this.p1 = p1;
 			Point d = p1 - p0;
-			r1 = d.len();
-			angle = d.atan();
-			Point dp = d.rotate90()/r1;
-			r2 = Math.Abs(dp*(p2 - p0));
-			this.p2 = p0 + dp*r2;
-			
+			double r1 = d.len();
+			double r2 = Math.Abs( (d.rotate90()*(p2 - p0))/r1 );
 			matrix = Matrix.identity()
-					.translate(center)
-			        .rotate(angle)
+					.translate(p0)
+			        .rotate(d.atan())
 			        .scale(r1, r2);
 			matrixInv = matrix.invert();
 		}
+
+		public Ellipse(Matrix matrix) {
+			this.matrix = matrix;
+			matrixInv = matrix.invert();
+		}
+				
+		public Ellipse(Matrix matrix, Matrix matrixInv) {
+			this.matrix = matrix;
+			this.matrixInv = matrixInv;
+		}
+
+		public Ellipse(Ellipse ellipse):
+			this(ellipse.matrix, ellipse.matrixInv) { }
 		
-		public void drawFull(Cairo.Context context) {
+		public void drawFull(Cairo.Context context, bool grid = false) {
     		int segments = 100;
     		double da = 2.0*Math.PI/segments;
     		double s = Math.Sin(da);
     		double c = Math.Cos(da);
     		Point r = new Point(1.0, 0.0);
 
-			context.Save();
-			context.Matrix = (new Matrix(context.Matrix)*matrix).toCairo();
-			context.SetSourceRGBA(1.0, 0.0, 0.0, 0.1);
-			context.Arc(0.0, 0.0, 1.0, 0.0, 2.0*Math.PI);
-			context.ClosePath();
-			context.Fill();
-			context.Restore();
+			if (!grid) {
+				context.Save();
+				context.Matrix = (new Matrix(context.Matrix)*matrix).toCairo();
+				context.SetSourceRGBA(1.0, 0.0, 0.0, 0.1);
+				context.Arc(0.0, 0.0, 1.0, 0.0, 2.0*Math.PI);
+				context.ClosePath();
+				context.Fill();
+				context.Restore();
+			}
 
     		context.Save();
 			context.LineWidth = 0.5;
 			context.SetSourceRGBA(1.0, 0.0, 0.0, 0.5);
+			if (grid) context.SetSourceRGBA(0.0, 0.0, 0.0, 0.2);
 			Point p = matrix*r;
 			for(int i = 0; i < segments; ++i) {
 				r = new Point(r.x*c - r.y*s, r.y*c + r.x*s);
@@ -90,7 +93,7 @@ namespace EllipseTruncate {
 			context.LineTo(p.x, p.y);
 		}
 
-		public void drawTruncated(Cairo.Context context, Point b0, Point b1, Point b2) {
+		public void drawTruncated(Cairo.Context context, Point b0, Point b1, Point b2, bool grid = false) {
 			Point dx = matrixInv.turn(b1 - b0);
 			Point dy = matrixInv.turn(b2 - b0);
 			Point nx = dx.rotate90().normalize();
@@ -107,16 +110,19 @@ namespace EllipseTruncate {
 				ax ^= AngleRange.half; ay ^= AngleRange.half;
 			}
 
-			context.Save();
-			context.Matrix = (new Matrix(context.Matrix)*matrix).toCairo();
-			context.SetSourceRGBA(1.0, 0.0, 0.0, 0.1);
-			context.MoveTo(o.x, o.y);
-			context.RelLineTo(dx.x, dx.y);
-			context.RelLineTo(dy.x, dy.y);
-			context.RelLineTo(-dx.x, -dx.y);
-			context.ClosePath();
-			context.Fill();
-			context.Restore();
+			if (!grid) {
+				// draw bounds
+				context.Save();
+				context.Matrix = (new Matrix(context.Matrix)*matrix).toCairo();
+				context.SetSourceRGBA(1.0, 0.0, 0.0, 0.1);
+				context.MoveTo(o.x, o.y);
+				context.RelLineTo(dx.x, dx.y);
+				context.RelLineTo(dy.x, dy.y);
+				context.RelLineTo(-dx.x, -dx.y);
+				context.ClosePath();
+				context.Fill();
+				context.Restore();
+			}
 			
 			// build ranges
 			AngleRange range = new AngleRange(true);
@@ -134,6 +140,8 @@ namespace EllipseTruncate {
     		context.Save();
 			context.LineWidth = 2.0;
 			context.SetSourceRGBA(0.0, 0.0, 1.0, 1.0);
+			if (grid) context.LineWidth = 1.0;
+			if (grid) context.SetSourceRGBA(0.0, 0.0, 0.0, 1.0);
 			if (range.isFull()) {
 				putSegment(context, da, s, c, 0.0, AngleRange.period);
 			} else {
