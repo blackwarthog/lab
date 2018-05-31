@@ -28,12 +28,12 @@ namespace Assistance {
 			Modifier modifier;
 			
 			if (track.handler == null) {
-				if (track.points.Count == 0)
+				if (track.isEmpty)
 					return;
 
 				track.handler = new Track.Handler(this, track);
 				modifier = new Modifier(track.handler);
-				workarea.getGuidelines(modifier.guidelines, track.points[0].position);
+				workarea.getGuidelines(modifier.guidelines, track.getFirst().position);
 				
 				subTrack = new Track(modifier);
 				track.handler.tracks.Add(subTrack);
@@ -49,18 +49,15 @@ namespace Assistance {
 			modifier = (Modifier)subTrack.modifier;
 			outTracks.Add(subTrack);
 			
-			if (!track.isChanged)
+			if (!track.wasChanged)
 				return;
 			
 			// remove points
-			int start = track.points.Count - track.wayPointsAdded;
+			int start = track.count - track.pointsAdded;
 			if (start < 0) start = 0;
-			if (subTrack.points.Count < start) {
-				subTrack.wayPointsRemoved += subTrack.points.Count - start;
-				subTrack.points.RemoveRange(start, subTrack.points.Count - start);
-			}
+			subTrack.truncate(start);
 			
-			bool trackIsLong = track.points.Count > 0 && (track.getLast().length >= Guideline.maxLenght || track.isFinished());
+			bool trackIsLong = !track.isEmpty && (track.getLast().length >= Guideline.maxLenght || track.isFinished());
 			if (!trackIsLong && modifier.holder != null && !modifier.holder.isHolded && modifier.holder.available)
 				modifier.holder.reuse();
 			
@@ -71,20 +68,20 @@ namespace Assistance {
 					modifier.guidelines[ modifier.guidelines.IndexOf(guideline) ] = modifier.guidelines[0];
 					modifier.guidelines[0] = guideline;
 					start = 0;
-					subTrack.wayPointsRemoved += subTrack.points.Count;
-					subTrack.points.Clear();
+					subTrack.truncate(0);
 				}
 				if (trackIsLong)
 					modifier.holder.release();
 			}
 			
 			// add points
-			for(int i = start; i < track.points.Count; ++i)
-				subTrack.points.Add(modifier.calcPoint(i));
-			subTrack.wayPointsAdded = subTrack.points.Count - start;
+			for(int i = start; i < track.count; ++i) {
+				double di = (double)i;
+				Track.Point p = modifier.calcPoint(di);
+				subTrack.add(p);
+			}
 			
-			track.wayPointsRemoved = 0;
-			track.wayPointsAdded = 0;
+			track.resetCounters();
 		}
 
 		public override void drawHover(Cairo.Context context, Point hover) {
@@ -97,7 +94,7 @@ namespace Assistance {
 		public override void drawTrack(Cairo.Context context, Track track) {
 			if (track.handler == null) return;
 			Track subTrack = track.handler.tracks[0];
-			if (subTrack.points.Count > 0)
+			if (!subTrack.isEmpty)
 				drawHover(context, subTrack.getLast().position);
 		}
 	}

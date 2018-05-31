@@ -65,19 +65,19 @@ namespace Assistance {
 		
 
 		private static long lastId;
+		private readonly List<Point> privatePoints = new List<Point>();
+		private int privatePointsRemoved;
+		private int privatePointsAdded;
 		
 		public readonly long id;
 		public readonly Gdk.Device device;
 		public readonly long touchId;
-		public readonly List<Point> points = new List<Point>();
 		public readonly KeyHistory<Gdk.Key>.Holder keyHistory;
 		public readonly KeyHistory<uint>.Holder buttonHistory;
 
 		public readonly Modifier modifier;
 		
 		public Handler handler;
-		public int wayPointsRemoved;
-		public int wayPointsAdded;
 
 		public Track(
 			Gdk.Device device = null,
@@ -106,8 +106,59 @@ namespace Assistance {
 		public long ticks
 			{ get { return keyHistory.ticks; } }
 			
-		public bool isChanged
-			{ get { return wayPointsAdded != 0 || wayPointsRemoved != 0; } }
+		public int pointsAdded
+			{ get { return privatePointsAdded; } }
+		public int pointsRemoved
+			{ get { return privatePointsRemoved; } }
+		public void resetRemoved()
+			{ privatePointsRemoved = 0; }
+		public void resetAdded()
+			{ privatePointsAdded = 0; }
+		public void resetCounters()
+			{ resetRemoved(); resetAdded(); }
+		public void forceRemoved(int pointsRemoved)
+			{ privatePointsRemoved = pointsRemoved; }
+		public void forceAdded(int pointsAdded)
+			{ privatePointsAdded = pointsAdded; }
+		
+		public bool wasRemoved
+			{ get { return pointsRemoved > 0; } }
+		public bool wasAdded
+			{ get { return pointsAdded > 0; } }
+		public bool wasChanged
+			{ get { return wasRemoved || wasAdded; } }
+
+		public bool isEmpty
+			{ get { return count == 0; } }
+		public int count
+			{ get { return privatePoints.Count; } }
+		public void remove(int count = 1) {
+			if (count > this.count) count = this.count;
+			if (count <= 0) return;
+			privatePoints.RemoveRange(this.count - count, count);
+			privatePointsRemoved += count;
+		}
+		public void truncate(int count)
+			{ remove(this.count - count); }
+		public void add(Point p) {
+			if (!isEmpty) {
+				Point previous = getLast();
+				// fix originalIndex
+				if (p.originalIndex < previous.originalIndex)
+					p.originalIndex = previous.originalIndex;
+				// fix time
+				p.time = Math.Max(p.time, previous.time + Timer.step);
+				// calculate length
+				p.length = previous.length + (p.position - previous.position).len();
+			}
+			privatePoints.Add(p);
+			++privatePointsAdded;
+		}
+		
+		public Point this[int index]
+			{ get { return getPoint(index); } }
+		public IEnumerable<Point> points
+			{ get { return privatePoints; } }
 
 		public Track getRoot()
 			{ return original == null ? this : original.getRoot(); }
@@ -117,16 +168,16 @@ namespace Assistance {
 		public Point getFirst()
 			{ return getPoint(0); }
 		public Point getLast()
-			{ return getPoint(points.Count - 1); }
+			{ return getPoint(count - 1); }
 		public bool isFinished()
-			{ return points.Count > 0 && getLast().final; }
+			{ return count > 0 && getLast().final; }
 		
 		public int clampIndex(int index)
-			{ return Math.Min(Math.Max(index, 0), points.Count - 1); }
+			{ return Math.Min(Math.Max(index, 0), count - 1); }
 		public int floorIndex(double index, out double frac) {
 			int i = (int)Math.Floor(index + Geometry.precision);
-			if (i > points.Count - 1)
-				{ frac = 0.0; return points.Count - 1; }
+			if (i > count - 1)
+				{ frac = 0.0; return count - 1; }
 			if (i < 0)
 				{ frac = 0.0; return 0; }
 			frac = Math.Max(0.0, index - (double)i);
@@ -143,7 +194,7 @@ namespace Assistance {
 		
 		public Point getPoint(int index) {
 			index = clampIndex(index);
-			return index < 0 ? new Point() : points[index];
+			return index < 0 ? new Point() : privatePoints[index];
 		}
 		public Point floorPoint(double index, out double frac)
 			{ return getPoint(floorIndex(index, out frac)); }
@@ -156,24 +207,24 @@ namespace Assistance {
 		private double binarySearch(double value, PointFieldGetter getter) {
 			// points[a].value <= value < points[b].value
 			
-			if (points.Count <= 0) return 0.0;
+			if (isEmpty) return 0.0;
 			int a = 0;
-			double aa = getter(points[a]);
-			if (Geometry.isLess(value, aa)) return 0.0;
+			double aa = getter(privatePoints[a]);
+			if (value - aa <= 0.5*Geometry.precision) return (double)a;
 
-			int b = points.Count - 1;
-			double bb = getter(points[b]);
-			if (Geometry.isGreaterOrEqual(value, bb)) return (double)b;
+			int b = count - 1;
+			double bb = getter(privatePoints[b]);
+			if (bb - value <= 0.5*Geometry.precision) return (double)b;
 			
 			while(true) {
 				int c = (a + b)/2;
 				if (a == c) break;
-				double cc = getter(points[c]);
-				if (Geometry.isLess(value, cc))
+				double cc = getter(privatePoints[c]);
+				if (cc - value > 0.5*Geometry.precision)
 					{ b = c; bb = cc; } else { a = c; aa = cc; }
 			}
 
-			return Geometry.isLess(aa, bb) ? (double)a + (value - aa)/(bb - aa) : (double)a;
+			return bb - aa >= 0.5*Geometry.precision ? (double)a + (value - aa)/(bb - aa) : (double)a;
 		}
 			
 		public double indexByOriginalIndex(double originalIndex)
@@ -205,6 +256,16 @@ namespace Assistance {
 			     : modifier.calcPoint( originalIndexByIndex(index) );
 		}
 		
+		public Assistance.Point calcTangent(double index, double distance = 0.1) {
+			double minDistance = 10.0*Geometry.precision;
+			if (distance < minDistance) distance = minDistance;
+			Point p = calcPoint(index);
+			Point pp = calcPoint(indexByLength(p.length - distance));
+			Assistance.Point dp = p.position - pp.position;
+			double lenSqr = dp.lenSqr();
+			return lenSqr > Geometry.precisionSqr ? dp*Math.Sqrt(1.0/lenSqr) : new Assistance.Point();
+		}
+		
 		public Point interpolateLinear(double index) {
 			double frac;
 			Point p0 = floorPoint(index, out frac);
@@ -225,13 +286,35 @@ namespace Assistance {
 		}
 		
 		public void print() {
-			foreach(Point wp in points)
+			foreach(Point wp in privatePoints)
 				Console.Write(
 					"{2:f1}, ",
 					wp.position.x,
 					wp.position.y,
 					wp.originalIndex );
 			Console.WriteLine();
+		}
+
+		public void verify(string message) {
+			bool error = false;
+			for(int i = 1; i < count; ++i) {
+				Point pp = privatePoints[i-1];
+				Point p = privatePoints[i];
+				if ( Geometry.isGreater(pp.originalIndex, p.originalIndex)
+				  /*|| Geometry.isGreater(pp.length, p.length)
+				  || Geometry.isGreater(pp.time, p.time)
+				  || pp.final*/ )
+				{
+					if (!error) Console.WriteLine("Track error: " + message);
+					error = true;
+					Console.WriteLine("--- index: " + (i-1) + " / " + i);
+					Console.WriteLine("    originalIndex: " + pp.originalIndex + " / " + p.originalIndex);
+					Console.WriteLine("    length: " + pp.length + " / " + p.length);
+					Console.WriteLine("    time: " + pp.time + " / " + p.time);
+					Console.WriteLine("    final: " + pp.final + " / " + p.final);
+				}	
+			}
+			if (error) print();
 		}
 	}
 }

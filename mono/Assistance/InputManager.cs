@@ -107,8 +107,8 @@ namespace Assistance {
 				TrackHandler handler = (TrackHandler)track.handler;
 				handler.keys.RemoveRange(level, keyPoints.Count - level);
 				int cnt = handler.keys[keyIndex];
-				track.wayPointsRemoved = 0;
-				track.wayPointsAdded = track.points.Count - cnt;
+				track.resetRemoved();
+				track.forceAdded(track.count - cnt);
 			}
 			for(int i = level; i < keyPoints.Count; ++i) keyPoints[i].available = false;
 			keyPoints.RemoveRange(level, keyPoints.Count - level);
@@ -139,8 +139,8 @@ namespace Assistance {
 			foreach(Track track in subTracks) {
 				TrackHandler handler = (TrackHandler)track.handler;
 				if (resend) {
-					track.wayPointsRemoved = 0;
-					track.wayPointsAdded = track.points.Count - handler.keys[keyPointsSent];
+					track.resetRemoved();
+					track.forceAdded(track.count - handler.keys[keyPointsSent]);
 				}
 				handler.keys.RemoveRange(level, handler.keys.Count - level);
 			}
@@ -179,8 +179,8 @@ namespace Assistance {
 					// rollback
 					int rollbackIndex = keyPoints.Count;
 					foreach(Track track in subTracks) {
-						if (track.wayPointsRemoved > 0) {
-							int count = track.points.Count - track.wayPointsAdded;
+						if (track.wasRemoved) {
+							int count = track.count - track.pointsAdded;
 							TrackHandler handler = (TrackHandler)track.handler;
 							while(rollbackIndex > 0 && (rollbackIndex >= keyPoints.Count || handler.keys[rollbackIndex] > count))
 								--rollbackIndex;
@@ -198,10 +198,8 @@ namespace Assistance {
 				// send to tool
 				if (keyPointsSent == keyPoints.Count && subTracks.Count > 0)
 					tool.paintTracks(subTracks);
-				foreach(Track track in subTracks) {
-					track.wayPointsRemoved = 0;
-					track.wayPointsAdded = 0;
-				}
+				foreach(Track track in subTracks)
+					track.resetCounters();
 				
 				// is paint finished?
 				if (newKeyPoint.isFree) {
@@ -217,7 +215,7 @@ namespace Assistance {
 				if (tool.paintPush()) ++keyPointsSent;
 				keyPoints.Add(newKeyPoint);
 				foreach(Track track in subTracks)
-					((TrackHandler)track.handler).keys.Add(track.points.Count);
+					((TrackHandler)track.handler).keys.Add(track.count);
 			}
 
 		}
@@ -271,30 +269,20 @@ namespace Assistance {
 		}
 		
 		private void addTrackPoint(Track track, Point position, double pressure, Point tilt, double time, bool final) {
-			// fix time
-			if (track.points.Count > 0)
-				time = Math.Max(time, track.getLast().time + Timer.step);
-			
-			// calc length
-			double length = track.points.Count > 0
-			              ? (position - track.getLast().position).len() + track.getLast().length
-			              : 0.0;
-			
 			// add
-			track.points.Add( new Track.Point(
+			track.add( new Track.Point(
 				position,
 				pressure,
 				tilt,
-				(double)track.points.Count,
+				(double)track.count,
 				time,
-				length,				
+				0.0,
 				final ));
-			++track.wayPointsAdded;
 		}
 		
 		private void touchTracks(bool finish = false) {
 			foreach(Track track in tracks[0]) {
-				if (!track.isFinished() && track.points.Count > 0) {
+				if (!track.isFinished() && !track.isEmpty) {
 					Track.Point p = track.getLast();
 					addTrackPoint(track, p.position, p.pressure, p.tilt, p.time, finish);
 				}
@@ -435,21 +423,21 @@ namespace Assistance {
 					TrackHandler handler = (TrackHandler)track.handler;
 					int start = handler.keys[keyPointsSent] - 1;
 					if (start < 0) start = 0;
-					if (start < track.points.Count) {
+					if (start < track.count) {
 						Drawing.Color color = penPreview.color;
 						int level = keyPointsSent;
 						
 						color.apply(context);
-						context.MoveTo(track.points[start].position.x, track.points[start].position.y);
-						for(int i = start + 1; i < track.points.Count; ++i) {
+						context.MoveTo(track[start].position.x, track[start].position.y);
+						for(int i = start + 1; i < track.count; ++i) {
 							while(level < handler.keys.Count && handler.keys[level] <= i) {
 								context.Stroke();
-								context.MoveTo(track.points[i-1].position.x, track.points[i-1].position.y);
+								context.MoveTo(track[i-1].position.x, track[i-1].position.y);
 								color.a *= levelAlpha;
 								color.apply(context);
 								++level;
 							}
-							context.LineTo(track.points[i].position.x, track.points[i].position.y);
+							context.LineTo(track[i].position.x, track[i].position.y);
 						}
 					}
 				}

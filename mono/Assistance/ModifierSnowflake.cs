@@ -63,26 +63,21 @@ namespace Assistance {
 			}
 			
 			outTracks.AddRange(track.handler.tracks);
-			if (!track.isChanged)
+			if (!track.wasChanged)
 				return;
 			
-			int start = track.points.Count - track.wayPointsAdded;
+			int start = track.count - track.pointsAdded;
 			if (start < 0) start = 0;
 			foreach(Track subTrack in track.handler.tracks) {
 				// remove points
-				if (start < subTrack.points.Count) {
-					subTrack.wayPointsRemoved += subTrack.points.Count - start;
-					subTrack.points.RemoveRange(start, subTrack.points.Count - start);
-				}
+				subTrack.truncate(start);
 				
 				// add points
-				for(int i = start; i < track.points.Count; ++i)
-					subTrack.points.Add( subTrack.modifier.calcPoint(i) );
-				subTrack.wayPointsAdded += subTrack.points.Count - start;
+				for(int i = start; i < track.count; ++i)
+					subTrack.add( subTrack.modifier.calcPoint(i) );
 			}
 			
-			track.wayPointsRemoved = 0;
-			track.wayPointsAdded = 0;
+			track.resetCounters();
 		}
 	}
 }

@@ -19,13 +19,13 @@ namespace Assistance {
 			{ draw(context, false); }
 		
 		public double calcTrackWeight(Track track) {
-			if (track.points.Count < 1)
+			if (track.count < 1)
 				return double.PositiveInfinity;
 			double sumWeight = 0.0;
 			double sumLength = 0.0;
 			double sumDeviation = 0.0;
 			
-			Point prev = track.points[0].position;
+			Point prev = track.getFirst().position;
 			foreach(Track.Point tp in track.points) {
 				Point p = tp.position;
 				double length = (p - prev).len();

@@ -32,10 +32,10 @@ namespace Assistance {
 				int i1 = original.ceilIndex(originalIndex);
 				Track.Point p = i0 < 0 ? new Track.Point()
 				              : interpolateSpline(
-									original.points[i0],
-									original.points[i1],
-									tangents[i0],
-									tangents[i1],
+									original[i0],
+									original[i1],
+									i0 < tangents.Count ? tangents[i0] : new Tangent(),
+									i1 < tangents.Count ? tangents[i1] : new Tangent(),
 									frac );
 				p.originalIndex = originalIndex;
 				return p;
@@ -64,27 +64,23 @@ namespace Assistance {
 			Modifier modifier = (Modifier)subTrack.modifier;
 			outTracks.Add(subTrack);
 			
-			if ( !track.isChanged
-			  && track.points.Count == subTrack.points.Count
-			  && track.points.Count == modifier.tangents.Count )
+			if ( !track.wasChanged
+			  && track.count == subTrack.count
+			  && track.count == modifier.tangents.Count )
 			  	return;
 			
-			if (!track.isChanged && subTrack.points.Count == track.points.Count - 1) {
+			if (!track.wasChanged && subTrack.count == track.count - 1) {
 				// add temporary point
 				modifier.tangents.Add(new Tangent());
-				subTrack.points.Add(track.getLast());
-				++subTrack.wayPointsAdded;
+				subTrack.add(track.getLast());
 			} else {
 				// apply permanent changes
 				
 				// remove points
-				int start = track.points.Count - track.wayPointsAdded;
+				int start = track.count - track.pointsAdded;
 				if (start < 0) start = 0;
 				if (start > 1) --start;
-				if (start < subTrack.points.Count) {
-					subTrack.wayPointsRemoved += subTrack.points.Count - start;
-					subTrack.points.RemoveRange(start, subTrack.points.Count - start);
-				}
+				subTrack.truncate(start);
 				if (start < modifier.tangents.Count)
 					modifier.tangents.RemoveRange(start, modifier.tangents.Count - start);
 				
@@ -92,16 +88,16 @@ namespace Assistance {
 				int index = start;
 				if (index == 0) {
 					modifier.tangents.Add(new Tangent());
-					subTrack.points.Add(track.getLast());
+					subTrack.add(track.getLast());
 					++index;
 				}
 				
 				// add points with tangents
-				if (track.points.Count > 2) {
-					while(index < track.points.Count - 1) {
-						Track.Point p0 = track.points[index-1];
-						Track.Point p1 = track.points[index];
-						Track.Point p2 = track.points[index+1];
+				if (track.count > 2) {
+					while(index < track.count) {
+						Track.Point p0 = track[index-1];
+						Track.Point p1 = track[index];
+						Track.Point p2 = track[index+1];
 						double dt = p2.time - p0.time;
 						double k = dt > Geometry.precision ? (p1.time - p0.time)/dt : 0.0;
 						Tangent tangent = new Tangent(
@@ -109,14 +105,12 @@ namespace Assistance {
 							(p2.pressure - p0.pressure)*k,
 							(p2.tilt - p0.tilt)*k );
 						modifier.tangents.Add(tangent);
-						subTrack.points.Add(p1);
+						subTrack.add(p1);
 						++index;
 					}
 				}
 				
-				track.wayPointsRemoved = 0;
-				track.wayPointsAdded = 0;
-				subTrack.wayPointsAdded += index - start;
+				track.resetCounters();
 				
 				// release previous key point
 				if (modifier.holder != null) {
@@ -127,8 +121,7 @@ namespace Assistance {
 				if (track.isFinished()) {
 					// finish
 					modifier.tangents.Add(new Tangent());
-					subTrack.points.Add(track.getLast());
-					++subTrack.wayPointsAdded;
+					subTrack.add(track.getLast());
 				} else {
 					// save key point
 					modifier.holder = keyPoint.hold();

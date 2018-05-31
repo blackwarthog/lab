@@ -52,9 +52,9 @@ namespace Assistance {
 				long minTicks = 0;
 				double minTimeOffset = 0.0;
 				foreach(Track t in tracks) {
-					if (t.wayPointsAdded > 0) {
+					if (t.pointsAdded > 0) {
 						long ticks = t.ticks;
-						double timeOffset = t.timeOffset + t.points[t.points.Count - t.wayPointsAdded].time;
+						double timeOffset = t.timeOffset + t[t.count - t.pointsAdded].time;
 						if (track == null || (ticks - minTicks)*Timer.frequency + timeOffset - minTimeOffset < 0.0) {
 							track = t;
 							minTicks = ticks;
@@ -63,8 +63,8 @@ namespace Assistance {
 					}
 				}
 				if (track == null) break;
-				paintPoint(surface, track.points[track.points.Count - track.wayPointsAdded]);
-				--track.wayPointsAdded;
+				paintPoint(surface, track[track.count - track.pointsAdded]);
+				track.forceAdded(track.pointsAdded - 1);
 			}
 		}
 		
