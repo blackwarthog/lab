@@ -18,6 +18,7 @@
 #include <cassert>
 
 #include <algorithm>
+#include <iostream>
 
 #include "clrender.h"
 #include "measure.h"
@@ -102,10 +103,15 @@ void ClRender::send_surface(Surface *surface) {
 		surface_format.image_channel_order = CL_RGBA;
 		surface_format.image_channel_data_type = CL_FLOAT;
 
-		surface_image = clCreateImage2D(
+		cl_image_desc surface_desc = { };
+		surface_desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+		surface_desc.image_width = surface->width;
+		surface_desc.image_height = surface->height;
+
+		surface_image = clCreateImage(
 			cl.context, CL_MEM_READ_WRITE,
-			&surface_format, surface->width, surface->height,
-			0, NULL, NULL );
+			&surface_format, &surface_desc,
+			NULL, NULL );
 		assert(surface_image);
 
 		size_t origin[3] = { };
@@ -141,7 +147,9 @@ Surface* ClRender::receive_surface() {
 		cl.err |= clEnqueueReadImage(
 			cl.queue, surface_image, CL_FALSE,
 			origin, region, 0, 0, surface->data,
-			prev_event ? 1 : 0, &prev_event, NULL );
+			prev_event ? 1 : 0,
+			prev_event ? &prev_event : NULL,
+			NULL );
 		assert(!cl.err);
 
 		cl.err |= clFinish(cl.queue);
@@ -212,7 +220,7 @@ void ClRender::path(int start, int count, const Color &color, bool invert, bool 
 		&scount,
 		NULL,
 		prev_event ? 1 : 0,
-		&prev_event,
+		prev_event ? &prev_event : NULL,
 		&path_event );
 	assert(!cl.err);
 

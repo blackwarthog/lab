@@ -80,6 +80,7 @@ ClContext::ClContext(): err(), context(), queue() {
 	queue = clCreateCommandQueue(context, devices.front(), CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, NULL);
 	assert(queue);
 
+	//hello();
 }
 
 ClContext::~ClContext() {

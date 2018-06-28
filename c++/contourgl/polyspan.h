@@ -140,7 +140,7 @@ public:
 	void draw_scanline(int y, Real x1, Real y1, Real x2, Real y2);
 	void draw_line(Real x1, Real y1, Real x2, Real y2);
 
-	Real extract_alpha(Real area, bool evenodd) const;
+	static Real extract_alpha(Real area, bool evenodd);
 };
 
 #endif

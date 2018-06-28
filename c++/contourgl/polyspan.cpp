@@ -755,7 +755,7 @@ void Polyspan::draw_line(Real x1, Real y1, Real x2, Real y2) {
 	}
 }
 
-Real Polyspan::extract_alpha(Real area, bool evenodd) const {
+Real Polyspan::extract_alpha(Real area, bool evenodd) {
 	if (area < 0)
 		area = -area;
 
