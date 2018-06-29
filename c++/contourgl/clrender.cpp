@@ -78,12 +78,11 @@ void ClRender::send_surface(Surface *surface) {
 
 		mark_buffer = clCreateBuffer(
 			cl.context, CL_MEM_READ_WRITE,
-			surface->count()*sizeof(cl_int4), NULL,
+			surface->count()*sizeof(cl_int2), NULL,
 			NULL );
 		assert(mark_buffer);
 
 		cl.err |= clSetKernelArg(contour_clear_kernel, 0, sizeof(mark_buffer), &mark_buffer);
-		cl.err |= clSetKernelArg(contour_clear_kernel, 1, sizeof(width), &width);
 		assert(!cl.err);
 
 		size_t pixels_count = (size_t)surface->count();
@@ -194,7 +193,7 @@ void ClRender::send_path(const vec2f *path, int count) {
 	}
 }
 
-void ClRender::path(int start, int count, const Color &color, bool invert, bool evenodd) {
+void ClRender::path(int start, int count, const Color &color, bool invert, bool evenodd, ContextRect bounds) {
 	//Measure t("ClRender::contour");
 
 	if (count <= 1) return;
@@ -202,9 +201,11 @@ void ClRender::path(int start, int count, const Color &color, bool invert, bool 
 	// kernel args
 
 	int iinvert = invert, ievenodd = evenodd;
-	cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(color), &color);
-	cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(int), &iinvert);
-	cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(int), &ievenodd);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(int), &bounds.minx);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(int), &bounds.maxx);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(color), &color);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 7, sizeof(int), &iinvert);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 8, sizeof(int), &ievenodd);
 	assert(!cl.err);
 
 	// build marks
@@ -225,13 +226,14 @@ void ClRender::path(int start, int count, const Color &color, bool invert, bool 
 	assert(!cl.err);
 
 	// fill
-	size_t sheight = surface->height;
+	sstart = bounds.miny;
+	scount = bounds.maxy - bounds.miny;
 	cl.err |= clEnqueueNDRangeKernel(
 		cl.queue,
 		contour_fill_kernel,
 		1,
-		NULL,
-		&sheight,
+		&sstart,
+		&scount,
 		NULL,
 		1,
 		&path_event,

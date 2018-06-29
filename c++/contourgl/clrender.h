@@ -47,7 +47,7 @@ public:
 	void send_surface(Surface *surface);
 	Surface* receive_surface();
 	void send_path(const vec2f *path, int count);
-	void path(int start, int count, const Color &color, bool invert, bool evenodd);
+	void path(int start, int count, const Color &color, bool invert, bool evenodd, ContextRect bounds);
 	void wait();
 };
 

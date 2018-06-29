@@ -254,12 +254,30 @@ void Test::test_cl(Environment &e, Data &data, Surface &surface) {
 	vector<vec2f> paths;
 	vector<int> starts(data.size());
 	vector<int> counts(data.size());
+	vector<ContextRect> bounds(data.size());
 	for(int i = 0; i < (int)data.size(); ++i) {
 		starts[i] = paths.size();
-		for(Contour::ChunkList::const_iterator j = data[i].contour.get_chunks().begin(); j != data[i].contour.get_chunks().end(); ++j)
-			paths.push_back(vec2f(j->p1));
+		if (!data[i].contour.get_chunks().empty()) {
+			Vector v = data[i].contour.get_chunks().front().p1;
+			bounds[i].minx = (int)floor( v.x ) - 2;
+			bounds[i].miny = (int)floor( v.y ) - 2;
+			bounds[i].maxx = (int)ceil ( v.x ) + 2;
+			bounds[i].maxy = (int)ceil ( v.y ) + 2;
+			for(Contour::ChunkList::const_iterator j = data[i].contour.get_chunks().begin(); j != data[i].contour.get_chunks().end(); ++j) {
+				paths.push_back(vec2f(j->p1));
+				bounds[i].minx = std::min( bounds[i].minx, (int)floor( j->p1.x ) - 2 );
+				bounds[i].miny = std::min( bounds[i].miny, (int)floor( j->p1.y ) - 2 );
+				bounds[i].maxx = std::max( bounds[i].maxx, (int)ceil ( j->p1.x ) + 2 );
+				bounds[i].maxy = std::max( bounds[i].maxy, (int)ceil ( j->p1.y ) + 2 );
+			}
+			bounds[i].minx = std::max(0,              std::min(surface.width,  bounds[i].minx));
+			bounds[i].miny = std::max(0,              std::min(surface.height, bounds[i].miny));
+			bounds[i].maxx = std::max(bounds[i].minx, std::min(surface.width,  bounds[i].maxx));
+			bounds[i].maxy = std::max(bounds[i].miny, std::min(surface.height, bounds[i].maxy));
+		}
 		paths.push_back(paths[starts[i]]);
 		counts[i] = paths.size() - starts[i];
+		paths.push_back(paths.front());
 	}
 
 	ClRender clr(e.cl);
@@ -268,8 +286,16 @@ void Test::test_cl(Environment &e, Data &data, Surface &surface) {
 
 	{
 		Measure t("render");
+
+		// all in one (single color)
+		//ContextRect bounds;
+		//bounds.maxx = surface.width;
+		//bounds.maxy = surface.height;
+		//clr.path(0, (int)paths.size(), Color(0.f, 0.f, 1.f, 1.f), false, false, bounds);
+
+		// separete path (valid colors)
 		for(int i = 0; i < (int)data.size(); ++i)
-			clr.path(starts[i], counts[i], data[i].color, data[i].invert, data[i].evenodd);
+			 clr.path(starts[i], counts[i], data[i].color, data[i].invert, data[i].evenodd, bounds[i]);
 		clr.wait();
 	}
 
