@@ -26,7 +26,13 @@
 using namespace std;
 
 
-ClContext::ClContext(): err(), context(), queue() {
+ClContext::ClContext():
+	err(),
+	context(),
+	queue(),
+	max_compute_units(),
+	max_group_size()
+{
 
 	// platform
 
@@ -66,6 +72,12 @@ ClContext::ClContext(): err(), context(), queue() {
     char device_version[256];
     clGetDeviceInfo(devices.front(), CL_DEVICE_VERSION, sizeof(device_version), device_version, NULL);
     //cout << "Device 0 OpenCL version " << device_version << endl;
+
+    clGetDeviceInfo(devices.front(), CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(max_compute_units), &max_compute_units, NULL);
+    //cout << "Device 0 max compute units " << max_compute_units << endl;
+
+    clGetDeviceInfo(devices.front(), CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(max_group_size), &max_group_size, NULL);
+    //cout << "Device 0 max group size " << max_group_size << endl;
 
     // context
 
@@ -134,7 +146,7 @@ void ClContext::hello() {
 	assert(!err);
 
 	size_t work_group_size = sizeof(data);
-	cl_event event = NULL;
+	cl_event event1 = NULL, event2 = NULL;
 	err = clEnqueueNDRangeKernel(
 		queue,
 		kernel,
@@ -144,15 +156,16 @@ void ClContext::hello() {
 		NULL,
 		0,
 		NULL,
-		&event );
+		&event1 );
 	assert(!err);
-
-	clWaitForEvents(1, &event);
 
 	// read
 
-	clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0, sizeof(data), data, 0, NULL, &event);
-	clWaitForEvents(1, &event);
+	clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0, sizeof(data), data, 1, &event1, &event2);
+
+	// wait
+
+	clWaitForEvents(1, &event2);
 	cout << data << endl;
 
 	// deinitialize

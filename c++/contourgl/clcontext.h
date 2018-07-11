@@ -31,6 +31,9 @@ public:
 	std::vector<cl_device_id> devices;
 	cl_command_queue queue;
 
+	unsigned int max_compute_units;
+	size_t max_group_size;
+
 	ClContext();
 	~ClContext();
 

@@ -30,12 +30,10 @@ class ClRender {
 private:
 	ClContext &cl;
 	cl_program contour_program;
-	cl_kernel contour_clear_kernel;
-	cl_kernel contour_path_kernel;
-	cl_kernel contour_fill_kernel;
+	cl_kernel contour_draw_kernel;
 
 	Surface *surface;
-	cl_mem path_buffer;
+	cl_mem paths_buffer;
 	cl_mem mark_buffer;
 	cl_mem surface_image;
 	cl_event prev_event;
@@ -46,8 +44,8 @@ public:
 
 	void send_surface(Surface *surface);
 	Surface* receive_surface();
-	void send_path(const vec2f *path, int count);
-	void path(int start, int count, const Color &color, bool invert, bool evenodd, ContextRect bounds);
+	void send_paths(const void *paths, int size);
+	void draw();
 	void wait();
 };
 
