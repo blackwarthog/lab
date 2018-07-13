@@ -27,8 +27,8 @@
 class ClContext {
 public:
 	cl_int err;
+	cl_device_id device;
 	cl_context context;
-	std::vector<cl_device_id> devices;
 	cl_command_queue queue;
 
 	unsigned int max_compute_units;

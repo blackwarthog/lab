@@ -28,68 +28,89 @@ using namespace std;
 
 ClContext::ClContext():
 	err(),
+	device(),
 	context(),
 	queue(),
 	max_compute_units(),
 	max_group_size()
 {
+	const int platform_index = 0;
+	const int device_index = 0;
 
 	// platform
-
 	cl_uint platform_count = 0;
-	clGetPlatformIDs(0, NULL, &platform_count);
-	assert(platform_count);
+	err |= clGetPlatformIDs(0, NULL, &platform_count);
+	assert(!err);
 	//cout << platform_count << " platforms" << endl;
+
 	vector<cl_platform_id> platforms(platform_count);
-	clGetPlatformIDs(platforms.size(), &platforms.front(), NULL);
-	cl_platform_id platform = platforms[0];
+	err |= clGetPlatformIDs(platforms.size(), &platforms.front(), NULL);
+	assert(!err);
+
+	assert(platform_index < (int)platform_count);
+	cl_platform_id platform = platforms[platform_index];
 
 	char vendor[256] = { };
-	err = clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, sizeof(vendor), vendor, NULL);
+	err |= clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, sizeof(vendor), vendor, NULL);
 	assert(!err);
-	//cout << "Use CL platform 0 by " << vendor << endl;
+	//cout << "Use CL platform " << platform_index << " by " << vendor << endl;
 
     char platform_version[256];
-    err = clGetPlatformInfo(platform, CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, NULL);
+    err |= clGetPlatformInfo(platform, CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, NULL);
 	assert(!err);
-    //cout << "Platform 0 OpenCL version " << platform_version << endl;
+	//cout << "Platform " << platform_index << " OpenCL version " << platform_version << endl;
 
 	// devices
 
 	cl_uint device_count = 0;
-    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &device_count);
+    err |= clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &device_count);
     assert(!err);
     //cout << device_count << " devices" << endl;
 
-    devices.resize(device_count);
-    err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, devices.size(), &devices.front(), NULL);
+	vector<cl_device_id> devices(device_count);
+    err |= clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, devices.size(), &devices.front(), NULL);
     assert(!err);
 
+	assert(device_index < (int)device_count);
+    device = devices[device_index];
+
     char device_name[256];
-    clGetDeviceInfo(devices.front(), CL_DEVICE_NAME, sizeof(device_name), device_name, NULL);
-    //cout << "Device 0 name " << device_name << endl;
+    err |= clGetDeviceInfo(device, CL_DEVICE_NAME, sizeof(device_name), device_name, NULL);
+    assert(!err);
+    //cout << "Device " << device_index << " name " << device_name << endl;
 
     char device_version[256];
-    clGetDeviceInfo(devices.front(), CL_DEVICE_VERSION, sizeof(device_version), device_version, NULL);
-    //cout << "Device 0 OpenCL version " << device_version << endl;
+    err |= clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(device_version), device_version, NULL);
+    assert(!err);
+    //cout << "Device " << device_index << " OpenCL version " << device_version << endl;
 
-    clGetDeviceInfo(devices.front(), CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(max_compute_units), &max_compute_units, NULL);
-    //cout << "Device 0 max compute units " << max_compute_units << endl;
+    err |= clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(max_compute_units), &max_compute_units, NULL);
+    assert(!err);
+    //cout << "Device " << device_index << " max compute units " << max_compute_units << endl;
 
-    clGetDeviceInfo(devices.front(), CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(max_group_size), &max_group_size, NULL);
-    //cout << "Device 0 max group size " << max_group_size << endl;
+    unsigned int max_dimensions;
+    err |= clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(max_dimensions), &max_dimensions, NULL);
+    assert(!err);
+    assert(max_dimensions);
+    //cout << "Device " << device_index << " max work dimensions " << max_dimensions << endl;
+
+    vector<size_t> max_group_sizes(max_dimensions);
+    err |= clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, max_group_sizes.size()*sizeof(size_t), &max_group_sizes.front(), NULL);
+    assert(!err);
+    max_group_size = max_group_sizes.front();
+    //cout << "Device " << device_index << " max group size " << max_group_size << endl;
 
     // context
 
     cl_context_properties context_props[] = {
     	CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
 		CL_NONE };
-    context = clCreateContext(context_props, 1, &devices.front(), callback, NULL, &err);
+    context = clCreateContext(context_props, 1, &device, callback, NULL, &err);
     assert(context);
 
 	// command queue
 
-	queue = clCreateCommandQueue(context, devices.front(), CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, NULL);
+	queue = clCreateCommandQueue(context, device, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, NULL);
 	assert(queue);
 
 	//hello();
@@ -109,12 +130,14 @@ cl_program ClContext::load_program(const std::string &filename) {
 	cl_program program = clCreateProgramWithSource(context, 1, &text_pointer, NULL, NULL);
 	assert(program);
 
-	err = clBuildProgram(program, 1, &devices.front(), "", NULL, NULL);
+	const char options[] = " -cl-fast-relaxed-math -Werror ";
+
+	err = clBuildProgram(program, 1, &device, options, NULL, NULL);
 	if (err) {
 		size_t size;
-		clGetProgramBuildInfo(program, devices.front(), CL_PROGRAM_BUILD_LOG, 0, NULL, &size);
+		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &size);
 		char *log = new char[size];
-		clGetProgramBuildInfo(program, devices.front(), CL_PROGRAM_BUILD_LOG, size, log, NULL);
+		clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, size, log, NULL);
 		cout << log << endl;
 		delete[] log;
 	}

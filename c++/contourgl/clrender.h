@@ -31,6 +31,7 @@ private:
 	ClContext &cl;
 	cl_program contour_program;
 	cl_kernel contour_draw_kernel;
+	size_t contour_draw_workgroup_size;
 
 	Surface *surface;
 	cl_mem paths_buffer;
@@ -45,33 +46,10 @@ public:
 	void send_surface(Surface *surface);
 	Surface* receive_surface();
 	void send_paths(const void *paths, int size);
+	void remove_paths();
 	void draw();
 	void wait();
 };
 
-
-class SwRenderAlt {
-public:
-	struct Pixel {
-		Real area;
-		Real cover;
-		Pixel(): area(), cover() { }
-		void add(Real area, Real cover) { this->area += area; this->cover += cover; }
-	};
-
-private:
-	std::vector<Pixel> data;
-
-public:
-	const int width;
-	const int height;
-
-	SwRenderAlt(int width, int height): data(width*height), width(width), height(height) { }
-
-	Pixel* operator[] (int row) { return &data.front() + row*width; }
-	const Pixel* operator[] (int row) const { return &data.front() + row*width; }
-
-	void line(const Vector &p0, const Vector &p1);
-};
 
 #endif

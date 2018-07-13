@@ -31,6 +31,7 @@ ClRender::ClRender(ClContext &cl):
 	cl(cl),
 	contour_program(),
 	contour_draw_kernel(),
+	contour_draw_workgroup_size(),
 	surface(),
 	paths_buffer(),
 	mark_buffer(),
@@ -38,8 +39,19 @@ ClRender::ClRender(ClContext &cl):
 	prev_event()
 {
 	contour_program = cl.load_program("contour.cl");
+	assert(contour_program);
+
 	contour_draw_kernel = clCreateKernel(contour_program, "draw", NULL);
 	assert(contour_draw_kernel);
+
+	cl.err |= clGetKernelWorkGroupInfo(
+		contour_draw_kernel,
+		cl.device,
+		CL_KERNEL_WORK_GROUP_SIZE,
+		sizeof(contour_draw_workgroup_size),
+		&contour_draw_workgroup_size,
+		NULL );
+	assert(!cl.err);
 }
 
 ClRender::~ClRender() {
@@ -68,35 +80,29 @@ void ClRender::send_surface(Surface *surface) {
 
 		mark_buffer = clCreateBuffer(
 			cl.context, CL_MEM_READ_WRITE,
-			(surface->count() + 2)*sizeof(cl_int2), NULL, // extra two values to store contour bounds
-			NULL );
+			(surface->count() + 2)*sizeof(cl_int2), NULL,
+			&cl.err );
+		assert(!cl.err);
 		assert(mark_buffer);
 
-		cl_image_format surface_format = { };
-		surface_format.image_channel_order = CL_RGBA;
-		surface_format.image_channel_data_type = CL_FLOAT;
-
-		cl_image_desc surface_desc = { };
-		surface_desc.image_type = CL_MEM_OBJECT_IMAGE2D;
-		surface_desc.image_width = surface->width;
-		surface_desc.image_height = surface->height;
-
-		surface_image = clCreateImage(
-			cl.context, CL_MEM_READ_WRITE,
-			&surface_format, &surface_desc,
-			NULL, NULL );
-		assert(surface_image);
-
-		size_t origin[3] = { };
-		size_t region[3] = { (size_t)surface->width, (size_t)surface->height, 1 };
-		cl.err |= clEnqueueWriteImage(
-			cl.queue, surface_image, CL_FALSE,
-			origin, region, 0, 0, surface->data,
+		char zero = 0;
+		cl.err |= clEnqueueFillBuffer(
+			cl.queue, mark_buffer,
+			&zero, 1,
+			0, surface->count()*sizeof(cl_int2),
 			0, NULL, NULL );
 		assert(!cl.err);
 
-		cl.err |= clSetKernelArg(contour_draw_kernel, 1, sizeof(mark_buffer), &mark_buffer);
-		cl.err |= clSetKernelArg(contour_draw_kernel, 2, sizeof(surface_image), &surface_image);
+		surface_image = clCreateBuffer(
+			cl.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+			surface->count()*sizeof(Color), surface->data,
+			&cl.err );
+		assert(!cl.err);
+		assert(surface_image);
+
+		cl.err |= clSetKernelArg(contour_draw_kernel, 0, sizeof(surface->width), &surface->width);
+		cl.err |= clSetKernelArg(contour_draw_kernel, 1, sizeof(surface->width), &surface->height);
+		cl.err |= clSetKernelArg(contour_draw_kernel, 2, sizeof(mark_buffer), &mark_buffer);
 		cl.err |= clSetKernelArg(contour_draw_kernel, 3, sizeof(surface_image), &surface_image);
 		assert(!cl.err);
 
@@ -109,11 +115,9 @@ Surface* ClRender::receive_surface() {
 	if (surface) {
 		//Measure t("ClRender::receive_surface");
 
-		size_t origin[3] = { };
-		size_t region[3] = { (size_t)surface->width, (size_t)surface->height, 1 };
-		cl.err |= clEnqueueReadImage(
+		cl.err |= clEnqueueReadBuffer(
 			cl.queue, surface_image, CL_FALSE,
-			origin, region, 0, 0, surface->data,
+			0, surface->count()*sizeof(Color), surface->data,
 			prev_event ? 1 : 0,
 			prev_event ? &prev_event : NULL,
 			NULL );
@@ -126,37 +130,33 @@ Surface* ClRender::receive_surface() {
 	return surface;
 }
 
-void ClRender::send_paths(const void *paths, int size) {
-	if (!paths_buffer && (!paths || size <= 0)) return;
-
-	cl.err |= clFinish(cl.queue);
-	assert(!cl.err);
-	prev_event = NULL;
-
+void ClRender::remove_paths() {
 	if (paths_buffer) {
+		cl.err |= clFinish(cl.queue);
+		assert(!cl.err);
+		prev_event = NULL;
+
 		clReleaseMemObject(paths_buffer);
 		paths_buffer = NULL;
 	}
+}
+
+void ClRender::send_paths(const void *paths, int size) {
+	if (!paths_buffer && (!paths || size <= 0)) return;
+
+	remove_paths();
 
 	if (paths && size > 0) {
 		//Measure t("ClRender::send_path");
 
 		paths_buffer = clCreateBuffer(
-			cl.context, CL_MEM_READ_ONLY,
-			size, NULL,
-			NULL );
+			cl.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+			size, const_cast<void*>(paths),
+			&cl.err );
+		assert(!cl.err);
 		assert(paths_buffer);
 
-		cl.err |= clEnqueueWriteBuffer(
-			cl.queue, paths_buffer, CL_FALSE,
-			0, size, paths,
-			0, NULL, NULL );
-		assert(!cl.err);
-
-		cl.err |= clSetKernelArg(contour_draw_kernel, 0, sizeof(paths_buffer), &paths_buffer);
-		assert(!cl.err);
-
-		cl.err |= clFinish(cl.queue);
+		cl.err |= clSetKernelArg(contour_draw_kernel, 4, sizeof(paths_buffer), &paths_buffer);
 		assert(!cl.err);
 	}
 }
@@ -165,15 +165,14 @@ void ClRender::draw() {
 	//Measure t("ClRender::contour");
 
 	cl_event event = prev_event;
-
-	size_t start = 0;
+	size_t count = contour_draw_workgroup_size;
 	cl.err |= clEnqueueNDRangeKernel(
 		cl.queue,
 		contour_draw_kernel,
 		1,
-		&start,
-		&cl.max_group_size,
-		&cl.max_group_size,
+		NULL,
+		&count,
+		&count,
 		event ? 1 : 0,
 		event ? &event : NULL,
 		&prev_event );
@@ -188,72 +187,3 @@ void ClRender::wait() {
 	}
 }
 
-
-void SwRenderAlt::line(const Vector &p0, const Vector &p1) {
-	int iy0 = min(max((int)floor(p0.y), 0), height);
-	int iy1 = min(max((int)floor(p1.y), 0), height);
-	if (iy1 < iy0) swap(iy0, iy1);
-
-	Vector d = p1 - p0;
-	Vector k( fabs(d.y) < 1e-6 ? 0.0 : d.x/d.y,
-		      fabs(d.x) < 1e-6 ? 0.0 : d.y/d.x );
-
-	for(int r = iy0; r <= iy1; ++r) {
-		Real y = (Real)iy0;
-
-		Vector pp0 = p0;
-		pp0.y -= y;
-		if (pp0.y < 0.0) {
-			pp0.y = 0.0;
-			pp0.x = p0.x - k.x*y;
-		} else
-		if (pp0.y > 1.0) {
-			pp0.y = 1.0;
-			pp0.x = p0.x - k.x*(y - 1.0);
-		}
-
-		Vector pp1 = p1;
-		pp1.y -= y;
-		if (pp1.y < 0.0) {
-			pp1.y = 0.0;
-			pp1.x = p0.x - k.x*y;
-		} else
-		if (pp1.y > 1.0) {
-			pp1.y = 1.0;
-			pp1.x = p0.x - k.x*(y - 1.0);
-		}
-
-		int ix0 = min(max((int)floor(pp0.x), 0), width);
-		int ix1 = min(max((int)floor(pp1.x), 0), width);
-		if (ix1 < ix0) swap(ix0, ix1);
-		for(int c = ix0; c <= ix1; ++c) {
-			Real x = (Real)ix0;
-
-			Vector ppp0 = pp0;
-			ppp0.x -= x;
-			if (ppp0.x < 0.0) {
-				ppp0.x = 0.0;
-				ppp0.y = pp0.y - k.y*x;
-			} else
-			if (ppp0.x > 1.0) {
-				ppp0.x = 1.0;
-				ppp0.y = pp0.y - k.y*(x - 1.0);
-			}
-
-			Vector ppp1 = pp1;
-			ppp1.x -= x;
-			if (ppp1.x < 0.0) {
-				ppp1.x = 0.0;
-				ppp1.y = pp0.y - k.y*x;
-			} else
-			if (ppp1.x > 1.0) {
-				ppp1.x = 1.0;
-				ppp1.y = pp0.y - k.y*(x - 1.0);
-			}
-
-			Real cover = ppp0.y - ppp1.y;
-			Real area = (0.5*(ppp1.x + ppp1.x) - 1.0)*cover;
-			(*this)[r][c].add(area, cover);
-		}
-	}
-}

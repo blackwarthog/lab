@@ -282,12 +282,19 @@ void Test::test_cl(Environment &e, Data &data, Surface &surface) {
 	ClRender clr(e.cl);
 	clr.send_surface(&surface);
 
+	// warm-up
+	//clr.send_paths(&paths.front(), paths.size());
+	//for(int i = 0; i < 1000; ++i)
+	//	clr.draw();
+	clr.remove_paths();
+
+	// actual task
+	clr.send_surface(&surface);
 	{
 		Measure t("render");
 		clr.send_paths(&paths.front(), paths.size());
 		clr.draw();
 		clr.wait();
 	}
-
 	clr.receive_surface();
 }
