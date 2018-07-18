@@ -52,4 +52,51 @@ public:
 };
 
 
+class ClRender2 {
+public:
+	struct Path {
+		Color color;
+		int invert;
+		int evenodd;
+		int align0;
+		int align1;
+	};
+
+	struct Point {
+		vec2f coord;
+		int path_index;
+		int align0;
+	};
+
+private:
+	ClContext &cl;
+	cl_program contour_program;
+	cl_kernel contour_reset_kernel;
+	cl_kernel contour_paths_kernel;
+	cl_kernel contour_draw_kernel;
+
+	Surface *surface;
+	int points_count;
+	cl_mem paths_buffer;
+	cl_mem points_buffer;
+	cl_mem samples_buffer;
+	cl_mem surface_image;
+	cl_event prev_event;
+
+public:
+	ClRender2(ClContext &cl);
+	~ClRender2();
+
+	void send_surface(Surface *surface);
+	Surface* receive_surface();
+	void remove_surface();
+
+	void send_paths(const Path *paths, int paths_count, const Point *points, int points_count);
+	void remove_paths();
+
+	void draw();
+	void wait();
+};
+
+
 #endif

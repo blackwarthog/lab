@@ -18,6 +18,8 @@
 #include <iostream>
 #include <iomanip>
 
+#include <time.h>
+
 #include "measure.h"
 #include "utils.h"
 #include "glcontext.h"
@@ -39,14 +41,19 @@ void Measure::init() {
 			 << filename
 			 << endl << flush;
 	stack.push_back(this);
-	t = clock();
+
+	timespec spec;
+	clock_gettime(CLOCK_MONOTONIC , &spec);
+	t = spec.tv_sec*1000000000 + spec.tv_nsec;
 }
 
 Measure::~Measure() {
 	if (!surface && tga) glFinish();
 
-	clock_t dt = subs ? subs : clock() - t;
-	Real ms = 1000.0*(Real)dt/(Real)(CLOCKS_PER_SEC);
+	timespec spec;
+	clock_gettime(CLOCK_MONOTONIC , &spec);
+	long long dt = subs ? subs : spec.tv_sec*1000000000 + spec.tv_nsec - t;
+	Real ms = 1000.0*(Real)dt*(Real)(1e-9);
 
 	if (!hide)
 		cout << string((stack.size()-1)*2, ' ') << "end "

@@ -18,8 +18,6 @@
 #ifndef _MEASURE_H_
 #define _MEASURE_H_
 
-#include <ctime>
-
 #include <vector>
 #include <string>
 
@@ -34,8 +32,8 @@ private:
 	bool tga;
 	bool hide;
 	bool hide_subs;
-	clock_t subs;
-	clock_t t;
+	long long subs;
+	long long t;
 
 	Measure(const Measure&): surface(), tga(), hide(), hide_subs(), subs(), t() { }
 	Measure& operator= (const Measure&) { return *this; }

@@ -298,3 +298,56 @@ void Test::test_cl(Environment &e, Data &data, Surface &surface) {
 	}
 	clr.receive_surface();
 }
+
+void Test::test_cl2(Environment &e, Data &data, Surface &surface) {
+	// prepare data
+
+	vector<ClRender2::Path> paths;
+	vector<ClRender2::Point> points;
+	paths.reserve(data.size());
+	for(Data::const_iterator i = data.begin(); i != data.end(); ++i)
+		if (int points_count = i->contour.get_chunks().size()) {
+			ClRender2::Path path;
+			path.color = i->color;
+			path.invert  = i->invert  ? -1 : 0;
+			path.evenodd = i->evenodd ? -1 : 0;
+			path.align0 = 0;
+			path.align1 = 0;
+			paths.push_back(path);
+
+			int first_point_index = (int)points.size();
+			int path_index = (int)paths.size() - 1;
+			points.reserve(points.size() + points_count + 1);
+			for(Contour::ChunkList::const_iterator j = i->contour.get_chunks().begin(); j != i->contour.get_chunks().end(); ++j) {
+				ClRender2::Point point;
+				point.coord = vec2f(j->p1);
+				point.path_index = path_index;
+				point.align0 = 0;
+				points.push_back(point);
+			}
+			points.push_back(points[first_point_index]);
+		}
+
+	// draw
+
+	ClRender2 clr(e.cl);
+
+	// warm-up
+	{
+	//clr.send_surface(&surface);
+	//clr.send_paths(&paths.front(), (int)paths.size(), &points.front(), (int)points.size());
+	//for(int i = 0; i < 1000; ++i)
+	//	clr.draw(), clr.wait();
+	//clr.remove_paths();
+	}
+
+	// actual task
+	clr.send_surface(&surface);
+	clr.send_paths(&paths.front(), (int)paths.size(), &points.front(), (int)points.size());
+	{
+		Measure t("render");
+		clr.draw();
+		clr.wait();
+	}
+	clr.receive_surface();
+}

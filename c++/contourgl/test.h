@@ -54,6 +54,7 @@ public:
 	static void test_gl_stencil(Environment &e, Data &data);
 	static void test_sw(Environment &e, Data &data, Surface &surface);
 	static void test_cl(Environment &e, Data &data, Surface &surface);
+	static void test_cl2(Environment &e, Data &data, Surface &surface);
 };
 
 #endif

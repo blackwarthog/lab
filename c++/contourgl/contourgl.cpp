@@ -63,6 +63,9 @@ int main() {
 			{ Surface surface(width, height);
 			  Measure t("test_lines_cl.tga", surface, true);
 			  Test::test_cl(e, data, surface); }
+			{ Surface surface(width, height);
+			  Measure t("test_lines_cl2.tga", surface, true);
+			  Test::test_cl2(e, data, surface); }
 		}
 		{ Measure t("test_lines_downgrade", true); Test::downgrade(data, datalow); }
 
@@ -82,6 +85,9 @@ int main() {
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cl.tga", surface, true);
 			  Test::test_cl(e, datalow, surface); }
+			{ Surface surface(width, height);
+			  Measure t("test_lineslow_cl2.tga", surface, true);
+			  Test::test_cl2(e, datalow, surface); }
 		}
 	}
 
