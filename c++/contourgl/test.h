@@ -55,6 +55,7 @@ public:
 	static void test_sw(Environment &e, Data &data, Surface &surface);
 	static void test_cl(Environment &e, Data &data, Surface &surface);
 	static void test_cl2(Environment &e, Data &data, Surface &surface);
+	static void test_cl3(Environment &e, Data &data, Surface &surface);
 };
 
 #endif

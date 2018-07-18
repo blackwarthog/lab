@@ -351,3 +351,66 @@ void Test::test_cl2(Environment &e, Data &data, Surface &surface) {
 	}
 	clr.receive_surface();
 }
+
+void Test::test_cl3(Environment &e, Data &data, Surface &surface) {
+	// prepare data
+	vector<ClRender3::Path> paths;
+	vector<vec2f> points;
+	paths.reserve(data.size());
+	for(Data::const_iterator i = data.begin(); i != data.end(); ++i) {
+		if (!i->contour.get_chunks().empty()) {
+			ClRender3::Path path = {};
+			path.color = i->color;
+			path.invert = i->invert;
+			path.evenodd = i->evenodd;
+
+			path.miny = path.maxy = (int)floor(i->contour.get_chunks().front().p1.y);
+			path.begin = (int)points.size();
+			points.reserve(points.size() + i->contour.get_chunks().size() + 1);
+			for(Contour::ChunkList::const_iterator j = i->contour.get_chunks().begin(); j != i->contour.get_chunks().end(); ++j) {
+				int y = (int)floor(j->p1.y);
+				if (path.miny > y) path.miny = y;
+				if (path.maxy < y) path.maxy = y;
+				points.push_back(vec2f(j->p1));
+			}
+			path.end = (int)points.size();
+			points.push_back( points[path.begin] );
+			++path.maxy;
+
+			paths.push_back(path);
+		}
+	}
+
+	// draw
+
+	ClRender3 clr(e.cl);
+
+	// warm-up
+	{
+		clr.send_surface(&surface); clr.send_points(&points.front(), (int)points.size());
+		for(int ii = 0; ii < 100; ++ii)
+			for(vector<ClRender3::Path>::const_iterator i = paths.begin(); i != paths.end(); ++i)
+				clr.draw(*i);
+		clr.wait(); clr.send_points(NULL, 0); clr.send_surface(NULL);
+	}
+
+	// measure
+	/*{
+		clr.send_surface(&surface); clr.send_points(&points.front(), (int)points.size());
+		for(int ii = 0; ii < 100; ++ii)
+			for(vector<ClRender3::Path>::const_iterator i = paths.begin(); i != paths.end(); ++i)
+				clr.draw(*i);
+		clr.wait(); clr.send_points(NULL, 0); clr.send_surface(NULL);
+	}*/
+
+	// actual task
+	clr.send_surface(&surface);
+	clr.send_points(&points.front(), (int)points.size());
+	{
+		Measure t("render");
+		for(vector<ClRender3::Path>::const_iterator i = paths.begin(); i != paths.end(); ++i)
+			clr.draw(*i);
+		clr.wait();
+	}
+	clr.receive_surface();
+}

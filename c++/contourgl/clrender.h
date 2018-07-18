@@ -99,4 +99,43 @@ public:
 };
 
 
+class ClRender3 {
+public:
+	struct Path {
+		int miny;
+		int maxy;
+		int begin;
+		int end;
+		Color color;
+		bool invert;
+		bool evenodd;
+	};
+
+private:
+	ClContext &cl;
+	cl_program contour_program;
+	cl_kernel contour_clear_kernel;
+	cl_kernel contour_path_kernel;
+	cl_kernel contour_fill_kernel;
+
+	Surface *surface;
+	cl_mem points_buffer;
+	cl_mem mark_buffer;
+	cl_mem surface_image;
+	cl_event prev_event;
+
+public:
+	ClRender3(ClContext &cl);
+	~ClRender3();
+
+	void send_surface(Surface *surface);
+	Surface* receive_surface();
+
+	void send_points(const vec2f *points, int count);
+
+	void draw(const Path &path);
+	void wait();
+};
+
+
 #endif

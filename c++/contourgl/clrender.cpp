@@ -418,3 +418,213 @@ void ClRender2::wait() {
 }
 
 
+// ------------------------------------------------
+
+
+ClRender3::ClRender3(ClContext &cl):
+	cl(cl),
+	contour_program(),
+	contour_clear_kernel(),
+	contour_path_kernel(),
+	contour_fill_kernel(),
+	surface(),
+	points_buffer(),
+	mark_buffer(),
+	surface_image(),
+	prev_event()
+{
+	contour_program = cl.load_program("contour-base.cl");
+	assert(contour_program);
+
+	contour_clear_kernel = clCreateKernel(contour_program, "clear", &cl.err);
+	assert(!cl.err);
+	assert(contour_clear_kernel);
+
+	contour_path_kernel = clCreateKernel(contour_program, "path", &cl.err);
+	assert(!cl.err);
+	assert(contour_path_kernel);
+
+	contour_fill_kernel = clCreateKernel(contour_program, "fill", &cl.err);
+	assert(!cl.err);
+	assert(contour_fill_kernel);
+}
+
+ClRender3::~ClRender3() {
+	send_points(NULL, 0);
+	send_surface(NULL);
+
+	clReleaseKernel(contour_path_kernel);
+	clReleaseKernel(contour_fill_kernel);
+	clReleaseProgram(contour_program);
+}
+
+void ClRender3::send_surface(Surface *surface) {
+	if (this->surface) {
+		wait();
+		cl.err |= clReleaseMemObject(surface_image);
+		assert(!cl.err);
+		surface_image = NULL;
+	}
+
+	this->surface = surface;
+
+	if (this->surface) {
+		//Measure t("ClRender::send_surface");
+
+		int zero_mark[4] = { };
+
+		surface_image = clCreateBuffer(
+			cl.context, CL_MEM_READ_WRITE,
+			surface->count()*sizeof(Color), NULL,
+			&cl.err );
+		assert(!cl.err);
+		assert(surface_image);
+
+		mark_buffer = clCreateBuffer(
+			cl.context, CL_MEM_READ_WRITE,
+			surface->count()*sizeof(zero_mark), NULL,
+			&cl.err );
+		assert(!cl.err);
+		assert(mark_buffer);
+
+		cl.err |= clEnqueueWriteBuffer(
+			cl.queue, surface_image, false,
+			0, surface->count()*sizeof(Color), surface->data,
+			0, NULL, NULL );
+		assert(!cl.err);
+
+		cl.err |= clSetKernelArg(contour_clear_kernel, 0, sizeof(surface->width), &surface->width);
+		cl.err |= clSetKernelArg(contour_clear_kernel, 1, sizeof(surface->height), &surface->height);
+		cl.err |= clSetKernelArg(contour_clear_kernel, 2, sizeof(mark_buffer), &mark_buffer);
+		assert(!cl.err);
+
+		size_t count = surface->count();
+		cl.err |= clEnqueueNDRangeKernel(
+			cl.queue, contour_clear_kernel,
+			1, NULL, &count, NULL,
+			0, NULL, NULL );
+		assert(!cl.err);
+
+		cl.err |= clSetKernelArg(contour_path_kernel, 0, sizeof(surface->width), &surface->width);
+		cl.err |= clSetKernelArg(contour_path_kernel, 1, sizeof(surface->height), &surface->height);
+		cl.err |= clSetKernelArg(contour_path_kernel, 2, sizeof(mark_buffer), &mark_buffer);
+		assert(!cl.err);
+
+		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(surface->width), &surface->width);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(surface->height), &surface->height);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(mark_buffer), &mark_buffer);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(surface_image), &surface_image);
+		assert(!cl.err);
+
+		wait();
+	}
+}
+
+Surface* ClRender3::receive_surface() {
+	if (surface) {
+		//Measure t("ClRender::receive_surface");
+
+		cl.err |= clEnqueueReadBuffer(
+			cl.queue, surface_image, CL_FALSE,
+			0, surface->count()*sizeof(Color), surface->data,
+			prev_event ? 1 : 0,
+			prev_event ? &prev_event : NULL,
+			NULL );
+		assert(!cl.err);
+
+		wait();
+	}
+	return surface;
+}
+
+void ClRender3::send_points(const vec2f *points, int count) {
+	if (points_buffer) {
+		wait();
+		cl.err |= clReleaseMemObject(points_buffer);
+		assert(!cl.err);
+		points_buffer = NULL;
+	}
+
+	if (points && count > 0) {
+		points_buffer = clCreateBuffer(
+			cl.context, CL_MEM_READ_ONLY,
+			count*sizeof(vec2f), NULL,
+			&cl.err );
+		assert(!cl.err);
+		assert(points_buffer);
+
+		cl.err |= clEnqueueWriteBuffer(
+			cl.queue, points_buffer, false,
+			0, count*sizeof(vec2f), points,
+			0, NULL, NULL );
+		assert(!cl.err);
+
+		cl.err |= clSetKernelArg(contour_path_kernel, 3, sizeof(points_buffer), &points_buffer);
+		assert(!cl.err);
+
+		wait();
+	}
+}
+
+void ClRender3::draw(const Path &path) {
+	//Measure t("ClRender::contour");
+
+	assert(surface);
+	assert(points_buffer);
+
+	int miny        = max(0, path.miny);
+	int maxy        = min(surface->height, path.maxy);
+	int invert_int  = path.invert  ? 1 : 0;
+	int evenodd_int = path.evenodd ? 1 : 0;
+	if (miny >= maxy || path.begin >= path.end) return;
+
+	cl.err |= clSetKernelArg(contour_path_kernel, 4, sizeof(path.begin), &path.begin);
+	cl.err |= clSetKernelArg(contour_path_kernel, 5, sizeof(path.begin), &path.end);
+	assert(!cl.err);
+
+	cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(maxy), &maxy); // restrict height
+	cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(path.color), &path.color);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(invert_int), &invert_int);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(evenodd_int), &evenodd_int);
+	assert(!cl.err);
+
+
+	cl_event path_event;
+
+	size_t group_size = 1;
+
+	size_t offset = path.begin;
+	size_t count = ((path.end - path.begin - 1)/group_size + 1)*group_size;
+	cl.err |= clEnqueueNDRangeKernel(
+		cl.queue,
+		contour_path_kernel,
+		1,
+		&offset,
+		&count,
+		NULL,//&group_size,
+		prev_event ? 1 : 0,
+		prev_event ? &prev_event : NULL,
+		&path_event );
+	assert(!cl.err);
+
+	offset = miny;
+	count = ((maxy - miny - 1)/group_size + 1)*group_size;
+	cl.err |= clEnqueueNDRangeKernel(
+		cl.queue,
+		contour_fill_kernel,
+		1,
+		&offset,
+		&count,
+		NULL,//&group_size,
+		1,
+		&path_event,
+		&prev_event );
+	assert(!cl.err);
+}
+
+void ClRender3::wait() {
+	cl.err |= clFinish(cl.queue);
+	assert(!cl.err);
+	prev_event = NULL;
+}
+
