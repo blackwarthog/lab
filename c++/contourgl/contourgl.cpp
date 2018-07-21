@@ -88,10 +88,10 @@ int main() {
 		*/
 		{
 			Environment e(width, height, false, false, 8);
-			/*
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_sw.tga", surface, true);
 			  Test::test_sw(e, datalow, surface); }
+			/*
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cl.tga", surface, true);
 			  Test::test_cl(e, datalow, surface); }
