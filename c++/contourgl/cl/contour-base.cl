@@ -88,6 +88,9 @@ kernel void path(
 	}
 }
 
+// TODO:
+// different implementations for:
+//   antialiased, transparent, inverted, evenodd contours and combinations (total 16 implementations)
 kernel void fill(
 	int width,
 	int height,
@@ -103,56 +106,50 @@ kernel void fill(
 
 	int id = get_global_id(0);
 	if (id >= height) return;
-	int w1 = width - 1;
 	global int4 *row = mark_buffer + id*width;
+	global int4 *mark;
 	global float4 *image_row = image + id*width;
+	global float4 *pixel;
 
-	int cover = 0;
-	int ialpha;
-	int2 c0 = { 0, id };
-	int2 c1 = c0;
-	int4 empty_mark = { 0, 0, 0, 0 };
-	while(c0.x < w1) {
-		int4 mark;
-		while(c1.x < width) {
-			mark = row[c1.x];
-			empty_mark.z = c1.x | (c1.x + 1);
-			row[c1.x] = empty_mark; 
-			if (mark.x || mark.y) break;
-			c1.x = min(mark.z, width);
+	int icover = 0;
+	//int ialpha;
+	int c0 = 0;
+	int c1 = 0;
+	int i = 0;
+	float alpha;
+	int4 m;
+	while(c0 < width) {
+		while(c1 < width) {
+			mark = &row[c1];
+			m = *mark;
+			*mark = (int4)(0, 0, c1 | (c1 + 1), 0); 
+			if (m.x || m.y) break;
+			c1 = m.z;
 		}
+		c1 = min(c1, width);
 		
-		ialpha = abs(cover);
-		ialpha = evenodd ? scale - abs((ialpha % scale2) - scale)
-						 : min(ialpha, scale);
-		if (invert) ialpha = scale - ialpha;  
-		if (ialpha > scale05) {
-			while(c0.x < c1.x) {
-				image_row[c0.x] = color;
-				++c0.x;
-			}
-		}
+		//ialpha = abs(icover);
+		//ialpha = evenodd ? scale - abs((ialpha % scale2) - scale)
+		//				 : min(ialpha, scale);
+		//if (invert) ialpha = scale - ialpha;
+		if (abs(icover) > scale05)
+			while(c0 < c1)
+				image_row[c0++] = color;
 	
-		if (c1.x >= width) return;
+		if (c1 >= width) return;
 		
-		ialpha = abs(mark.x + cover);
-		ialpha = evenodd ? scale - abs((ialpha % scale2) - scale)
-						 : min(ialpha, scale);
-		if (invert) ialpha = scale - ialpha;  
-		if (ialpha > 4) {
-			float alpha = (float)ialpha/(float)scale;
-			float alpha_inv = 1.f - alpha;
-			global float4 *pixel = &image_row[c1.x];
-			float4 cl = *pixel;
-			cl.x = cl.x*alpha_inv + color.x*alpha;
-			cl.y = cl.y*alpha_inv + color.y*alpha;
-			cl.z = cl.z*alpha_inv + color.z*alpha;
-			cl.w = min(cl.w + alpha, 1.f);
-			*pixel = cl;
-		}
+		//ialpha = abs(mark.x + icover);
+		//ialpha = evenodd ? scale - abs((ialpha % scale2) - scale)
+		//				 : min(ialpha, scale);
+		//if (invert) ialpha = scale - ialpha;  
+
+		alpha = (float)abs(m.x + icover)/(float)scale;
+		pixel = &image_row[c1];
+		*pixel = (float4)( pixel->xyz*(1.f - alpha) + color.xyz*alpha,
+				           min(pixel->w + alpha, 1.f) );
 		
-		c0.x = c1.x + 1;
-		c1.x = min(mark.z, width);
-		cover += mark.y;
+		c0 = c1 + 1;
+		c1 = m.z;
+		icover += m.y;
 	}
 }

@@ -27,24 +27,29 @@
 class Measure {
 private:
 	static std::vector<Measure*> stack;
+
 	std::string filename;
-	Surface *surface;
+	Surface* surface;
 	bool tga;
 	bool hide;
 	bool hide_subs;
+	bool repeat;
+
+	bool has_subs;
 	long long subs;
 	long long t;
+	std::vector<long long> repeats;
 
-	Measure(const Measure&): surface(), tga(), hide(), hide_subs(), subs(), t() { }
+	Measure(const Measure&): surface(), tga(), hide(), hide_subs(), repeat(), has_subs(), subs(), t() { }
 	Measure& operator= (const Measure&) { return *this; }
 	void init();
 public:
-	Measure(const std::string &filename, bool hide_subs = false):
-		filename(filename), surface(), tga(), hide(), hide_subs(hide_subs), subs(), t()
+	Measure(const std::string &filename, bool hide_subs = false, bool repeat = false):
+		filename(filename), surface(), tga(), hide(), hide_subs(hide_subs), repeat(repeat), has_subs(), subs(), t()
 	{ init(); }
 
-	Measure(const std::string &filename, Surface &surface, bool hide_subs = false):
-		filename(filename), surface(&surface), tga(), hide(), hide_subs(hide_subs), subs(), t()
+	Measure(const std::string &filename, Surface &surface, bool hide_subs = false, bool repeat = false):
+		filename(filename), surface(&surface), tga(), hide(), hide_subs(hide_subs), repeat(repeat), has_subs(), subs(), t()
 	{ init(); }
 
 	~Measure();

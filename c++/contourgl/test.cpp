@@ -386,28 +386,29 @@ void Test::test_cl3(Environment &e, Data &data, Surface &surface) {
 	ClRender3 clr(e.cl);
 
 	// warm-up
-	{
-		clr.send_surface(&surface); clr.send_points(&points.front(), (int)points.size());
-		for(int ii = 0; ii < 100; ++ii)
-			for(vector<ClRender3::Path>::const_iterator i = paths.begin(); i != paths.end(); ++i)
-				clr.draw(*i);
-		clr.wait(); clr.send_points(NULL, 0); clr.send_surface(NULL);
-	}
+	clr.send_surface(&surface);
+	clr.send_points(&points.front(), (int)points.size());
+	for(int ii = 0; ii < 1000; ++ii)
+		for(vector<ClRender3::Path>::const_iterator i = paths.begin(); i != paths.end(); ++i)
+			clr.draw(*i);
+	clr.wait();
 
 	// measure
-	/*{
-		clr.send_surface(&surface); clr.send_points(&points.front(), (int)points.size());
-		for(int ii = 0; ii < 100; ++ii)
+	{
+		for(int ii = 0; ii < 1000; ++ii) {
+			Measure t("render", false, true);
 			for(vector<ClRender3::Path>::const_iterator i = paths.begin(); i != paths.end(); ++i)
 				clr.draw(*i);
-		clr.wait(); clr.send_points(NULL, 0); clr.send_surface(NULL);
-	}*/
+			clr.wait();
+		}
+	}
+	clr.send_points(NULL, 0);
+	clr.send_surface(NULL);
 
 	// actual task
 	clr.send_surface(&surface);
 	clr.send_points(&points.front(), (int)points.size());
 	{
-		Measure t("render");
 		for(vector<ClRender3::Path>::const_iterator i = paths.begin(); i != paths.end(); ++i)
 			clr.draw(*i);
 		clr.wait();

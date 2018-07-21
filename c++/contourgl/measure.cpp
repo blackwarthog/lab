@@ -50,10 +50,29 @@ void Measure::init() {
 Measure::~Measure() {
 	if (!surface && tga) glFinish();
 
-	timespec spec;
-	clock_gettime(CLOCK_MONOTONIC , &spec);
-	long long dt = subs ? subs : spec.tv_sec*1000000000 + spec.tv_nsec - t;
-	Real ms = 1000.0*(Real)dt*(Real)(1e-9);
+	long long dt;
+	if (has_subs) {
+		dt = subs;
+		if (!repeats.empty()) {
+			// remove 25% of minimal values and 25% of maximum values
+			for(int i = (int)repeats.size()/10; i; --i) {
+				vector<long long>::iterator j, jj;
+				for(jj = j = repeats.begin(); j != repeats.end(); ++j) if (*j < *jj) jj = j;
+				repeats.erase(jj);
+				for(jj = j = repeats.begin(); j != repeats.end(); ++j) if (*j > *jj) jj = j;
+				repeats.erase(jj);
+			}
+			// get average
+			long long sum = 0;
+			for(vector<long long>::iterator j = repeats.begin(); j != repeats.end(); ++j) sum += *j;
+			dt += sum/repeats.size();
+		}
+	} else {
+		timespec spec;
+		clock_gettime(CLOCK_MONOTONIC , &spec);
+		dt = spec.tv_sec*1000000000 + spec.tv_nsec - t;
+	}
+	Real ms = 1000.0*1e-9*(Real)dt;
 
 	if (!hide)
 		cout << string((stack.size()-1)*2, ' ') << "end "
@@ -78,6 +97,10 @@ Measure::~Measure() {
 	}
 
 	stack.pop_back();
-	if (!stack.empty()) stack.back()->subs += dt;
+	if (!stack.empty()) {
+		stack.back()->has_subs = true;
+		if (repeat) stack.back()->repeats.push_back(dt);
+		       else stack.back()->subs += dt;
+	}
 }
 

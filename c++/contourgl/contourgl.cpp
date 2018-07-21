@@ -49,6 +49,8 @@ int main() {
 
 		gldata = data;
 		Test::transform(gldata, bounds_frame, bounds_gl);
+
+		/*
 		{ Environment e(width, height, false, false, 8);
 		  Measure t("test_lines_gl_stencil.tga", true);
 		  Test::test_gl_stencil(e, gldata); }
@@ -70,8 +72,11 @@ int main() {
 			  Measure t("test_lines_cl3.tga", surface, true);
 			  Test::test_cl3(e, data, surface); }
 		}
+		*/
+
 		{ Measure t("test_lines_downgrade", true); Test::downgrade(data, datalow); }
 
+		/*
 		gldata = datalow;
 		Test::transform(gldata, bounds_frame, bounds_gl);
 		{ Environment e(width, height, false, false, 8);
@@ -80,8 +85,10 @@ int main() {
 		{ Environment e(width, height, false, true, 8);
 		  Measure t("test_lineslow_gl_stencil_aa.tga", true);
 		  Test::test_gl_stencil(e, gldata); }
+		*/
 		{
 			Environment e(width, height, false, false, 8);
+			/*
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_sw.tga", surface, true);
 			  Test::test_sw(e, datalow, surface); }
@@ -91,6 +98,7 @@ int main() {
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cl2.tga", surface, true);
 			  Test::test_cl2(e, datalow, surface); }
+			*/
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cl3.tga", surface, true);
 			  Test::test_cl3(e, datalow, surface); }

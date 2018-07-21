@@ -455,6 +455,7 @@ ClRender3::~ClRender3() {
 
 	clReleaseKernel(contour_path_kernel);
 	clReleaseKernel(contour_fill_kernel);
+	clReleaseKernel(contour_clear_kernel);
 	clReleaseProgram(contour_program);
 }
 
@@ -579,7 +580,7 @@ void ClRender3::draw(const Path &path) {
 	if (miny >= maxy || path.begin >= path.end) return;
 
 	cl.err |= clSetKernelArg(contour_path_kernel, 4, sizeof(path.begin), &path.begin);
-	cl.err |= clSetKernelArg(contour_path_kernel, 5, sizeof(path.begin), &path.end);
+	cl.err |= clSetKernelArg(contour_path_kernel, 5, sizeof(path.end), &path.end);
 	assert(!cl.err);
 
 	cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(maxy), &maxy); // restrict height
