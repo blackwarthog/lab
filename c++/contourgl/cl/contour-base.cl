@@ -15,6 +15,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#pragma OPENCL EXTENSION cl_khr_int64_base_atomics: enable
+
 #define ONE       65536
 #define TWO      131072               // (ONE)*2
 #define HALF      32768               // (ONE)/2
@@ -59,7 +61,7 @@ kernel void path(
 	float kx = d.x/d.y;
 	float ky = d.y/d.x;
 	
-	global int *row, *mark;
+	global int *row;
 	float2 px, py, pp1;
 	float cover, area;
 	int ix, iy, iix;
@@ -84,9 +86,7 @@ kernel void path(
 		ix = clamp(ix, 0, w1);
 		
 		row = mark_buffer + 4*iy*width;
-		mark = row + 4*ix;
-		atomic_add(mark, (int)(area*cover));
-		atomic_add(mark + 1, (int)cover);
+		atomic_add((global long*)(row + 4*ix), upsample((int)cover, (int)(area*cover)));
 		
 		row += 2;
 		iix = (ix & (ix + 1)) - 1;
