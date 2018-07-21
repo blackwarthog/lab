@@ -15,7 +15,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define PRECISION 1e-6f
 #define ONE       65536
 #define TWO      131072               // (ONE)*2
 #define HALF      32768               // (ONE)/2
@@ -31,8 +30,7 @@ kernel void clear(
 	int id = get_global_id(0);
 	if (id >= width*height) return;
 	int c = id % width;
-	int4 v = { 0, 0, c | (c + 1), 0 };
-	mark_buffer[id] = v;
+	mark_buffer[id] = (int4)(0, 0, c | (c + 1), 0);
 }
 
 kernel void path(
@@ -41,7 +39,8 @@ kernel void path(
 	global int *mark_buffer,
 	global float2 *points,
 	int begin,
-	int end )
+	int end,
+	int4 bounds )
 {
 	int id = get_global_id(0);
 	if (id >= end) return;
@@ -57,8 +56,8 @@ kernel void path(
 	if (flipx) { p0.x = s.x - p0.x; p1.x = s.x - p1.x; }
 	if (flipy) { p0.y = s.y - p0.y; p1.y = s.y - p1.y; }
 	float2 d = p1 - p0;
-	float kx = fabs(d.y) < PRECISION ? 1e10 : d.x/d.y;
-	float ky = fabs(d.x) < PRECISION ? 1e10 : d.y/d.x;
+	float kx = d.x/d.y;
+	float ky = d.y/d.x;
 	
 	global int *row, *mark;
 	float2 px, py, pp1;
@@ -67,32 +66,33 @@ kernel void path(
 	
 	while(p0.x != p1.x || p0.y != p1.y) {
 		ix = (int)p0.x;
-		iy = (int)p0.y;
-		if (iy > h1) break;
+		iy = max((int)p0.y, 0);
+		if (iy > h1) return;
 
 		px.x = (float)(ix + 1);
 		px.y = p0.y + ky*(px.x - p0.x);
-		py.y = max((float)(iy + 1), 0.f);
+		py.y = (float)(iy + 1);
 		py.x = p0.x + kx*(py.y - p0.y);
 		pp1 = p1;
 		if (pp1.x > px.x) pp1 = px;
 		if (pp1.y > py.y) pp1 = py;
 		
-		if (iy >= 0) {
-			cover = pp1.y - p0.y;
-			area = px.x - 0.5f*(p0.x + pp1.x);
-			if (flipx) { ix = w1 - ix; area = 1.f - area; }
-			if (flipy) { iy = h1 - iy; cover = -cover; }
-			ix = clamp(ix, 0, w1);
-			row = mark_buffer + 4*iy*width;
-			mark = row + 4*ix;
-			atomic_add(mark, (int)(area*cover*ONE_F));
-			atomic_add(mark + 1, (int)(cover*ONE_F));
-			iix = (ix & (ix + 1)) - 1;
-			while(iix >= 0) {
-				atomic_min(row + 4*iix + 2, ix);
-				iix = (iix & (iix + 1)) - 1;
-			}
+		cover = (pp1.y - p0.y)*ONE_F;
+		area = px.x - 0.5f*(p0.x + pp1.x);
+		if (flipx) { ix = w1 - ix; area = 1.f - area; }
+		if (flipy) { iy = h1 - iy; cover = -cover; }
+		ix = clamp(ix, 0, w1);
+		
+		row = mark_buffer + 4*iy*width;
+		mark = row + 4*ix;
+		atomic_add(mark, (int)(area*cover));
+		atomic_add(mark + 1, (int)cover);
+		
+		row += 2;
+		iix = (ix & (ix + 1)) - 1;
+		while(iix >= bounds.s0) {
+			atomic_min(row + 4*iix, ix);
+			iix = (iix & (iix + 1)) - 1;
 		}
 		
 		p0 = pp1;
@@ -108,6 +108,7 @@ kernel void fill(
 	global int4 *mark_buffer,
 	global float4 *image,
 	float4 color,
+	int4 bounds,
 	int invert,
 	int evenodd )
 {
@@ -118,15 +119,12 @@ kernel void fill(
 	global float4 *image_row = image + id*width;
 	global float4 *pixel;
 
-	int icover = 0;
-	//int ialpha;
-	int c0 = 0;
-	int c1 = 0;
-	int i = 0;
-	float alpha;
 	int4 m;
-	while(c0 < width) {
-		c1 = min(c1, width);
+	float alpha;
+	//int ialpha;
+	int icover = 0, c0 = bounds.s0, c1 = bounds.s0;
+	while(c0 < bounds.s2) {
+		c1 = min(c1, bounds.s2);
 		mark = &row[c1];
 		m = *mark;
 		*mark = (int4)(0, 0, c1 | (c1 + 1), 0); 
@@ -139,7 +137,7 @@ kernel void fill(
 			while(c0 < c1)
 				image_row[c0++] = color;
 	
-		if (c1 >= width) return;
+		if (c1 >= bounds.s2) return;
 		
 		//ialpha = abs(mark.x + icover);
 		//ialpha = evenodd ? ONE - abs((ialpha % TWO) - ONE)

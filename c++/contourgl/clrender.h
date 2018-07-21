@@ -102,8 +102,7 @@ public:
 class ClRender3 {
 public:
 	struct Path {
-		int miny;
-		int maxy;
+		ContextRect bounds;
 		int begin;
 		int end;
 		Color color;

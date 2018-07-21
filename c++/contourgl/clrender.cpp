@@ -573,20 +573,27 @@ void ClRender3::draw(const Path &path) {
 	assert(surface);
 	assert(points_buffer);
 
-	int miny        = max(0, path.miny);
-	int maxy        = min(surface->height, path.maxy);
+	ContextRect bounds;
+	bounds.minx = max(1, path.bounds.minx);
+	bounds.maxx = min(surface->width, path.bounds.maxx);
+	bounds.miny = max(0, path.bounds.miny);
+	bounds.maxy = min(surface->height, path.bounds.maxy);
 	int invert_int  = path.invert  ? 1 : 0;
 	int evenodd_int = path.evenodd ? 1 : 0;
-	if (miny >= maxy || path.begin >= path.end) return;
+	if ( bounds.minx >= bounds.maxx
+	  || bounds.miny >= bounds.maxy
+	  || path.begin >= path.end ) return;
 
 	cl.err |= clSetKernelArg(contour_path_kernel, 4, sizeof(path.begin), &path.begin);
 	cl.err |= clSetKernelArg(contour_path_kernel, 5, sizeof(path.end), &path.end);
+	cl.err |= clSetKernelArg(contour_path_kernel, 6, sizeof(bounds), &bounds);
 	assert(!cl.err);
 
-	cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(maxy), &maxy); // restrict height
+	cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(bounds.maxy), &bounds.maxy); // restrict height
 	cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(path.color), &path.color);
-	cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(invert_int), &invert_int);
-	cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(evenodd_int), &evenodd_int);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(bounds), &bounds);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(invert_int), &invert_int);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 7, sizeof(evenodd_int), &evenodd_int);
 	assert(!cl.err);
 
 
@@ -608,8 +615,8 @@ void ClRender3::draw(const Path &path) {
 		&path_event );
 	assert(!cl.err);
 
-	offset = miny;
-	count = ((maxy - miny - 1)/group_size + 1)*group_size;
+	offset = bounds.miny;
+	count = ((bounds.maxy - bounds.miny - 1)/group_size + 1)*group_size;
 	cl.err |= clEnqueueNDRangeKernel(
 		cl.queue,
 		contour_fill_kernel,

@@ -364,18 +364,23 @@ void Test::test_cl3(Environment &e, Data &data, Surface &surface) {
 			path.invert = i->invert;
 			path.evenodd = i->evenodd;
 
-			path.miny = path.maxy = (int)floor(i->contour.get_chunks().front().p1.y);
+			path.bounds.minx = path.bounds.maxx = (int)floor(i->contour.get_chunks().front().p1.x);
+			path.bounds.miny = path.bounds.maxy = (int)floor(i->contour.get_chunks().front().p1.y);
 			path.begin = (int)points.size();
 			points.reserve(points.size() + i->contour.get_chunks().size() + 1);
 			for(Contour::ChunkList::const_iterator j = i->contour.get_chunks().begin(); j != i->contour.get_chunks().end(); ++j) {
+				int x = (int)floor(j->p1.x);
 				int y = (int)floor(j->p1.y);
-				if (path.miny > y) path.miny = y;
-				if (path.maxy < y) path.maxy = y;
+				if (path.bounds.minx > x) path.bounds.minx = x;
+				if (path.bounds.maxx < x) path.bounds.maxx = x;
+				if (path.bounds.miny > y) path.bounds.miny = y;
+				if (path.bounds.maxy < y) path.bounds.maxy = y;
 				points.push_back(vec2f(j->p1));
 			}
 			path.end = (int)points.size();
 			points.push_back( points[path.begin] );
-			++path.maxy;
+			++path.bounds.maxx;
+			++path.bounds.maxy;
 
 			paths.push_back(path);
 		}
