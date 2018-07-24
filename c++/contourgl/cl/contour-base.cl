@@ -1,5 +1,5 @@
 /*
-    ......... 2015 Ivan Mahonin
+    ......... 2015-2018 Ivan Mahonin
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -27,39 +27,33 @@
 kernel void clear(
 	int width,
 	int height,
-	global int4 *mark_buffer )
+	global int4 *marks )
 {
 	int id = get_global_id(0);
-	if (id >= width*height) return;
 	int c = id % width;
-	mark_buffer[id] = (int4)(0, 0, c | (c + 1), 0);
+	marks[id] = (int4)(0, 0, c | (c + 1), 0);
 }
 
 kernel void path(
 	int width,
 	int height,
-	global int *mark_buffer,
+	global int *marks,
 	global float2 *points,
-	int begin,
-	int end,
 	int4 bounds )
 {
 	int id = get_global_id(0);
-	if (id >= end) return;
-	
-	float2 s = { (float)width, (float)height }; 
-	int w1 = width - 1;
-	int h1 = height - 1;
-
 	float2 p0 = points[id];
 	float2 p1 = points[id + 1];
+	
 	bool flipx = p1.x < p0.x;
 	bool flipy = p1.y < p0.y;
-	if (flipx) { p0.x = s.x - p0.x; p1.x = s.x - p1.x; }
-	if (flipy) { p0.y = s.y - p0.y; p1.y = s.y - p1.y; }
+	if (flipx) { p0.x = (float)width - p0.x; p1.x = (float)width - p1.x; }
+	if (flipy) { p0.y = (float)height - p0.y; p1.y = (float)height - p1.y; }
 	float2 d = p1 - p0;
 	float kx = d.x/d.y;
 	float ky = d.y/d.x;
+	int w1 = width - 1;
+	int h1 = height - 1;
 	
 	global int *row;
 	float2 px, py, pp1;
@@ -85,8 +79,10 @@ kernel void path(
 		if (flipy) { iy = h1 - iy; cover = -cover; }
 		ix = clamp(ix, 0, w1);
 		
-		row = mark_buffer + 4*iy*width;
+		row = marks + 4*iy*width;
 		atomic_add((global long*)(row + 4*ix), upsample((int)cover, (int)(area*cover)));
+		//atomic_add(row + 4*ix, (int)(area*cover));
+		//atomic_add(row + 4*ix + 1, (int)cover);
 		
 		row += 2;
 		iix = (ix & (ix + 1)) - 1;
@@ -104,37 +100,34 @@ kernel void path(
 //   antialiased, transparent, inverted, evenodd contours and combinations (total 16 implementations)
 kernel void fill(
 	int width,
-	int height,
-	global int4 *mark_buffer,
+	global int4 *marks,
 	global float4 *image,
 	float4 color,
-	int4 bounds,
-	int invert,
-	int evenodd )
+	int2 boundsx )
 {
-	int id = get_global_id(0);
-	if (id >= height) return;
-	global int4 *row = mark_buffer + id*width;
+	int id = width*(int)get_global_id(0);
+	marks += id;
+	image += id;
 	global int4 *mark;
-	global float4 *image_row = image + id*width;
 	global float4 *pixel;
+
+	//prefetch(row       + boundsx.s0, boundsx.s1 - boundsx.s0);
+	//prefetch(image_row + boundsx.s0, boundsx.s1 - boundsx.s0);
 
 	int4 m;
 	float alpha;
 	//int ialpha;
-	int icover = 0, c0 = bounds.s0, c1 = bounds.s0;
-	while(c0 < bounds.s2) {
+	int icover = 0, c0 = boundsx.s0, c1 = boundsx.s0;
+	while(c1 < boundsx.s1) {
 		//ialpha = abs(icover);
 		//ialpha = evenodd ? ONE - abs((ialpha % TWO) - ONE)
 		//				 : min(ialpha, ONE);
 		//if (invert) ialpha = ONE - ialpha;
 		if (abs(icover) > HALF)
 			while(c0 < c1)
-				image_row[c0++] = color;
-	
-		if (c1 >= bounds.s2) return;
-		
-		mark = &row[c1];
+				image[c0++] = color;
+
+		mark = &marks[c1];
 		m = *mark;
 		*mark = (int4)(0, 0, c1 | (c1 + 1), 0); 
 		
@@ -144,12 +137,11 @@ kernel void fill(
 		//if (invert) ialpha = ONE - ialpha;  
 
 		alpha = (float)abs(m.x + icover)*DIV_ONE_F;
-		pixel = &image_row[c1];
-		*pixel = (float4)( pixel->xyz*(1.f - alpha) + color.xyz*alpha,
-				           min(pixel->w + alpha, 1.f) );
+		pixel = &image[c1];
+		*pixel = *pixel*(1.f - alpha) + color*alpha;
 		
-		c0 = c1 + 1;
-		c1 = min(m.z, bounds.s2);
 		icover += m.y;
+		c0 = c1 + 1;
+		c1 = m.z;
 	}
 }

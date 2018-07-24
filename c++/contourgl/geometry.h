@@ -134,6 +134,10 @@ typedef vec2<float> vec2f;
 typedef line2<float> line2f;
 typedef rect<float> rectf;
 
+typedef vec2<int> vec2i;
+typedef line2<int> line2i;
+typedef rect<int> recti;
+
 class ContextRect {
 public:
 	int minx, miny, maxx, maxy;

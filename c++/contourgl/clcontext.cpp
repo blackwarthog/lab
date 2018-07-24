@@ -131,7 +131,7 @@ ClContext::ClContext():
 	// command queue
 
     cl_command_queue_properties props = 0
-    	| CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
+    	//| CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
     	//| CL_QUEUE_PROFILING_ENABLE
     	| 0;
 	queue = clCreateCommandQueue(

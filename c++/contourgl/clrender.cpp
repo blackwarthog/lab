@@ -512,9 +512,8 @@ void ClRender3::send_surface(Surface *surface) {
 		assert(!cl.err);
 
 		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(surface->width), &surface->width);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(surface->height), &surface->height);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(mark_buffer), &mark_buffer);
-		cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(surface_image), &surface_image);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(mark_buffer), &mark_buffer);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(surface_image), &surface_image);
 		assert(!cl.err);
 
 		wait();
@@ -578,61 +577,43 @@ void ClRender3::draw(const Path &path) {
 	bounds.maxx = min(surface->width, path.bounds.maxx);
 	bounds.miny = max(0, path.bounds.miny);
 	bounds.maxy = min(surface->height, path.bounds.maxy);
-	int invert_int  = path.invert  ? 1 : 0;
-	int evenodd_int = path.evenodd ? 1 : 0;
 	if ( bounds.minx >= bounds.maxx
 	  || bounds.miny >= bounds.maxy
 	  || path.begin >= path.end ) return;
 
-	cl.err |= clSetKernelArg(contour_path_kernel, 4, sizeof(path.begin), &path.begin);
-	cl.err |= clSetKernelArg(contour_path_kernel, 5, sizeof(path.end), &path.end);
-	cl.err |= clSetKernelArg(contour_path_kernel, 6, sizeof(bounds), &bounds);
+	vec2i boundsx(bounds.minx, bounds.maxx);
+
+	cl.err |= clSetKernelArg(contour_path_kernel, 4, sizeof(bounds), &bounds);
 	assert(!cl.err);
 
-	cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(bounds.maxy), &bounds.maxy); // restrict height
-	cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(path.color), &path.color);
-	cl.err |= clSetKernelArg(contour_fill_kernel, 5, sizeof(bounds), &bounds);
-	cl.err |= clSetKernelArg(contour_fill_kernel, 6, sizeof(invert_int), &invert_int);
-	cl.err |= clSetKernelArg(contour_fill_kernel, 7, sizeof(evenodd_int), &evenodd_int);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(path.color), &path.color);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(boundsx), &boundsx);
 	assert(!cl.err);
-
-
-	cl_event path_event;
-
-	size_t group_size = 1;
 
 	size_t offset = path.begin;
-	size_t count = ((path.end - path.begin - 1)/group_size + 1)*group_size;
+	size_t count = path.end - path.begin;
 	cl.err |= clEnqueueNDRangeKernel(
-		cl.queue,
-		contour_path_kernel,
-		1,
-		&offset,
-		&count,
-		NULL,//&group_size,
-		prev_event ? 1 : 0,
-		prev_event ? &prev_event : NULL,
-		&path_event );
+		cl.queue, contour_path_kernel,
+		1, &offset, &count, NULL,
+		0, NULL, NULL );
 	assert(!cl.err);
 
 	offset = bounds.miny;
-	count = ((bounds.maxy - bounds.miny - 1)/group_size + 1)*group_size;
+	count = bounds.maxy - bounds.miny;
 	cl.err |= clEnqueueNDRangeKernel(
-		cl.queue,
-		contour_fill_kernel,
-		1,
-		&offset,
-		&count,
-		NULL,//&group_size,
-		1,
-		&path_event,
-		&prev_event );
+		cl.queue, contour_fill_kernel,
+		1, &offset, &count, NULL,
+		0, NULL, NULL );
 	assert(!cl.err);
 }
 
 void ClRender3::wait() {
 	cl.err |= clFinish(cl.queue);
 	assert(!cl.err);
-	prev_event = NULL;
+	if (prev_event) {
+		cl.err |= clReleaseEvent(prev_event);
+		assert(!cl.err);
+		prev_event = NULL;
+	}
 }
 
