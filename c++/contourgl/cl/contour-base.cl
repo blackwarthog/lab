@@ -124,11 +124,6 @@ kernel void fill(
 	//int ialpha;
 	int icover = 0, c0 = bounds.s0, c1 = bounds.s0;
 	while(c0 < bounds.s2) {
-		c1 = min(c1, bounds.s2);
-		mark = &row[c1];
-		m = *mark;
-		*mark = (int4)(0, 0, c1 | (c1 + 1), 0); 
-		
 		//ialpha = abs(icover);
 		//ialpha = evenodd ? ONE - abs((ialpha % TWO) - ONE)
 		//				 : min(ialpha, ONE);
@@ -138,6 +133,10 @@ kernel void fill(
 				image_row[c0++] = color;
 	
 		if (c1 >= bounds.s2) return;
+		
+		mark = &row[c1];
+		m = *mark;
+		*mark = (int4)(0, 0, c1 | (c1 + 1), 0); 
 		
 		//ialpha = abs(mark.x + icover);
 		//ialpha = evenodd ? ONE - abs((ialpha % TWO) - ONE)
@@ -150,7 +149,7 @@ kernel void fill(
 				           min(pixel->w + alpha, 1.f) );
 		
 		c0 = c1 + 1;
-		c1 = m.z;
+		c1 = min(m.z, bounds.s2);
 		icover += m.y;
 	}
 }

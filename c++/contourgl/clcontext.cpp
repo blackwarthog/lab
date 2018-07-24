@@ -100,17 +100,42 @@ ClContext::ClContext():
     max_group_size = max_group_sizes.front();
     //cout << "Device " << device_index << " max group size " << max_group_size << endl;
 
-    // context
+	size_t timer_resolution;
+    err |= clGetDeviceInfo(device, CL_DEVICE_PROFILING_TIMER_RESOLUTION, sizeof(timer_resolution), &timer_resolution, NULL);
+    assert(!err);
+    //cout << "Device " << device_index << " timer resolution " << timer_resolution << " ns" << endl;
+
+    unsigned long long global_mem_size;
+    err |= clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(global_mem_size), &global_mem_size, NULL);
+    assert(!err);
+    //cout << "Device " << device_index << " global mem size " << global_mem_size << endl;
+
+    unsigned long long local_mem_size;
+    err |= clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(local_mem_size), &local_mem_size, NULL);
+    assert(!err);
+    //cout << "Device " << device_index << " local mem size " << local_mem_size << endl;
+
+    unsigned long long max_constant_buffer_size;
+    err |= clGetDeviceInfo(device, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, sizeof(max_constant_buffer_size), &max_constant_buffer_size, NULL);
+    assert(!err);
+    //cout << "Device " << device_index << " max constant buffer size " << max_constant_buffer_size << endl;
+
+	// context
 
     cl_context_properties context_props[] = {
-    	CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
+    	CL_CONTEXT_PLATFORM,       (cl_context_properties)platform,
 		CL_NONE };
     context = clCreateContext(context_props, 1, &device, callback, NULL, &err);
     assert(context);
 
 	// command queue
 
-	queue = clCreateCommandQueue(context, device, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, NULL);
+    cl_command_queue_properties props = 0
+    	| CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE
+    	//| CL_QUEUE_PROFILING_ENABLE
+    	| 0;
+	queue = clCreateCommandQueue(
+		context, device, props, NULL);
 	assert(queue);
 
 	//hello();
