@@ -511,7 +511,7 @@ void ClRender3::send_surface(Surface *surface) {
 		cl.err |= clSetKernelArg(contour_path_kernel, 2, sizeof(mark_buffer), &mark_buffer);
 		assert(!cl.err);
 
-		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(surface->width), &surface->width);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(surface->height), &surface->height);
 		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(mark_buffer), &mark_buffer);
 		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(surface_image), &surface_image);
 		assert(!cl.err);
@@ -595,7 +595,7 @@ void ClRender3::draw(const Path &path) {
 
 	offset = path.begin;
 	count = path.end - path.begin - 1;
-	group_size = 8;
+	group_size = 128;
 
 	count = ((count - 1)/group_size + 1)*group_size;
 	cl.err |= clEnqueueNDRangeKernel(
@@ -606,7 +606,7 @@ void ClRender3::draw(const Path &path) {
 
 	offset = bounds.miny;
 	count = bounds.maxy - bounds.miny;
-	group_size = 3;
+	group_size = 16;
 
 	count = ((count - 1)/group_size + 1)*group_size;
 	cl.err |= clEnqueueNDRangeKernel(

@@ -381,6 +381,7 @@ void Test::test_cl2(Environment &e, Data &data, Surface &surface) {
 
 void Test::test_cl3(Environment &e, Data &data, Surface &surface) {
 	// prepare data
+	int align = (1024 - 1)/sizeof(vec2f) + 1;
 	vector<ClRender3::Path> paths;
 	vector<vec2f> points;
 	paths.reserve(data.size());
@@ -405,7 +406,7 @@ void Test::test_cl3(Environment &e, Data &data, Surface &surface) {
 				points.push_back(vec2f(j->p1));
 			}
 			path.end = (int)points.size();
-			points.push_back( points[path.begin] );
+			do { points.push_back( points[path.begin] ); } while(points.size() % align);
 			++path.bounds.maxx;
 			++path.bounds.maxy;
 

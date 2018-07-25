@@ -155,7 +155,7 @@ cl_program ClContext::load_program(const std::string &filename) {
 	cl_program program = clCreateProgramWithSource(context, 1, &text_pointer, NULL, NULL);
 	assert(program);
 
-	const char options[] = " -cl-fast-relaxed-math -Werror ";
+	const char options[] = " -Werror ";
 
 	err = clBuildProgram(program, 1, &device, options, NULL, NULL);
 	if (err) {
