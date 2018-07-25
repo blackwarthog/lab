@@ -233,18 +233,42 @@ void Test::test_gl_stencil(Environment &e, Data &data) {
 }
 
 void Test::test_sw(Environment &e, Data &data, Surface &surface) {
-	vector<Polyspan> polyspans(data.size());
-	{
-		Measure t("polyspans");
+	const int warm_up_count = 1000;
+	const int measure_count = 1000;
+	Surface surface_tmp(surface.width, surface.height);
+
+	// warm-up
+	for(int ii = 0; ii < warm_up_count; ++ii) {
+		vector<Polyspan> polyspans(data.size());
 		for(int i = 0; i < (int)data.size(); ++i) {
 			polyspans[i].init(0, 0, surface.width, surface.height);
 			data[i].contour.to_polyspan(polyspans[i]);
 			polyspans[i].sort_marks();
 		}
+		for(int i = 0; i < (int)data.size(); ++i)
+			SwRender::polyspan(surface_tmp, polyspans[i], data[i].color, data[i].evenodd, data[i].invert);
 	}
 
-	{
-		Measure t("render");
+	// measure
+	for(int ii = 0; ii < measure_count; ++ii) {
+		Measure t("render", false, true);
+		vector<Polyspan> polyspans(data.size());
+		for(int i = 0; i < (int)data.size(); ++i) {
+			polyspans[i].init(0, 0, surface.width, surface.height);
+			data[i].contour.to_polyspan(polyspans[i]);
+			polyspans[i].sort_marks();
+		}
+		for(int i = 0; i < (int)data.size(); ++i)
+			SwRender::polyspan(surface_tmp, polyspans[i], data[i].color, data[i].evenodd, data[i].invert);
+	}
+
+	{ // draw
+		vector<Polyspan> polyspans(data.size());
+		for(int i = 0; i < (int)data.size(); ++i) {
+			polyspans[i].init(0, 0, surface.width, surface.height);
+			data[i].contour.to_polyspan(polyspans[i]);
+			polyspans[i].sort_marks();
+		}
 		for(int i = 0; i < (int)data.size(); ++i)
 			SwRender::polyspan(surface, polyspans[i], data[i].color, data[i].evenodd, data[i].invert);
 	}

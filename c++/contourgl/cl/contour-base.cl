@@ -39,9 +39,11 @@ kernel void path(
 	int height,
 	global int *marks,
 	global float2 *points,
-	int4 bounds )
+	int end,
+	int minx )
 {
 	int id = get_global_id(0);
+	if (id >= end) return;
 	float2 p0 = points[id];
 	float2 p1 = points[id + 1];
 	
@@ -86,7 +88,7 @@ kernel void path(
 		
 		row += 2;
 		iix = (ix & (ix + 1)) - 1;
-		while(iix >= bounds.s0) {
+		while(iix >= minx) {
 			atomic_min(row + 4*iix, ix);
 			iix = (iix & (iix + 1)) - 1;
 		}
@@ -103,22 +105,23 @@ kernel void fill(
 	global int4 *marks,
 	global float4 *image,
 	float4 color,
-	int2 boundsx )
+	int4 bounds )
 {
+	if (get_global_id(0) >= bounds.s3) return;
 	int id = width*(int)get_global_id(0);
 	marks += id;
 	image += id;
 	global int4 *mark;
 	global float4 *pixel;
 
-	//prefetch(row       + boundsx.s0, boundsx.s1 - boundsx.s0);
-	//prefetch(image_row + boundsx.s0, boundsx.s1 - boundsx.s0);
+	//prefetch(row       + bounds.s0, bounds.s2 - bounds.s0);
+	//prefetch(image_row + bounds.s0, bounds.s2 - bounds.s0);
 
 	int4 m;
 	float alpha;
 	//int ialpha;
-	int icover = 0, c0 = boundsx.s0, c1 = boundsx.s0;
-	while(c1 < boundsx.s1) {
+	int icover = 0, c0 = bounds.s0, c1 = bounds.s0;
+	while(c1 < bounds.s2) {
 		//ialpha = abs(icover);
 		//ialpha = evenodd ? ONE - abs((ialpha % TWO) - ONE)
 		//				 : min(ialpha, ONE);

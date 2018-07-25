@@ -583,26 +583,35 @@ void ClRender3::draw(const Path &path) {
 
 	vec2i boundsx(bounds.minx, bounds.maxx);
 
-	cl.err |= clSetKernelArg(contour_path_kernel, 4, sizeof(bounds), &bounds);
+	cl.err |= clSetKernelArg(contour_path_kernel, 4, sizeof(path.end), &path.end);
+	cl.err |= clSetKernelArg(contour_path_kernel, 5, sizeof(bounds.minx), &bounds.minx);
 	assert(!cl.err);
 
 	cl.err |= clSetKernelArg(contour_fill_kernel, 3, sizeof(path.color), &path.color);
-	cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(boundsx), &boundsx);
+	cl.err |= clSetKernelArg(contour_fill_kernel, 4, sizeof(bounds), &bounds);
 	assert(!cl.err);
 
-	size_t offset = path.begin;
-	size_t count = path.end - path.begin;
+	size_t group_size, offset, count;
+
+	offset = path.begin;
+	count = path.end - path.begin - 1;
+	group_size = 8;
+
+	count = ((count - 1)/group_size + 1)*group_size;
 	cl.err |= clEnqueueNDRangeKernel(
 		cl.queue, contour_path_kernel,
-		1, &offset, &count, NULL,
+		1, &offset, &count, &group_size,
 		0, NULL, NULL );
 	assert(!cl.err);
 
 	offset = bounds.miny;
 	count = bounds.maxy - bounds.miny;
+	group_size = 3;
+
+	count = ((count - 1)/group_size + 1)*group_size;
 	cl.err |= clEnqueueNDRangeKernel(
 		cl.queue, contour_fill_kernel,
-		1, &offset, &count, NULL,
+		1, &offset, &count, &group_size,
 		0, NULL, NULL );
 	assert(!cl.err);
 }
