@@ -98,10 +98,13 @@ int main() {
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cl2.tga", surface, true);
 			  Test::test_cl2(e, datalow, surface); }
-			*/
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cl3.tga", surface, true);
 			  Test::test_cl3(e, datalow, surface); }
+			*/
+			{ Surface surface(width, height);
+			  Measure t("test_lineslow_cu.tga", surface, true);
+			  Test::test_cu(e, datalow, surface); }
 		}
 	}
 

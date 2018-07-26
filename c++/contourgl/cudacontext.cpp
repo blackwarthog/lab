@@ -86,7 +86,7 @@ CudaContext::CudaContext():
     err = cuCtxCreate(&context, CU_CTX_SCHED_AUTO, device);
     assert(!err);
 
-    hello();
+    //hello();
 }
 
 CudaContext::~CudaContext() {

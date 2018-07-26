@@ -43,7 +43,9 @@ SOURCES = \
 	utils.cpp
 
 ifdef CUDA
-	SOURCES += cudacontext.cpp
+	SOURCES += \
+		cudacontext.cpp \
+		cudarender.cpp
 	CUDA_SOURCES = \
 		cuda/contour.cu \
 		cuda/hello.cu
