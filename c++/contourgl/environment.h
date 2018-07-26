@@ -22,11 +22,19 @@
 #include "clcontext.h"
 #include "shaders.h"
 
+#ifdef CUDA
+#include "cudacontext.h"
+#endif
+
 class Environment {
 public:
 	GlContext gl;
 	ClContext cl;
 	Shaders shaders;
+
+	#ifdef CUDA
+	CudaContext cu;
+	#endif
 
 	Environment(int width, int height, bool hdr, bool multisample, int samples):
 		gl(width, height, hdr, multisample, samples) { }
