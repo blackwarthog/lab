@@ -16,6 +16,7 @@ CXXFLAGS := $(CXXFLAGS) $(shell pkg-config --cflags $(DEPLIBS))
 LIBS := $(LIBS) $(shell pkg-config --libs $(DEPLIBS))
 
 ifdef CUDA
+	CUDA_FLAGS := -O3 -use_fast_math
 	CXXFLAGS := $(CXXFLAGS) -DCUDA $(shell PKG_CONFIG_PATH=$(CUDA_PKGCONFIG) pkg-config --cflags $(CUDA))
 	LIBS := $(LIBS) $(shell PKG_CONFIG_PATH=$(CUDA_PKGCONFIG) pkg-config --libs $(CUDA))
 endif
@@ -61,7 +62,7 @@ PTXS = $(CUDA_SOURCES:.cu=.ptx)
 # internal targets
 
 %.ptx: %.cu
-	$(CUDA_PATH)/bin/nvcc -ptx $< -o $@
+	$(CUDA_PATH)/bin/nvcc $(CUDA_FLAGS) -ptx $< -o $@
 
 # rule for make *.d files with include (.h) dependencies
 %.d: %.cpp

@@ -40,7 +40,6 @@ public:
 private:
 	CudaContext &cu;
 	CUmodule contour_module;
-	CUfunction contour_clear_kernel;
 	CUfunction contour_path_kernel;
 	CUfunction contour_fill_kernel;
 

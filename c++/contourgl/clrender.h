@@ -113,7 +113,6 @@ public:
 private:
 	ClContext &cl;
 	cl_program contour_program;
-	cl_kernel contour_clear_kernel;
 	cl_kernel contour_path_kernel;
 	cl_kernel contour_fill_kernel;
 

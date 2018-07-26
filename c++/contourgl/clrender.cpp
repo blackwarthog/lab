@@ -424,7 +424,6 @@ void ClRender2::wait() {
 ClRender3::ClRender3(ClContext &cl):
 	cl(cl),
 	contour_program(),
-	contour_clear_kernel(),
 	contour_path_kernel(),
 	contour_fill_kernel(),
 	surface(),
@@ -435,10 +434,6 @@ ClRender3::ClRender3(ClContext &cl):
 {
 	contour_program = cl.load_program("contour-base.cl");
 	assert(contour_program);
-
-	contour_clear_kernel = clCreateKernel(contour_program, "clear", &cl.err);
-	assert(!cl.err);
-	assert(contour_clear_kernel);
 
 	contour_path_kernel = clCreateKernel(contour_program, "path", &cl.err);
 	assert(!cl.err);
@@ -453,10 +448,10 @@ ClRender3::~ClRender3() {
 	send_points(NULL, 0);
 	send_surface(NULL);
 
-	clReleaseKernel(contour_path_kernel);
-	clReleaseKernel(contour_fill_kernel);
-	clReleaseKernel(contour_clear_kernel);
-	clReleaseProgram(contour_program);
+	cl.err |= clReleaseKernel(contour_path_kernel);
+	cl.err |= clReleaseKernel(contour_fill_kernel);
+	cl.err |= clReleaseProgram(contour_program);
+	assert(!cl.err);
 }
 
 void ClRender3::send_surface(Surface *surface) {
@@ -472,7 +467,7 @@ void ClRender3::send_surface(Surface *surface) {
 	if (this->surface) {
 		//Measure t("ClRender::send_surface");
 
-		int zero_mark[4] = { };
+		vec2i zero_mark;
 
 		surface_image = clCreateBuffer(
 			cl.context, CL_MEM_READ_WRITE,
@@ -494,15 +489,10 @@ void ClRender3::send_surface(Surface *surface) {
 			0, NULL, NULL );
 		assert(!cl.err);
 
-		cl.err |= clSetKernelArg(contour_clear_kernel, 0, sizeof(surface->width), &surface->width);
-		cl.err |= clSetKernelArg(contour_clear_kernel, 1, sizeof(surface->height), &surface->height);
-		cl.err |= clSetKernelArg(contour_clear_kernel, 2, sizeof(mark_buffer), &mark_buffer);
-		assert(!cl.err);
-
-		size_t count = surface->count();
-		cl.err |= clEnqueueNDRangeKernel(
-			cl.queue, contour_clear_kernel,
-			1, NULL, &count, NULL,
+		cl.err |= clEnqueueFillBuffer(
+			cl.queue, mark_buffer,
+			&zero_mark, sizeof(zero_mark),
+			0, surface->count()*sizeof(zero_mark),
 			0, NULL, NULL );
 		assert(!cl.err);
 
@@ -511,7 +501,7 @@ void ClRender3::send_surface(Surface *surface) {
 		cl.err |= clSetKernelArg(contour_path_kernel, 2, sizeof(mark_buffer), &mark_buffer);
 		assert(!cl.err);
 
-		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(surface->height), &surface->height);
+		cl.err |= clSetKernelArg(contour_fill_kernel, 0, sizeof(surface->width), &surface->width);
 		cl.err |= clSetKernelArg(contour_fill_kernel, 1, sizeof(mark_buffer), &mark_buffer);
 		cl.err |= clSetKernelArg(contour_fill_kernel, 2, sizeof(surface_image), &surface_image);
 		assert(!cl.err);
@@ -604,8 +594,8 @@ void ClRender3::draw(const Path &path) {
 		0, NULL, NULL );
 	assert(!cl.err);
 
-	offset = bounds.miny;
-	count = bounds.maxy - bounds.miny;
+	offset = bounds.minx;
+	count = bounds.maxx - bounds.minx;
 	group_size = 16;
 
 	count = ((count - 1)/group_size + 1)*group_size;

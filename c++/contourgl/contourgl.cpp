@@ -88,9 +88,9 @@ int main() {
 		*/
 		{
 			Environment e(width, height, false, false, 8);
-			//{ Surface surface(width, height);
-			//  Measure t("test_lineslow_sw.tga", surface, true);
-			//  Test::test_sw(e, datalow, surface); }
+			{ Surface surface(width, height);
+			  Measure t("test_lineslow_sw.tga", surface, true);
+			  Test::test_sw(e, datalow, surface); }
 			/*
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cl.tga", surface, true);
@@ -98,10 +98,10 @@ int main() {
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cl2.tga", surface, true);
 			  Test::test_cl2(e, datalow, surface); }
+			*/
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cl3.tga", surface, true);
 			  Test::test_cl3(e, datalow, surface); }
-			*/
 			{ Surface surface(width, height);
 			  Measure t("test_lineslow_cu.tga", surface, true);
 			  Test::test_cu(e, datalow, surface); }

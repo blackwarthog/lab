@@ -24,16 +24,6 @@
 #define DIV_ONE_F 0.0000152587890625f // 1.f/(ONE_F)
 
 
-kernel void clear(
-	int width,
-	int height,
-	global int4 *marks )
-{
-	int id = get_global_id(0);
-	int c = id % width;
-	marks[id] = (int4)(0, 0, 0, 0);
-}
-
 kernel void path(
 	int width,
 	int height,
@@ -58,14 +48,14 @@ kernel void path(
 	float ky = d.y/d.x;
 	
 	while(p0.x != p1.x || p0.y != p1.y) {
-		int iy = max((int)p0.y, 0);
-		int ix = (int)p0.x;
-		if (iy > h1) return;
+		int ix = max((int)p0.x, 0);
+		int iy = (int)p0.y;
+		if (ix > w1) return;
 
 		float2 px, py;
 		px.x = (float)(ix + 1);
 		py.y = (float)(iy + 1);
-		ix = clamp(ix, 0, w1);
+		iy = clamp(iy, 0, h1);
 		
 		px.y = p0.y + ky*(px.x - p0.x);
 		py.x = p0.x + kx*(py.y - p0.y);
@@ -74,13 +64,13 @@ kernel void path(
 		if (pp1.x > px.x) pp1 = px;
 		if (pp1.y > py.y) pp1 = py;
 		
-		float cover = (pp1.y - p0.y)*ONE_F;
-		float area = px.x - 0.5f*(p0.x + pp1.x);
-		if (flipy) { iy = h1 - iy; cover = -cover; }
-		if (flipx) { ix = w1 - ix; area = 1.f - area; }
+		float cover = (pp1.x - p0.x)*ONE_F;
+		float area = py.y - 0.5f*(p0.y + pp1.y);
+		if (flipx) { ix = w1 - ix; cover = -cover; }
+		if (flipy) { iy = h1 - iy; area = 1.f - area; }
 		p0 = pp1;
 		
-		atomic_add(marks + ix*height + iy, upsample((int)cover, (int)(area*cover)));
+		atomic_add(marks + iy*width + ix, upsample((int)cover, (int)(area*cover)));
 	}
 }
 
@@ -88,14 +78,14 @@ kernel void path(
 // different implementations for:
 //   antialiased, transparent, inverted, evenodd contours and combinations (total 16 implementations)
 kernel void fill(
-	int height,
+	int width,
 	global int2 *marks,
 	global float4 *image,
 	float4 color,
 	int4 bounds )
 {
-	if (get_global_id(0) >= bounds.s3) return;
-	int id = (int)get_global_id(0) + bounds.s0*height;
+	if (get_global_id(0) >= bounds.s2) return;
+	int id = (int)get_global_id(0) + bounds.s1*width;
 	marks += id;
 	image += id;
 
@@ -104,12 +94,12 @@ kernel void fill(
 		int2 m = *marks;
 		*marks = (int2)(0, 0);
 		float alpha = (float)abs(m.x + icover)*color.w*DIV_ONE_F;
-		marks += height;
+		marks += width;
 
 		icover += m.y;
 		*image = *image*(1.f - alpha) + color*alpha;
 		
-		if (++bounds.s0 >= bounds.s2) return;
-		image += height;
+		if (++bounds.s1 >= bounds.s3) return;
+		image += width;
 	}
 }

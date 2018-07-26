@@ -30,7 +30,6 @@ using namespace std;
 CudaRender::CudaRender(CudaContext &cu):
 	cu(cu),
 	contour_module(),
-	contour_clear_kernel(),
 	contour_path_kernel(),
 	contour_fill_kernel(),
 	surface(),
@@ -41,13 +40,12 @@ CudaRender::CudaRender(CudaContext &cu):
 	cu.err = cuModuleLoad(&contour_module, "cuda/contour.ptx");
 	assert(!cu.err);
 
-	cu.err = cuModuleGetFunction(&contour_clear_kernel, contour_module, "clear");
+	//cu.err = cuModuleGetFunction(&contour_path_kernel, contour_module, "path");
+	cu.err = cuModuleGetFunction(&contour_path_kernel, contour_module, "_Z4pathiiPiPK6float2iii");
 	assert(!cu.err);
 
-	cu.err = cuModuleGetFunction(&contour_path_kernel, contour_module, "path");
-	assert(!cu.err);
-
-	cu.err = cuModuleGetFunction(&contour_fill_kernel, contour_module, "fill");
+	//cu.err = cuModuleGetFunction(&contour_fill_kernel, contour_module, "fill");
+	cu.err = cuModuleGetFunction(&contour_fill_kernel, contour_module, "_Z4filliP4int2P6float4S1_4int4");
 	assert(!cu.err);
 }
 
@@ -75,32 +73,17 @@ void CudaRender::send_surface(Surface *surface) {
 	this->surface = surface;
 
 	if (this->surface) {
-		int zero_mark[4] = { };
-
 		cu.err = cuMemAlloc(&surface_image, surface->data_size());
 		assert(!cu.err);
 
 		cu.err = cuMemcpyHtoD(surface_image, surface->data, surface->data_size());
 		assert(!cu.err);
 
-		cu.err = cuMemAlloc(&mark_buffer, surface->count()*sizeof(zero_mark));
+		cu.err = cuMemAlloc(&mark_buffer, surface->count()*sizeof(vec2i));
 		assert(!cu.err);
 
-		size_t group_size = 32;
-		size_t count = surface->count();
-		cu.err = cuLaunchKernel(
-			contour_clear_kernel,
-			(count - 1)/group_size + 1, 1, 1,
-			group_size, 1, 1,
-			0, 0, 0,
-			CudaParams()
-				.add(surface->width)
-				.add(surface->height)
-				.add(mark_buffer)
-				.get_extra() );
+		cu.err = cuMemsetD32(mark_buffer, 0, 2*surface->count());
 		assert(!cu.err);
-
-		wait();
 	}
 }
 
@@ -148,7 +131,7 @@ void CudaRender::draw(const Path &path) {
 	size_t group_size, count;
 
 	count = path.end - path.begin;
-	group_size = 8;
+	group_size = 128;
 
 	count = (count - 1)/group_size + 1;
 	cu.err = cuLaunchKernel(
@@ -167,8 +150,8 @@ void CudaRender::draw(const Path &path) {
 			.get_extra() );
 	assert(!cu.err);
 
-	count = bounds.maxy - bounds.miny;
-	group_size = 1;
+	count = bounds.maxx - bounds.minx;
+	group_size = 16;
 
 	count = (count - 1)/group_size + 1;
 	cu.err = cuLaunchKernel(
