@@ -1,0 +1,83 @@
+
+env = Environment()
+
+# config
+
+# just comment following line to disable CUDA
+cuda          = 'cuda-9.2'
+try: cuda
+except NameError: cuda = ''
+cuda_path      = '/opt/' + cuda
+cuda_bin       = cuda_path + '/bin'
+cuda_pkgconfig = cuda_path + '/pkgconfig'
+cuda_flags     = '-O3 -use_fast_math'
+
+libs = ['gl', 'x11', 'OpenCL']
+
+
+# compute build options
+
+flags = ' -O3 -Wall -fmessage-length=0 -DGL_GLEXT_PROTOTYPES'
+cuda_flags = ' '
+
+if cuda:
+	flags += ' -DCUDA'
+	
+	# remember pkg-config path
+	old = env['ENV']['PKG_CONFIG_PATH'] if 'PKG_CONFIG_PATH' in env['ENV'] else None
+
+	env['ENV']['PKG_CONFIG_PATH'] = cuda_pkgconfig
+	env.ParseConfig('pkg-config --cflags --libs ' + cuda)
+	
+	# restore pkg-config path
+	if old: env['ENV']['PKG_CONFIG_PATH'] = old
+	
+	env['BUILDERS']['Cuda'] = Builder(
+		action = cuda_bin + '/nvcc ' + cuda_flags + '-ptx $SOURCE -o $TARGET',
+		suffix = '.ptx',
+		src_suffix = '.cu' )
+	
+
+# files lists
+
+target = 'contourgl'
+
+sources = [
+	'contourgl.cpp',
+	'clcontext.cpp',
+	'clrender.cpp',
+	'contour.cpp',
+	'contourbuilder.cpp',
+	'environment.cpp',
+	'geometry.cpp',
+	'glcontext.cpp',
+	'measure.cpp',
+	'polyspan.cpp',
+	'shaders.cpp',
+	'swrender.cpp',
+	'test.cpp',
+	'triangulator.cpp',
+	'utils.cpp' ]
+
+if cuda:
+	sources += [
+		'cudacontext.cpp',
+		'cudarender.cpp' ]
+	cuda_sources = [
+		'cuda/contour.cu',
+		'cuda/hello.cu' ]
+
+
+# build
+
+env.ParseConfig('pkg-config --cflags --libs ' + ' '.join(libs))
+
+if cuda:
+	for cuda_source in cuda_sources:
+		env.Cuda(cuda_source)
+	
+env.Program(
+	target = target,
+	source = sources,
+	parse_flags = flags )
+
